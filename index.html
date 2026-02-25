@@ -152,7 +152,7 @@
         }
 
         .fire-wipe-active {
-            animation: fire-wipe-sweep 2s ease-in-out forwards !important;
+            animation: fire-wipe-sweep 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
         }
 
         .fire-bg-video {
@@ -162,7 +162,7 @@
             height: 100%;
             object-fit: cover;
             z-index: -1;
-            opacity: 0.15;
+            opacity: 0.25;
             mix-blend-mode: screen; /* Note: Can be expensive, but looks best */
             pointer-events: none;
             backface-visibility: hidden;
@@ -183,8 +183,10 @@
         }
 
         @keyframes fire-wipe-sweep {
-            0% { transform: translate3d(0, 100vh, 0); }
-            100% { transform: translate3d(0, -500px, 0); }
+            0% { transform: translate3d(0, 70vh, 0); opacity: 0; }
+            15% { opacity: 1; }
+            85% { opacity: 1; }
+            100% { transform: translate3d(0, -100vh, 0); opacity: 0; }
         }
 
         @keyframes fire-wipe-sprites {
@@ -203,6 +205,18 @@
         .dissolve-in {
             opacity: 1;
             filter: blur(0);
+            animation: content-fade-in 0.4s ease-out forwards;
+        }
+
+        @keyframes content-fade-in {
+            from { 
+                opacity: 0;
+                transform: translate3d(0, 10px, 0);
+            }
+            to { 
+                opacity: 1;
+                transform: translate3d(0, 0, 0);
+            }
         }
     </style>
 <style>
@@ -660,6 +674,26 @@
             const [transitionKey, setTransitionKey] = useState(0);
 
             useEffect(() => {
+                // Trigger wipe on initial mount (post-loader)
+                setIsWiping(true);
+                setIsDissolving(true);
+                setTransitionKey(prev => prev + 1);
+                
+                const swapTimer = setTimeout(() => {
+                    setIsDissolving(false);
+                }, 900);
+
+                const doneTimer = setTimeout(() => {
+                    setIsWiping(false);
+                }, 2000);
+
+                return () => {
+                    clearTimeout(swapTimer);
+                    clearTimeout(doneTimer);
+                };
+            }, []);
+
+            useEffect(() => {
                 if (location.pathname !== displayLocation.pathname) {
                     setIsWiping(true);
                     setIsDissolving(true);
@@ -669,12 +703,12 @@
                     const swapTimer = setTimeout(() => {
                         setDisplayLocation(location);
                         setIsDissolving(false);
-                    }, 1000);
+                    }, 900);
 
                     // END: Cleanup wipe
                     const doneTimer = setTimeout(() => {
                         setIsWiping(false);
-                    }, 2100);
+                    }, 2000);
 
                     return () => {
                         clearTimeout(swapTimer);

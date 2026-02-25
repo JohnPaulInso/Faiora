@@ -1,0 +1,166 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.dark-gradient-bg {
+    background: linear-gradient(180deg, #7c2d12 0%, #111827 40%, #0a0a0a 100%);
+    background-attachment: fixed;
+}
+.card-glow {
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(253, 186, 116, 0.1);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-glow:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6), 0 0 30px rgba(249, 115, 22, 0.2);
+    z-index: 10;
+}
+.glow-orange {
+    filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.6));
+}
+.glass-panel {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.fab-shadow {
+    box-shadow: 0 15px 35px -5px rgba(249, 115, 22, 0.4);
+}
+.sticky-note-1 { transform: rotate(-1.5deg); }
+.sticky-note-2 { transform: rotate(1.2deg); }
+.sticky-note-3 { transform: rotate(-0.8deg); }
+.sticky-note-4 { transform: rotate(2deg); }
+.sticky-note-5 { transform: rotate(-1.2deg); }
+.sticky-note-add { transform: rotate(0.5deg); }
+
+/* Loading Screen Specifics */
+.blur-overlay {
+    backdrop-filter: blur(80px) saturate(120%);
+    background: rgba(10, 10, 10, 0.7);
+}
+.flame-container {
+    position: absolute;
+    top: -20px;
+    left: 0;
+    right: 0;
+    height: 40px;
+    display: flex;
+    justify-content: space-around;
+    pointer-events: none;
+}
+.flame-tongue {
+    width: 12px;
+    height: 30px;
+    background: linear-gradient(to top, rgba(249, 115, 22, 0.8), rgba(239, 68, 68, 0.4), transparent);
+    border-radius: 50% 50% 20% 20%;
+    filter: blur(6px);
+    animation: flame-rise 2.5s infinite ease-in-out;
+    transform-origin: bottom center;
+}
+@keyframes flame-rise {
+    0%, 100% { transform: scaleY(1) translateY(0) scaleX(1); opacity: 0.4; }
+    50% { transform: scaleY(1.5) translateY(-15px) scaleX(0.8); opacity: 0.7; }
+}
+.loading-arc {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top: 2px solid #f97316;
+    filter: drop-shadow(0 0 15px rgba(249, 115, 22, 0.8));
+    animation: spin-smooth 3s linear infinite;
+}
+@keyframes spin-smooth {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Clock */
+.analog-clock {
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    border: 2px solid rgba(249, 115, 22, 0.3);
+    position: relative;
+    background: rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 40px rgba(249, 115, 22, 0.1), inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Page Transition Animations */
+.fire-wipe-overlay {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    pointer-events: none;
+    display: flex;
+    align-items: flex-end;
+    will-change: transform;
+}
+
+.fire-wipe-active {
+    animation: fire-wipe-sweep 1.3s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+}
+
+.fire-bg-video {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -1;
+    opacity: 0.37;
+    mix-blend-mode: screen;
+    pointer-events: none;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+}
+
+.fire-wipe-sprite {
+    width: 100vw;
+    height: 400px; 
+    background-image: url('fire-wipe-spritesheet.png');
+    background-repeat: no-repeat;
+    background-size: 100% 2000px;
+    animation: fire-wipe-sprites 0.5s steps(5) infinite;
+    filter: drop-shadow(0 0 40px rgba(249, 115, 22, 0.9));
+    opacity: 0.98;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+}
+
+@keyframes fire-wipe-sweep {
+    0% { transform: translate3d(0, 140vh, 0); }
+    100% { transform: translate3d(0, -100vh, 0); }
+}
+
+@keyframes fire-wipe-sprites {
+    to { background-position: 0 -2000px; }
+}
+
+.dissolve-layer {
+    transition: opacity 0.3s ease-in-out, filter 0.3s ease-in-out;
+}
+
+.dissolve-out {
+    opacity: 0;
+    filter: blur(2px);
+}
+
+.dissolve-in {
+    opacity: 1;
+    filter: blur(0);
+}
+
+body {
+    min-height: max(884px, 100dvh);
+}
