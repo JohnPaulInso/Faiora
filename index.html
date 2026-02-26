@@ -29,6 +29,7 @@
     <!-- Firebase SDK (Compat) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
@@ -65,6 +66,8 @@
     <style type="text/tailwindcss">
         html {
             font-size: 14.4px; /* 90% of default 16px */
+            user-select: none;
+            -webkit-user-select: none;
         }
         .dark-gradient-bg {
             background: linear-gradient(180deg, #7c2d12 0%, #111827 40%, #0a0a0a 100%);
@@ -86,6 +89,23 @@
             background: rgba(255, 255, 255, 0.03);
             backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        /* Specific override for Task Creator to ensure solid background as requested */
+        .task-creator-modal {
+            background-color: #fcfaf7 !important; /* Match modal example.html */
+            backdrop-filter: none !important;
+            border: none !important;
+        }
+        .modal-top-progress {
+            height: 6px;
+            width: 100%;
+            background: #f1f5f9; /* slate-100 */
+            overflow: hidden;
+        }
+        .modal-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f97316 0%, #fbbf24 100%);
+            transition: width 0.5s ease;
         }
         .no-scrollbar::-webkit-scrollbar {
             display: none;
@@ -147,6 +167,13 @@
         }
 
         /* Clock */
+        /* Selection & Inputs */
+        input, textarea, [contenteditable="true"], .block-input {
+            -webkit-user-select: text !important;
+            -ms-user-select: text !important;
+            user-select: text !important;
+        }
+        
         .analog-clock {
             width: 270px; /* 300px * 0.9 */
             height: 270px; /* 300px * 0.9 */
@@ -187,6 +214,156 @@
             pointer-events: none;
             backface-visibility: hidden;
             transform: translateZ(0);
+        }
+
+        /* Floating Pill Toolbar - Repositioned to bottom center */
+        .floating-toolbar-pill {
+            display: flex;
+            align-items: center;
+            background: white;
+            padding: 8px 16px;
+            border-radius: 9999px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            gap: 12px;
+            z-index: 60;
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1);
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .toolbar-inner-divider {
+            width: 1px;
+            height: 20px;
+            background: rgba(0,0,0,0.1);
+            margin: 0 4px;
+        }
+        .toolbar-icon-btn {
+            color: rgba(0,0,0,0.4);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .toolbar-icon-btn:hover {
+            color: rgba(0,0,0,0.8);
+            transform: translateY(-1px);
+        }
+        .toolbar-icon-btn.active, .toolbar-icon-btn.highlighter {
+            color: #f97316 !important;
+            opacity: 1 !important;
+        }
+
+        /* Footer Refinement */
+        .task-creator-footer {
+            padding: 0.75rem 1rem;
+            background: #fdfcfb !important;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px solid #f1f5f9; /* border-slate-100 */
+            min-height: 64px;
+        }
+        .footer-divider {
+            width: 1px;
+            height: 24px;
+            background: #e2e8f0; /* slate-200 */
+            margin: 0 4px;
+        }
+        .close-btn {
+            padding: 0.625rem 1.5rem;
+            color: #1e293b; /* slate-800 */
+            border-radius: 0.5rem;
+            font-family: inherit;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: background 0.2s;
+        }
+        .close-btn:hover {
+            background: #f1f5f9; /* slate-100 */
+        }
+        .save-pill-btn {
+            padding: 0.625rem 2rem;
+            background: #f97316;
+            color: white;
+            border-radius: 9999px;
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 0.875rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            box-shadow: 0 10px 20px rgba(249, 115, 22, 0.2);
+            transition: all 0.2s;
+        }
+        .save-pill-btn:hover {
+            background: #ea580c;
+            transform: translateY(-1px);
+            box-shadow: 0 12px 24px rgba(249, 115, 22, 0.3);
+        }
+        .block-checkbox {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #f97316;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 6px;
+        }
+        .block-checkbox.checked {
+            background: #f97316;
+        }
+        .block-checkbox.checked::after {
+            content: 'check';
+            font-family: 'Material Symbols Outlined';
+            font-size: 14px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .block-bullet {
+            width: 6px;
+            height: 6px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 50%;
+            margin-top: 14px;
+        }
+
+        .footer-action-btn {
+            padding: 10px;
+            border-radius: 8px;
+            color: rgba(0,0,0,0.6);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .footer-action-btn:hover {
+            background: rgba(0,0,0,0.04);
+            color: rgba(0,0,0,0.9);
+        }
+        /* Save Button */
+        .save-pill-btn {
+            background: #f97316;
+            color: white;
+            padding: 8px 24px;
+            border-radius: 9999px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.2);
+            transition: all 0.3s;
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+        }
+        .save-pill-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(249, 115, 22, 0.3);
+            filter: brightness(1.05);
         }
 
         .fire-wipe-sprite {
@@ -238,6 +415,122 @@
                 transform: translate3d(0, 0, 0);
             }
         }
+
+        /* Liquid Progress Bar */
+        .liquid-progress {
+            position: relative;
+            background: rgba(0, 0, 0, 0.4);
+            overflow: visible; /* Allow handle to glow outside */
+            border-radius: 0; /* Keep it flush for now or subtle round */
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+            height: 32px !important; /* Larger hit area */
+            border-bottom: 1px solid rgba(249, 115, 22, 0.2);
+        }
+        .liquid-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #7c2d12, #f97316, #fed7aa);
+            background-size: 200% 100%;
+            position: relative;
+            transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+            animation: move-gradient 3s linear infinite;
+        }
+        .liquid-glow-handle {
+            position: absolute;
+            right: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 24px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 20px #f97316, 0 0 40px #f97316;
+            z-index: 10;
+            pointer-events: none;
+            border: 2px solid #ea580c;
+        }
+        
+        /* Floating Selection Menu */
+        .selection-menu {
+            position: fixed;
+            z-index: 500;
+            display: flex;
+            gap: 4px;
+            padding: 6px;
+            background: #1a1a1a;
+            border: 1px solid rgba(249, 115, 22, 0.3);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(249, 115, 22, 0.1);
+            transform: translate(-50%, -100%);
+            margin-top: -12px;
+            animation: pop-up 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        @keyframes pop-up {
+            from { opacity: 0; transform: translate(-50%, -80%) scale(0.9); }
+            to { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+        }
+        
+        .selection-menu-btn {
+            padding: 6px;
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.6);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .selection-menu-btn:hover {
+            background: rgba(249, 115, 22, 0.15);
+            color: #f97316;
+        }
+        @keyframes move-gradient {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+        }
+        
+        .block-input:focus {
+            outline: none;
+        }
+        .block-input::placeholder {
+            color: rgba(255, 247, 237, 0.1);
+        }
+
+        /* Note Themes (Solid Colors) */
+        .theme-amber { background-color: #fef3c7 !important; color: #451a03 !important; backdrop-filter: none !important; }
+        .theme-orange { background-color: #fff7ed !important; color: #431407 !important; backdrop-filter: none !important; }
+        .theme-peach { background-color: #fff7ed !important; color: #431407 !important; backdrop-filter: none !important; }
+        .theme-yellow { background-color: #ffffdd !important; color: #422006 !important; backdrop-filter: none !important; }
+        .theme-green { background-color: #e8f5e9 !important; color: #1b5e20 !important; }
+        .theme-blue { background-color: #e3f2fd !important; color: #0d47a1 !important; }
+        .theme-purple { background-color: #f3e5f5 !important; color: #4a148c !important; }
+        .theme-pink { background-color: #fce4ec !important; color: #880e4f !important; }
+        
+        .glass-panel[class*='theme-'] {
+            background: unset !important;
+            backdrop-filter: none !important;
+            border: none !important;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.3) !important;
+        }
+
+        .theme-amber .block-input, .theme-orange .block-input, .theme-peach .block-input, 
+        .theme-yellow .block-input, .theme-green .block-input, .theme-blue .block-input,
+        .theme-purple .block-input, .theme-pink .block-input {
+            color: inherit !important;
+            font-family: 'Inter', sans-serif !important;
+            user-select: text !important;
+        }
+        
+        .theme-amber input::placeholder, .theme-orange input::placeholder, .theme-peach input::placeholder,
+        .theme-yellow input::placeholder, .theme-green input::placeholder, .theme-blue input::placeholder,
+        .theme-purple input::placeholder, .theme-pink input::placeholder {
+            color: rgba(0,0,0,0.1) !important;
+        }
+        .theme-amber .block-input::placeholder, .theme-orange .block-input::placeholder, .theme-peach .block-input::placeholder,
+        .theme-yellow .block-input::placeholder, .theme-green .block-input::placeholder, .theme-blue .block-input::placeholder,
+        .theme-purple .block-input::placeholder, .theme-pink .block-input::placeholder {
+            color: rgba(0, 0, 0, 0.2) !important;
+        }
     </style>
 <style>
     body {
@@ -249,7 +542,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo, useCallback } = React;
         const { createRoot } = ReactDOM;
         const { MemoryRouter, Routes, Route, Link, useNavigate, useLocation } = ReactRouterDOM;
 
@@ -266,6 +559,7 @@
         
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
+        const db = firebase.firestore();
         const googleProvider = new firebase.auth.GoogleAuthProvider();
 
         // --- Shared Components ---
@@ -328,13 +622,16 @@
             );
         };
 
-        const Layout = ({ children }) => {
+        const Layout = ({ children, onOpenCreator }) => {
             return (
                 <div className="flex h-screen overflow-hidden">
                     <Sidebar />
                     <main className="flex-1 flex flex-col overflow-y-auto no-scrollbar relative">
                         {children}
-                        <button className="fixed bottom-12 right-12 w-20 h-20 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center fab-shadow transition-all duration-300 hover:scale-110 active:scale-95 z-50 group">
+                        <button 
+                            onClick={onOpenCreator}
+                            className="fixed bottom-12 right-12 w-20 h-20 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center fab-shadow transition-all duration-300 hover:scale-110 active:scale-95 z-40 group"
+                        >
                             <span className="material-symbols-outlined text-4xl group-hover:rotate-90 transition-transform duration-300">add</span>
                         </button>
                     </main>
@@ -420,6 +717,337 @@
             </header>
         );
 
+        const TaskCreator = ({ onClose, user }) => {
+            const [title, setTitle] = useState("");
+            const [blocks, setBlocks] = useState([{ id: 1, type: 'text', content: '' }]);
+            const [progress, setProgress] = useState(0);
+            const [history, setHistory] = useState([]);
+            const [historyIndex, setHistoryIndex] = useState(-1);
+            const [isPinned, setIsPinned] = useState(false);
+            const [selection, setSelection] = useState(null);
+            const [noteTheme, setNoteTheme] = useState('peach');
+            const [showPalette, setShowPalette] = useState(false);
+            const [activeBlockId, setActiveBlockId] = useState(null);
+
+            useEffect(() => {
+                if (!user) return;
+                db.collection('tasks').doc(user.uid).get().then(function(doc) {
+                    if (doc.exists) {
+                        var data = doc.data();
+                        if (data.title) setTitle(data.title);
+                        if (data.blocks) setBlocks(data.blocks);
+                        if (data.progress !== undefined) setProgress(data.progress);
+                        if (data.isPinned !== undefined) setIsPinned(data.isPinned);
+                        if (data.noteTheme) setNoteTheme(data.noteTheme);
+                    }
+                })["catch"](function(e) {
+                    console.error("Error loading tasks", e);
+                });
+            }, [user]);
+
+            const themes = [
+                { id: 'glass', color: 'rgba(255,255,255,0.05)', themeClass: '' },
+                { id: 'amber', color: '#fef3c7', themeClass: 'theme-amber' },
+                { id: 'orange', color: '#ffedd5', themeClass: 'theme-orange' },
+                { id: 'peach', color: '#ffedd5', themeClass: 'theme-peach' },
+                { id: 'yellow', color: '#fef9c3', themeClass: 'theme-yellow' },
+                { id: 'green', color: '#ecfdf5', themeClass: 'theme-green' },
+                { id: 'blue', color: '#e0f2fe', themeClass: 'theme-blue' },
+                { id: 'purple', color: '#f5f3ff', themeClass: 'theme-purple' },
+                { id: 'pink', color: '#fdf2f8', themeClass: 'theme-pink' },
+            ];
+
+            const saveToFirestore = useCallback(function(data) {
+                if (!user) return;
+                var dataToSave = {};
+                for (var key in data) { dataToSave[key] = data[key]; }
+                dataToSave.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+                db.collection("tasks").doc(user.uid).set(dataToSave, { merge: true })["catch"](function(e) {
+                    console.error("Error saving to Firestore", e);
+                });
+            }, [user]);
+
+            const saveState = useCallback(() => {
+                const currentState = { title, blocks: JSON.parse(JSON.stringify(blocks)), progress, isPinned, noteTheme };
+                const newHistory = history.slice(0, historyIndex + 1);
+                newHistory.push(currentState);
+                setHistory(newHistory.slice(-30));
+                setHistoryIndex(Math.min(newHistory.length - 1, 29));
+                
+                // Auto-save to Firestore
+                saveToFirestore(currentState);
+            }, [title, blocks, progress, isPinned, history, historyIndex, noteTheme, saveToFirestore]);
+
+            const undo = () => {
+                if (historyIndex > 0) {
+                    const prev = history[historyIndex - 1];
+                    setTitle(prev.title);
+                    setBlocks(prev.blocks);
+                    setProgress(prev.progress);
+                    setIsPinned(prev.isPinned);
+                    setNoteTheme(prev.noteTheme || 'glass');
+                    setHistoryIndex(historyIndex - 1);
+                }
+            };
+
+            const redo = () => {
+                if (historyIndex < history.length - 1) {
+                    const next = history[historyIndex + 1];
+                    setTitle(next.title);
+                    setBlocks(next.blocks);
+                    setProgress(next.progress);
+                    setIsPinned(next.isPinned);
+                    setNoteTheme(next.noteTheme || 'glass');
+                    setHistoryIndex(historyIndex + 1);
+                }
+            };
+
+            const handleProgressClick = (e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const percent = Math.round((x / rect.width) * 10) * 10;
+                setProgress(Math.max(0, Math.min(100, percent)));
+                saveState();
+            };
+
+            const addBlock = (type, currentId = null) => {
+                const newBlock = { id: Date.now(), type, content: '', checked: false };
+                if (currentId) {
+                    const index = blocks.findIndex(b => b.id === currentId);
+                    const newBlocks = [...blocks];
+                    newBlocks.splice(index + 1, 0, newBlock);
+                    setBlocks(newBlocks);
+                } else {
+                    setBlocks([...blocks, newBlock]);
+                }
+                saveState();
+            };
+
+            const updateBlock = (id, updates) => {
+                setBlocks(blocks.map(b => b.id === id ? { ...b, ...updates } : b));
+            };
+
+            const removeBlock = (id) => {
+                if (blocks.length > 1) {
+                    setBlocks(blocks.filter(b => b.id !== id));
+                    saveState();
+                }
+            };
+
+            const handleTextSelection = (e, blockId) => {
+                const sel = window.getSelection();
+                if (sel.toString().length > 0) {
+                    const range = sel.getRangeAt(0);
+                    const rect = range.getBoundingClientRect();
+                    setSelection({
+                        blockId,
+                        top: rect.top,
+                        left: rect.left + rect.width / 2,
+                        text: sel.toString()
+                    });
+                } else {
+                    setSelection(null);
+                }
+            };
+
+            const convertActiveBlock = function(type) {
+                var id = activeBlockId || (blocks.length > 0 ? blocks[0].id : null);
+                if (id) {
+                    updateBlock(id, { type: type });
+                    saveState();
+                }
+            };
+
+            const handleKeyDown = (e, block) => {
+                // We no longer add a new block on Enter to allow standard line breaks
+            };
+
+            // Calculate numbers for blocks
+            const blocksWithNumbers = useMemo(() => {
+                let currentNum = 0;
+                return blocks.map((b, i) => {
+                    if (b.type === 'number') {
+                        // Check previous block type
+                        const prev = blocks[i - 1];
+                        if (prev && prev.type === 'number') {
+                            currentNum++;
+                        } else {
+                            currentNum = 1;
+                        }
+                        return { ...b, number: currentNum };
+                    }
+                    currentNum = 0;
+                    return b;
+                });
+            }, [blocks]);
+
+            var theme = themes.find(function(t) { return t.id === noteTheme; });
+            var currentThemeClass = theme ? theme.themeClass : '';
+
+            return (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-500" onMouseUp={handleTextSelection}>
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-2xl" onClick={function() { saveState(); onClose(); }}></div>
+                    
+                    <div className={`task-creator-modal w-full max-w-2xl rounded-3xl overflow-hidden flex flex-col relative z-10 shadow-2xl animate-in zoom-in-95 duration-500 transition-colors duration-500 ${currentThemeClass}`}>
+                        
+                        {/* Top Progress Bar */}
+                        <div className="modal-top-progress">
+                            <div className="modal-progress-fill" style={{ width: progress + "%" }}></div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-8 md:p-10 no-scrollbar relative flex flex-col">
+                            <div className="flex justify-between items-start mb-6">
+                                <input 
+                                    type="text" 
+                                    placeholder="MAIN TITLE" 
+                                    className="bg-transparent border-none text-3xl md:text-4xl font-bold text-slate-800 placeholder:text-slate-300 focus:ring-0 w-full tracking-tight font-display uppercase"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    onBlur={saveState}
+                                />
+                                <button 
+                                    onClick={() => { setIsPinned(!isPinned); saveState(); }}
+                                    className={"p-2 rounded-full transition-all " + (isPinned ? "text-primary bg-primary/10" : "text-slate-400 hover:text-slate-600")}
+                                >
+                                    <span className="material-symbols-outlined text-[28px]" style={isPinned ? {fontVariationSettings: "'FILL' 1"} : {}}>push_pin</span>
+                                </button>
+                            </div>
+
+                            <div className="space-y-6 flex-1">
+                                {blocksWithNumbers.map((block, index) => (
+                                    <div key={block.id} className="flex items-start gap-4 group">
+                                        <div className="flex-1 flex items-start gap-3">
+                                            <span className="material-symbols-outlined drag-indicator mt-2">drag_indicator</span>
+                                            {block.type === 'todo' && (
+                                                <div 
+                                                    onClick={() => { updateBlock(block.id, { checked: !block.checked }); saveState(); }}
+                                                    className={"mt-2 block-checkbox shrink-0 " + (block.checked ? "checked" : "")}
+                                                ></div>
+                                            )}
+                                            {block.type === 'bullet' && (
+                                                <div className="mt-4 block-bullet shrink-0"></div>
+                                            )}
+                                            {block.type === 'number' && (
+                                                <div className="mt-1.5 block-number shrink-0">
+                                                    {block.number}.
+                                                </div>
+                                            )}
+                                            <textarea 
+                                                className={"bg-transparent border-none flex-1 p-0 text-xl transition-all focus:ring-0 block-input resize-none h-auto min-h-[1.5em] leading-[1.6] " + (block.checked ? "opacity-30 line-through text-slate-400" : "text-slate-600")}
+                                                style={{ fontFamily: "'Inter', sans-serif" }}
+                                                value={block.content}
+                                                placeholder={index === 0 ? "Take a note..." : ""}
+                                                rows={1}
+                                                onFocus={() => setActiveBlockId(block.id)}
+                                                onKeyDown={(e) => handleKeyDown(e, block)}
+                                                onChange={(e) => {
+                                                    e.target.style.height = 'auto';
+                                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                                    updateBlock(block.id, { content: e.target.value });
+                                                }}
+                                                onBlur={saveState}
+                                            />
+                                        </div>
+                                        <button onClick={() => removeBlock(block.id)} className="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-red-500 transition-all shrink-0">
+                                            <span className="material-symbols-outlined text-lg">delete</span>
+                                        </button>
+                                    </div>
+                                ))}
+                                <div className="pb-24"></div>
+                            </div>
+
+                            {/* Floating Pill Toolbar - Repositioned inside content at bottom */}
+                            {activeBlockId && (
+                                <div className="floating-toolbar-pill" style={{
+                                    display: (selection || activeBlockId) ? 'flex' : 'none'
+                                }}>
+                                    <button onClick={() => convertActiveBlock('todo')} className="toolbar-icon-btn" title="Checklist">
+                                        <span className="material-symbols-outlined text-2xl">checklist</span>
+                                    </button>
+                                    <button onClick={() => convertActiveBlock('bullet')} className="toolbar-icon-btn" title="Bullets">
+                                        <span className="material-symbols-outlined text-2xl">format_list_bulleted</span>
+                                    </button>
+                                    <button onClick={() => convertActiveBlock('number')} className="toolbar-icon-btn" title="Numbers">
+                                        <span className="material-symbols-outlined text-2xl">format_list_numbered</span>
+                                    </button>
+                                    <button className="toolbar-icon-btn highlighter active" title="Highlighter">
+                                        <span className="material-symbols-outlined text-2xl">edit_note</span>
+                                    </button>
+                                    <div className="toolbar-inner-divider"></div>
+                                    <button onClick={undo} disabled={historyIndex <= 0} className="toolbar-icon-btn disabled:opacity-20" title="Undo">
+                                        <span className="material-symbols-outlined text-2xl">undo</span>
+                                    </button>
+                                    <button onClick={undo} disabled={historyIndex <= 0} className="toolbar-icon-btn disabled:opacity-20" title="Undo">
+                                        <span className="material-symbols-outlined text-2xl">undo</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Bottom Actions Toolbar */}
+                        <div className="task-creator-footer mt-auto">
+                            <div className="flex items-center gap-0.5 md:gap-1">
+                                <button className="footer-action-btn" title="Add Alert">
+                                    <span className="material-symbols-outlined text-[22px]">notifications</span>
+                                </button>
+                                <button className="footer-action-btn" title="Collaborator">
+                                    <span className="material-symbols-outlined text-[22px]">person_add</span>
+                                </button>
+                                <div className="relative">
+                                    <button onClick={() => setShowPalette(!showPalette)} className={"footer-action-btn " + (showPalette ? "bg-black/5 text-black" : "")} title="Theme">
+                                        <span className="material-symbols-outlined text-[22px]">palette</span>
+                                    </button>
+                                    {showPalette && (
+                                        <div className="absolute bottom-full mb-4 left-0 flex gap-1.5 p-2 bg-white rounded-2xl shadow-2xl border border-black/5 z-50">
+                                            {themes.map(t => (
+                                                <button 
+                                                    key={t.id}
+                                                    onClick={() => { setNoteTheme(t.id); setShowPalette(false); saveState(); }}
+                                                    className={"w-8 h-8 rounded-full border-2 transition-all hover:scale-110 " + (noteTheme === t.id ? "border-primary" : "border-transparent")}
+                                                    style={{ backgroundColor: t.id === 'glass' ? 'rgba(0,0,0,0.05)' : t.color }}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <button className="footer-action-btn" title="Add Image">
+                                    <span className="material-symbols-outlined text-[22px]">image</span>
+                                </button>
+                                <button className="footer-action-btn" title="Archive">
+                                    <span className="material-symbols-outlined text-[22px]">archive</span>
+                                </button>
+                                <button className="footer-action-btn" title="More">
+                                    <span className="material-symbols-outlined text-[22px]">more_vert</span>
+                                </button>
+                                <div className="footer-divider"></div>
+                                <button onClick={undo} disabled={historyIndex <= 0} className="footer-action-btn disabled:opacity-20" title="Undo">
+                                    <span className="material-symbols-outlined text-[22px]">undo</span>
+                                </button>
+                                <button onClick={redo} disabled={historyIndex >= history.length - 1} className="footer-action-btn disabled:opacity-20" title="Redo">
+                                    <span className="material-symbols-outlined text-[22px]">redo</span>
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <button 
+                                    onClick={onClose}
+                                    className="close-btn"
+                                >
+                                    Close
+                                </button>
+                                <button 
+                                    onClick={function() { saveState(); onClose(); }}
+                                    className="save-pill-btn"
+                                >
+                                    SAVE
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
         const LoginModal = () => {
             const handleLogin = () => {
                 auth.signInWithPopup(googleProvider)
@@ -468,8 +1096,8 @@
 
         // --- Page Components ---
 
-        const DashboardPage = ({ user }) => (
-            <Layout>
+        const DashboardPage = ({ user, onOpenCreator }) => (
+            <Layout onOpenCreator={onOpenCreator}>
                 <div className="max-w-7xl mx-auto w-full px-8 md:px-16 py-12">
                     <Header user={user} />
                     <section className="mb-12">
@@ -515,7 +1143,10 @@
                                 <p className="text-xl font-bold text-yellow-950/80 tracking-tight">Others</p>
                             </div>
                         </div>
-                        <div className="sticky-note-add aspect-square border-2 border-dashed border-primary/40 rounded-2xl p-6 flex flex-col items-center justify-center group cursor-pointer hover:bg-primary/5 transition-colors">
+                        <div 
+                            onClick={onOpenCreator}
+                            className="sticky-note-add aspect-square border-2 border-dashed border-primary/40 rounded-2xl p-6 flex flex-col items-center justify-center group cursor-pointer hover:bg-primary/5 transition-colors"
+                        >
                             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3">
                                 <span className="material-symbols-outlined text-2xl">add</span>
                             </div>
@@ -562,8 +1193,8 @@
             </Layout>
         );
 
-        const NotesPage = ({ user }) => (
-            <Layout>
+        const NotesPage = ({ user, onOpenCreator }) => (
+            <Layout onOpenCreator={onOpenCreator}>
                 <div className="max-w-7xl mx-auto w-full px-6 md:px-16 py-12">
                     <Header user={user} />
                     <section className="mb-10">
@@ -612,8 +1243,8 @@
             </Layout>
         );
 
-        const CalendarPage = ({ user }) => (
-            <Layout>
+        const CalendarPage = ({ user, onOpenCreator }) => (
+            <Layout onOpenCreator={onOpenCreator}>
                 <div className="flex-1 flex flex-col md:flex-row h-full">
                     <div className="flex-1 overflow-y-auto no-scrollbar px-6 md:px-12 py-10">
                         <Header user={user} />
@@ -665,8 +1296,8 @@
             </Layout>
         );
 
-        const StatsPage = ({ user }) => (
-            <Layout>
+        const StatsPage = ({ user, onOpenCreator }) => (
+            <Layout onOpenCreator={onOpenCreator}>
                 <div className="max-w-7xl mx-auto w-full px-6 md:px-12 py-10 pb-32">
                     <Header user={user} subtitle="Productivity Statistics" />
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -705,8 +1336,8 @@
             </Layout>
         );
 
-        const StreakPage = ({ user }) => (
-            <Layout>
+        const StreakPage = ({ user, onOpenCreator }) => (
+            <Layout onOpenCreator={onOpenCreator}>
                 <div className="max-w-7xl mx-auto w-full px-8 md:px-16 py-12">
                     <Header user={user} subtitle="Streak & Achievements" />
                     <section className="mb-16 flex flex-col items-center text-center">
@@ -730,8 +1361,8 @@
             </Layout>
         );
 
-        const ClockPage = ({ user }) => (
-            <Layout>
+        const ClockPage = ({ user, onOpenCreator }) => (
+            <Layout onOpenCreator={onOpenCreator}>
                 <div className="max-w-7xl mx-auto w-full px-8 md:px-16 py-12">
                     <Header user={user} subtitle="Clock & Notifications" />
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center min-h-[500px]">
@@ -904,6 +1535,7 @@
         const App = () => {
             const [isTimerDone, setIsTimerDone] = useState(false);
             const [isAuthChecked, setIsAuthChecked] = useState(false);
+            const [isCreatorOpen, setIsCreatorOpen] = useState(false);
             const [user, setUser] = useState(null);
             const videoRef = useRef();
 
@@ -961,13 +1593,14 @@
                         src="fire_bg_video.mp4"
                     />
                     <TransitionManager>
-                        <Route path="/" element={<DashboardPage user={user} />} />
-                        <Route path="/notes" element={<NotesPage user={user} />} />
-                        <Route path="/calendar" element={<CalendarPage user={user} />} />
-                        <Route path="/stats" element={<StatsPage user={user} />} />
-                        <Route path="/streak" element={<StreakPage user={user} />} />
-                        <Route path="/clock" element={<ClockPage user={user} />} />
+                        <Route path="/" element={<DashboardPage user={user} onOpenCreator={() => setIsCreatorOpen(true)} />} />
+                        <Route path="/notes" element={<NotesPage user={user} onOpenCreator={() => setIsCreatorOpen(true)} />} />
+                        <Route path="/calendar" element={<CalendarPage user={user} onOpenCreator={() => setIsCreatorOpen(true)} />} />
+                        <Route path="/stats" element={<StatsPage user={user} onOpenCreator={() => setIsCreatorOpen(true)} />} />
+                        <Route path="/streak" element={<StreakPage user={user} onOpenCreator={() => setIsCreatorOpen(true)} />} />
+                        <Route path="/clock" element={<ClockPage user={user} onOpenCreator={() => setIsCreatorOpen(true)} />} />
                     </TransitionManager>
+                    {isCreatorOpen && <TaskCreator onClose={() => setIsCreatorOpen(false)} user={user} />}
                 </MemoryRouter>
             );
         };

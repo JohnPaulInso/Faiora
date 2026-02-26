@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Faiora - Rich Text Notes</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f97316",
+                        "primary-dark": "#ea580c",
+                        "burnt-orange": "#7c2d12",
+                        "charcoal": "#0a0a0a",
+                        "cream-light": "#fff7ed",
+                        "pastel-orange": "#ffedd5",
+                        "pastel-peach": "#fed7aa",
+                        "pastel-amber": "#fef3c7",
+                        "pastel-yellow": "#fef9c3",
+                    },
+                    fontFamily: {
+                        "display": ["Newsreader", "serif"],
+                        "sans": ["Inter", "system-ui", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "3xl": "2.0rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        .dark-gradient-bg {
+            background: linear-gradient(180deg, #7c2d12 0%, #111827 40%, #0a0a0a 100%);
+            background-attachment: fixed;
+        }
+        .card-glow {
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(253, 186, 116, 0.1);
+        }
+        .glow-orange {
+            filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.6));
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .progress-bar-gradient {
+            background: linear-gradient(90deg, #f97316 0%, #fbbf24 100%);
+        }
+        .modal-overlay {
+            background: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(12px);
+        }
+        .drag-handle {
+            cursor: grab;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .checklist-item:hover .drag-handle {
+            opacity: 0.4;
+        }
+    </style>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="dark-gradient-bg font-display text-slate-100 min-h-screen selection:bg-primary/30 overflow-hidden">
+<div class="flex h-screen overflow-hidden">
+<aside class="hidden md:flex w-24 border-r border-white/5 flex-col items-center py-10 gap-10 bg-black/40 backdrop-blur-xl z-20">
+<div class="text-primary mb-6">
+<span class="material-symbols-outlined text-4xl font-light glow-orange" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+</div>
+<nav class="flex flex-col gap-8">
+<a class="p-3 rounded-2xl text-slate-500" href="#"><span class="material-symbols-outlined text-3xl">check_box</span></a>
+<a class="p-3 rounded-2xl bg-primary/10 text-primary" href="#"><span class="material-symbols-outlined text-3xl">grid_view</span></a>
+<a class="p-3 rounded-2xl text-slate-500" href="#"><span class="material-symbols-outlined text-3xl">calendar_month</span></a>
+<a class="p-3 rounded-2xl text-slate-500" href="#"><span class="material-symbols-outlined text-3xl">leaderboard</span></a>
+<a class="p-3 rounded-2xl text-slate-500" href="#"><span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">local_fire_department</span></a>
+<a class="p-3 rounded-2xl text-slate-500" href="#"><span class="material-symbols-outlined text-3xl">history</span></a>
+</nav>
+</aside>
+<main class="flex-1 flex flex-col overflow-y-auto no-scrollbar relative">
+<div class="max-w-7xl mx-auto w-full px-6 md:px-16 py-12">
+<header class="flex justify-between items-start mb-16 opacity-40">
+<div>
+<h1 class="text-6xl md:text-7xl font-bold tracking-tight text-cream-light italic leading-none">Faiora</h1>
+<p class="text-primary/70 text-sm mt-3 uppercase tracking-[0.4em] font-sans font-semibold">Digital Planner</p>
+</div>
+<div class="flex items-center gap-6">
+<button class="text-cream-light/40"><span class="material-symbols-outlined text-2xl">search</span></button>
+<div class="w-12 h-12 rounded-full overflow-hidden border border-white/10 ring-4 ring-black/20">
+<img alt="User Profile" class="w-full h-full object-cover bg-primary/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDcGtyXRnxupAp3cn2c_dCgdjy3dpoL-qsf7SOvMP4qI2xcKbYF2O1pvTQCGvz_LLVBOS7jyqRDEiJqSqETkoO4YZGFt_Uq6R0OYjIOzGaedCzjnud7WhGABNgkl6nL3bCtR0_-evoyfdeuxSulgvWkFvPvKVqAqYJriUwCUqBzfzVraknrNcTJm3aa-u-v49B2v_P-rgzRX8j5cZrE24K_piGyJ5H8-pLonf7eSuUpcjL8KAOnHZkxmcQDZUm_yMkhh7IceYKzVWo"/>
+</div>
+</div>
+</header>
+<section class="opacity-40">
+<div class="flex items-center gap-4 mb-10">
+<h2 class="text-xl md:text-2xl font-bold text-cream-light/90 uppercase tracking-[0.3em]">ALL NOTES</h2>
+<div class="h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-32">
+<div class="bg-amber-50/95 rounded-3xl p-7 min-h-[220px] flex flex-col border-b-8 border-amber-200/50">
+<h3 class="text-xl font-bold text-amber-950 mb-3 font-display">Q3 Strategy Goals</h3>
+<p class="text-amber-900/70 font-sans text-sm leading-relaxed">Focus on user retention metrics...</p>
+</div>
+</div>
+</section>
+</div>
+<div class="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-10 modal-overlay">
+<div class="w-full max-w-2xl bg-[#fcfaf7] rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] relative">
+<div class="h-1.5 w-full bg-slate-100 overflow-hidden">
+<div class="h-full w-[65%] progress-bar-gradient"></div>
+</div>
+<button class="absolute top-8 right-8 text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-2xl">push_pin</span>
+</button>
+<div class="flex-1 overflow-y-auto p-8 md:p-10 no-scrollbar">
+<input class="w-full bg-transparent border-none focus:ring-0 text-3xl md:text-4xl font-bold text-slate-800 placeholder:text-slate-300 mb-8 uppercase tracking-tight font-display" placeholder="MAIN TITLE" type="text"/>
+<div class="space-y-6 font-sans text-slate-600">
+<p class="text-lg">This is an example note.</p>
+<div class="space-y-4">
+<p class="font-medium text-slate-800">I have to buy stuff (checkmarks)</p>
+<div class="space-y-3">
+<div class="flex items-center gap-2 checklist-item group">
+<span class="material-symbols-outlined text-[20px] drag-handle text-slate-400">drag_indicator</span>
+<span class="material-symbols-outlined text-primary">check_box_outline_blank</span>
+<span>Glass</span>
+</div>
+<div class="flex items-center gap-2 checklist-item group">
+<span class="material-symbols-outlined text-[20px] drag-handle text-slate-400">drag_indicator</span>
+<span class="material-symbols-outlined text-primary">check_box_outline_blank</span>
+<span>Plastic</span>
+</div>
+<div class="flex items-center gap-2 checklist-item group">
+<span class="material-symbols-outlined text-[20px] drag-handle text-slate-400">drag_indicator</span>
+<span class="material-symbols-outlined text-primary">check_box_outline_blank</span>
+<span>Bag</span>
+</div>
+</div>
+</div>
+<p class="leading-relaxed">
+                            sample notes Lorem ipsum sample notes sample notes Lorem ipsum sample notes sample notes Lorem ipsum sample notes sample notes Lorem ipsum sample notes
+                        </p>
+<div class="space-y-4">
+<p class="font-medium text-slate-800">Other than checkmarks I can also note bullet points for notes like</p>
+<ul class="list-none pl-6 space-y-2">
+<li class="relative before:content-[''] before:absolute before:-left-4 before:top-2.5 before:w-1.5 before:h-1.5 before:bg-slate-400 before:rounded-full">Topic 1</li>
+<li class="relative before:content-[''] before:absolute before:-left-4 before:top-2.5 before:w-1.5 before:h-1.5 before:bg-slate-400 before:rounded-full">Topic 2</li>
+<li class="relative before:content-[''] before:absolute before:-left-4 before:top-2.5 before:w-1.5 before:h-1.5 before:bg-slate-400 before:rounded-full">Topic 3</li>
+</ul>
+</div>
+<div class="space-y-4">
+<p class="font-medium text-slate-800">I want it to automatically enumerate by adding numbers</p>
+<ol class="list-decimal pl-6 space-y-2 font-sans">
+<li>Task 1</li>
+<li>Task 2</li>
+<li>Task 3</li>
+</ol>
+</div>
+<p class="leading-relaxed pb-12">
+                            Lorem ipsum sample notes Lorem ipsum sample notes sample notes Lorem ipsum sample notes sample notes Lorem ipsum sample notes sample notes Lorem ipsum sample notes sample notes Lorem ipsum sample notes sample notes Lorem ipsum sample notes sample notes Lorem ipsum sample notes sample notes Lorem ipsum sample notes sample notes Lorem ipsum sample notes sample notes Lorem ipsum sample notes.
+                        </p>
+</div>
+</div>
+<div class="px-4 py-2 border-t border-slate-100 bg-[#fdfcfb] flex items-center justify-between">
+<div class="flex items-center gap-0.5 md:gap-1">
+<button class="p-2.5 hover:bg-slate-100 rounded-full text-slate-500 transition-colors" title="Formatting">
+<span class="material-symbols-outlined text-[22px]">format_color_text</span>
+</button>
+<button class="p-2.5 hover:bg-slate-100 rounded-full text-slate-500 transition-colors" title="Background options">
+<span class="material-symbols-outlined text-[22px]">palette</span>
+</button>
+<button class="p-2.5 hover:bg-slate-100 rounded-full text-slate-500 transition-colors" title="Remind me">
+<span class="material-symbols-outlined text-[22px]">notification_add</span>
+</button>
+<button class="p-2.5 hover:bg-slate-100 rounded-full text-slate-500 transition-colors" title="Collaborator">
+<span class="material-symbols-outlined text-[22px]">person_add</span>
+</button>
+<button class="p-2.5 hover:bg-slate-100 rounded-full text-slate-500 transition-colors" title="Add image">
+<span class="material-symbols-outlined text-[22px]">image</span>
+</button>
+<button class="p-2.5 hover:bg-slate-100 rounded-full text-slate-500 transition-colors" title="Archive">
+<span class="material-symbols-outlined text-[22px]">archive</span>
+</button>
+<button class="p-2.5 hover:bg-slate-100 rounded-full text-slate-500 transition-colors" title="More">
+<span class="material-symbols-outlined text-[22px]">more_vert</span>
+</button>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-2.5 hover:bg-slate-100 rounded-full text-slate-400 transition-colors" title="Undo">
+<span class="material-symbols-outlined text-[22px]">undo</span>
+</button>
+<button class="p-2.5 hover:bg-slate-100 rounded-full text-slate-400 transition-colors" title="Redo">
+<span class="material-symbols-outlined text-[22px]">redo</span>
+</button>
+<button class="ml-4 px-6 py-2.5 bg-primary hover:bg-primary-dark text-white rounded-lg font-sans font-bold text-xs tracking-widest uppercase transition-all shadow-md shadow-orange-100">
+                            Save
+                        </button>
+</div>
+</div>
+</div>
+</div>
+<button class="fixed bottom-12 right-12 w-16 h-16 md:w-20 md:h-20 bg-primary/20 text-white rounded-full flex items-center justify-center opacity-20 pointer-events-none">
+<span class="material-symbols-outlined text-4xl">add</span>
+</button>
+</main>
+</div>
+<nav class="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-2xl border-t border-white/5 flex justify-around items-center py-5 md:hidden z-40 opacity-40">
+<a class="text-slate-500" href="#"><span class="material-symbols-outlined text-3xl">check_box</span></a>
+<a class="text-primary" href="#"><span class="material-symbols-outlined text-3xl">grid_view</span></a>
+<a class="text-primary glow-orange" href="#"><span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">local_fire_department</span></a>
+<a class="text-slate-500" href="#"><span class="material-symbols-outlined text-3xl">leaderboard</span></a>
+<a class="text-slate-500" href="#"><span class="material-symbols-outlined text-3xl">history</span></a>
+</nav>
+
+</body></html>
