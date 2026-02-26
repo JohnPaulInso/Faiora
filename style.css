@@ -82,10 +82,13 @@
     100% { transform: rotate(360deg); }
 }
 
-/* Clock */
+html {
+    font-size: 14.4px; /* 90% of default 16px */
+}
+
 .analog-clock {
-    width: 300px;
-    height: 300px;
+    width: 270px; /* 300px * 0.9 */
+    height: 270px; /* 300px * 0.9 */
     border-radius: 50%;
     border: 2px solid rgba(249, 115, 22, 0.3);
     position: relative;
@@ -127,10 +130,10 @@
 
 .fire-wipe-sprite {
     width: 100vw;
-    height: 400px; 
+    height: 360px; /* 400px * 0.9 */
     background-image: url('fire-wipe-spritesheet.png');
     background-repeat: no-repeat;
-    background-size: 100% 2000px;
+    background-size: 100% 1800px; /* 2000px * 0.9 */
     animation: fire-wipe-sprites 0.5s steps(5) infinite;
     filter: drop-shadow(0 0 40px rgba(249, 115, 22, 0.9));
     opacity: 0.98;
@@ -144,7 +147,7 @@
 }
 
 @keyframes fire-wipe-sprites {
-    to { background-position: 0 -2000px; }
+    to { background-position: 0 -1800px; } /* 2000px * 0.9 */
 }
 
 .dissolve-layer {
@@ -162,5 +165,5 @@
 }
 
 body {
-    min-height: max(884px, 100dvh);
+    min-height: max(795px, 100dvh); /* 884px * 0.9 */
 }

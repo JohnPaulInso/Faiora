@@ -12,6 +12,10 @@
     <script src="https://unpkg.com/react-router@6.3.0/umd/react-router.development.js"></script>
     <script src="https://unpkg.com/react-router-dom@6.3.0/umd/react-router-dom.development.js"></script>
     <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
@@ -46,6 +50,9 @@
     </script>
 
     <style type="text/tailwindcss">
+        html {
+            font-size: 14.4px; /* 90% of default 16px */
+        }
         .dark-gradient-bg {
             background: linear-gradient(180deg, #7c2d12 0%, #111827 40%, #0a0a0a 100%);
             background-attachment: fixed;
@@ -91,34 +98,34 @@
         }
         .flame-container {
             position: absolute;
-            top: -20px;
+            top: -18px; /* -20px * 0.9 */
             left: 0;
             right: 0;
-            height: 40px;
+            height: 36px; /* 40px * 0.9 */
             display: flex;
             justify-content: space-around;
             pointer-events: none;
         }
         .flame-tongue {
-            width: 12px;
-            height: 30px;
+            width: 10.8px; /* 12px * 0.9 */
+            height: 27px; /* 30px * 0.9 */
             background: linear-gradient(to top, rgba(249, 115, 22, 0.8), rgba(239, 68, 68, 0.4), transparent);
             border-radius: 50% 50% 20% 20%;
-            filter: blur(6px);
+            filter: blur(5.4px); /* 6px * 0.9 */
             animation: flame-rise 2.5s infinite ease-in-out;
             transform-origin: bottom center;
         }
         @keyframes flame-rise {
             0%, 100% { transform: scaleY(1) translateY(0) scaleX(1); opacity: 0.4; }
-            50% { transform: scaleY(1.5) translateY(-15px) scaleX(0.8); opacity: 0.7; }
+            50% { transform: scaleY(1.5) translateY(-13.5px) scaleX(0.8); opacity: 0.7; }
         }
         .loading-arc {
             position: absolute;
             inset: 0;
             border-radius: 50%;
-            border: 2px solid transparent;
-            border-top: 2px solid #f97316;
-            filter: drop-shadow(0 0 15px rgba(249, 115, 22, 0.8));
+            border: 1.8px solid transparent; /* 2px * 0.9 */
+            border-top: 1.8px solid #f97316;
+            filter: drop-shadow(0 0 13.5px rgba(249, 115, 22, 0.8));
             animation: spin-smooth 3s linear infinite;
         }
         @keyframes spin-smooth {
@@ -128,8 +135,8 @@
 
         /* Clock */
         .analog-clock {
-            width: 300px;
-            height: 300px;
+            width: 270px; /* 300px * 0.9 */
+            height: 270px; /* 300px * 0.9 */
             border-radius: 50%;
             border: 2px solid rgba(249, 115, 22, 0.3);
             position: relative;
@@ -171,10 +178,10 @@
 
         .fire-wipe-sprite {
             width: 100vw;
-            height: 400px; 
+            height: 360px; /* 400px * 0.9 */
             background-image: url('fire-wipe-spritesheet.png');
             background-repeat: no-repeat;
-            background-size: 100% 2000px; /* 5 frames of 400px each */
+            background-size: 100% 1800px; /* 2000px * 0.9 */
             animation: fire-wipe-sprites 0.5s steps(5) infinite;
             filter: drop-shadow(0 0 40px rgba(249, 115, 22, 0.9));
             opacity: 0.98;
@@ -190,7 +197,7 @@
         }
 
         @keyframes fire-wipe-sprites {
-            to { background-position: 0 -2000px; }
+            to { background-position: 0 -1800px; } /* 2000px * 0.9 */
         }
 
         .dissolve-layer {
@@ -221,7 +228,7 @@
     </style>
 <style>
     body {
-      min-height: max(884px, 100dvh);
+      min-height: max(795px, 100dvh); /* 884px * 0.9 */
     }
   </style>
   </head>
@@ -229,9 +236,24 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
         const { createRoot } = ReactDOM;
         const { MemoryRouter, Routes, Route, Link, useNavigate, useLocation } = ReactRouterDOM;
+
+        // --- Firebase Initialization ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDktbyVgI7AAwaY2u-KsWBRwLZawy0949s",
+            authDomain: "faiora-24f4a.firebaseapp.com",
+            projectId: "faiora-24f4a",
+            storageBucket: "faiora-24f4a.firebasestorage.app",
+            messagingSenderId: "752265363994",
+            appId: "1:752265363994:web:78795bfad67d2d541e07a3",
+            measurementId: "G-B0DWSL1JMV"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const googleProvider = new firebase.auth.GoogleAuthProvider();
 
         // --- Shared Components ---
 
@@ -308,8 +330,68 @@
             );
         };
 
-        const Header = ({ title = "Faiora", subtitle = "Digital Planner" }) => (
-            <header className="flex justify-between items-start mb-16">
+        const UserMenu = ({ user }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            const menuRef = useRef();
+
+            useEffect(() => {
+                const handleClickOutside = (event) => {
+                    if (menuRef.current && !menuRef.current.contains(event.target)) {
+                        setIsOpen(false);
+                    }
+                };
+                document.addEventListener("mousedown", handleClickOutside);
+                return () => document.removeEventListener("mousedown", handleClickOutside);
+            }, []);
+
+            const handleLogout = () => {
+                auth.signOut();
+                localStorage.removeItem('faiora_logged_in');
+            };
+
+            return (
+                <div className="relative" ref={menuRef}>
+                    <button 
+                        onClick={() => setIsOpen(!isOpen)}
+                        className="w-12 h-12 rounded-full overflow-hidden border border-white/10 ring-4 ring-black/20 hover:ring-primary/40 transition-all duration-300"
+                    >
+                        <img 
+                            alt={user.displayName} 
+                            className="w-full h-full object-cover bg-primary/20" 
+                            src={user.photoURL || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y"}
+                        />
+                    </button>
+
+                    {isOpen && (
+                        <div className="absolute right-0 mt-4 w-64 glass-panel rounded-3xl p-2 shadow-2xl z-[100] animate-in fade-in slide-in-from-top-4 duration-300 overflow-hidden">
+                            <div className="p-4 border-b border-white/5 mb-2">
+                                <p className="text-cream-light font-bold truncate">{user.displayName}</p>
+                                <p className="text-cream-light/40 text-xs truncate">{user.email}</p>
+                            </div>
+                            <button className="flex items-center gap-3 w-full p-3 hover:bg-white/5 rounded-2xl text-cream-light/60 hover:text-primary transition-all text-sm group">
+                                <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">person</span>
+                                Profile
+                            </button>
+                            <button className="flex items-center gap-3 w-full p-3 hover:bg-white/5 rounded-2xl text-cream-light/60 hover:text-primary transition-all text-sm group">
+                                <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">settings</span>
+                                Settings
+                            </button>
+                            <div className="h-px bg-white/5 my-2"></div>
+                            <button 
+                                onClick={handleLogout}
+                                className="flex items-center gap-3 w-full p-3 hover:bg-red-500/10 rounded-2xl text-red-400 hover:text-red-300 transition-all text-sm group"
+                            >
+                                <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">logout</span>
+                                Logout
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const Header = ({ title = "Faiora", subtitle = "Digital Planner", user }) => (
+            <header className="flex justify-between items-start mb-16 px-4 md:px-0">
                 <div className="flex items-center gap-4">
                     <div>
                         <h1 className="text-7xl font-bold tracking-tight text-cream-light italic leading-none">{title}</h1>
@@ -320,19 +402,63 @@
                     <button className="text-cream-light/40 hover:text-cream-light transition-colors">
                         <span className="material-symbols-outlined text-2xl">search</span>
                     </button>
-                    <div className="w-12 h-12 rounded-full overflow-hidden border border-white/10 ring-4 ring-black/20">
-                        <img alt="User Profile" className="w-full h-full object-cover bg-primary/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDcGtyXRnxupAp3cn2c_dCgdjy3dpoL-qsf7SOvMP4qI2xcKbYF2O1pvTQCGvz_LLVBOS7jyqRDEiJqSqETkoO4YZGFt_Uq6R0OYjIOzGaedCzjnud7WhGABNgkl6nL3bCtR0_-evoyfdeuxSulgvWkFvPvKVqAqYJriUwCUqBzfzVraknrNcTJm3aa-u-v49B2v_P-rgzRX8j5cZrE24K_piGyJ5H8-pLonf7eSuUpcjL8KAOnHZkxmcQDZUm_yMkhh7IceYKzVWo"/>
-                    </div>
+                    <UserMenu user={user} />
                 </div>
             </header>
         );
 
+        const LoginModal = () => {
+            const handleLogin = () => {
+                auth.signInWithPopup(googleProvider)
+                    .then(() => localStorage.setItem('faiora_logged_in', 'true'))
+                    .catch(e => console.error("Login failed", e));
+            };
+
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 blur-overlay overflow-hidden">
+                    <div className="absolute inset-0 z-0">
+                        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[120px] animate-pulse"></div>
+                        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-burnt-orange/30 rounded-full blur-[120px] animate-pulse delay-1000"></div>
+                    </div>
+                    
+                    <div className="glass-panel max-w-xl w-full p-12 rounded-[3.5rem] flex flex-col items-center text-center relative z-10 shadow-2xl border-white/10">
+                        <div className="mb-10 relative">
+                             <div className="flame-container flex justify-center !static h-16 mb-4">
+                                {[...Array(3)].map((_, i) => (
+                                    <div key={i} className="flame-tongue !w-16 !h-24 mx-2" style={{animationDelay: `${i * 0.2}s`}}></div>
+                                ))}
+                            </div>
+                            <h2 className="text-8xl font-black text-cream-light italic tracking-tighter drop-shadow-[0_0_50px_rgba(249,115,22,0.4)]">Faiora</h2>
+                            <p className="text-primary font-bold uppercase tracking-[0.8em] text-sm mt-4">Ignite your productivity</p>
+                        </div>
+
+                        <p className="text-cream-light/60 text-lg mb-12 max-w-md font-sans leading-relaxed">
+                            Experience a fiery approach to digital planning. Sync your lists, tasks, and goals with Google and light up your potential.
+                        </p>
+
+                        <button 
+                            onClick={handleLogin}
+                            className="bg-white text-black py-5 px-10 rounded-3xl font-bold flex items-center gap-4 hover:bg-primary hover:text-white transition-all duration-500 hover:scale-105 active:scale-95 shadow-xl group mb-12"
+                        >
+                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6 group-hover:invert transition-all" alt="Google" />
+                            <span className="text-xl">Login with Google</span>
+                        </button>
+
+                        <div className="flex gap-8 text-[10px] uppercase tracking-widest font-bold text-cream-light/20">
+                            <a href="privacy.html" className="hover:text-primary transition-colors">Privacy Policy</a>
+                            <a href="terms.html" className="hover:text-primary transition-colors">Terms of Service</a>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         // --- Page Components ---
 
-        const DashboardPage = () => (
+        const DashboardPage = ({ user }) => (
             <Layout>
                 <div className="max-w-7xl mx-auto w-full px-8 md:px-16 py-12">
-                    <Header />
+                    <Header user={user} />
                     <section className="mb-12">
                         <div className="flex items-center gap-4">
                             <h2 className="text-2xl font-bold text-cream-light/90 uppercase tracking-[0.3em]">TO DO LIST</h2>
@@ -423,10 +549,10 @@
             </Layout>
         );
 
-        const NotesPage = () => (
+        const NotesPage = ({ user }) => (
             <Layout>
                 <div className="max-w-7xl mx-auto w-full px-6 md:px-16 py-12">
-                    <Header />
+                    <Header user={user} />
                     <section className="mb-10">
                         <div className="flex items-center gap-4">
                             <h2 className="text-xl md:text-2xl font-bold text-cream-light/90 uppercase tracking-[0.3em]">ALL NOTES</h2>
@@ -473,11 +599,11 @@
             </Layout>
         );
 
-        const CalendarPage = () => (
+        const CalendarPage = ({ user }) => (
             <Layout>
                 <div className="flex-1 flex flex-col md:flex-row h-full">
                     <div className="flex-1 overflow-y-auto no-scrollbar px-6 md:px-12 py-10">
-                        <Header />
+                        <Header user={user} />
                         <div className="flex items-center justify-between mb-8">
                             <div className="flex items-center gap-6">
                                 <h2 className="text-3xl font-display font-bold text-cream-light italic">March 2026</h2>
@@ -526,10 +652,10 @@
             </Layout>
         );
 
-        const StatsPage = () => (
+        const StatsPage = ({ user }) => (
             <Layout>
                 <div className="max-w-7xl mx-auto w-full px-6 md:px-12 py-10 pb-32">
-                    <Header subtitle="Productivity Statistics" />
+                    <Header user={user} subtitle="Productivity Statistics" />
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                         <div className="lg:col-span-4 glass-panel rounded-3xl p-8 flex flex-col items-center justify-center card-glow">
                             <h3 className="text-xl font-display font-bold text-cream-light italic mb-8 w-full">Overall Progress</h3>
@@ -566,10 +692,10 @@
             </Layout>
         );
 
-        const StreakPage = () => (
+        const StreakPage = ({ user }) => (
             <Layout>
                 <div className="max-w-7xl mx-auto w-full px-8 md:px-16 py-12">
-                    <Header subtitle="Streak & Achievements" />
+                    <Header user={user} subtitle="Streak & Achievements" />
                     <section className="mb-16 flex flex-col items-center text-center">
                         <div className="relative mb-6">
                             <span className="material-symbols-outlined text-[120px] text-primary glow-orange leading-none relative z-10" style={{fontVariationSettings: "'FILL' 1"}}>local_fire_department</span>
@@ -591,16 +717,16 @@
             </Layout>
         );
 
-        const ClockPage = () => (
+        const ClockPage = ({ user }) => (
             <Layout>
                 <div className="max-w-7xl mx-auto w-full px-8 md:px-16 py-12">
-                    <Header subtitle="Clock & Notifications" />
+                    <Header user={user} subtitle="Clock & Notifications" />
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center min-h-[500px]">
                         <div className="flex flex-col items-center justify-center space-y-12">
                             <div className="analog-clock flex items-center justify-center">
-                                <div className="absolute w-[2px] h-[120px] bg-white origin-bottom rotate-[190deg] rounded-full bottom-[50%]"></div>
-                                <div className="absolute w-[4px] h-[80px] bg-white origin-bottom rotate-[45deg] rounded-full bottom-[50%]"></div>
-                                <div className="absolute w-[1px] h-[130px] bg-primary origin-bottom rotate-[310deg] rounded-full bottom-[50%] glow-orange"></div>
+                                <div className="absolute w-[2px] h-[108px] bg-white origin-bottom rotate-[190deg] rounded-full bottom-[50%]"></div>
+                                <div className="absolute w-[4px] h-[72px] bg-white origin-bottom rotate-[45deg] rounded-full bottom-[50%]"></div>
+                                <div className="absolute w-[1px] h-[117px] bg-primary origin-bottom rotate-[310deg] rounded-full bottom-[50%] glow-orange"></div>
                                 <div className="w-3 h-3 bg-primary border-2 border-white rounded-full z-10"></div>
                             </div>
                             <div className="text-center">
@@ -633,7 +759,7 @@
 
             return (
                 <div className="fixed inset-0 z-50 blur-overlay flex flex-col items-center justify-center">
-                    <div className="loading-arc-container relative flex items-center justify-center w-[280px] h-[280px]">
+                    <div className="loading-arc-container relative flex items-center justify-center w-[252px] h-[252px]">
                         <div className="loading-arc"></div>
                         <div className="absolute flex flex-col items-center text-center z-10">
                             <div className="relative">
@@ -665,6 +791,8 @@
         };
 
         // --- Root Component ---
+        
+
 
         const TransitionManager = ({ children }) => {
             const location = useLocation();
@@ -673,11 +801,36 @@
             const [isDissolving, setIsDissolving] = useState(false);
             const [transitionKey, setTransitionKey] = useState(0);
 
+            const playFireSFX = () => {
+                const audio = new Audio('fire_transition_sfx.mp3');
+                audio.volume = 0.4; // 40% volume
+                audio.play().catch(e => console.log("Audio play blocked", e));
+                
+                // Fade out after 1 second
+                setTimeout(() => {
+                    const fadeDuration = 500; // 0.5s fade
+                    const step = 0.05;
+                    const interval = fadeDuration / (0.5 / step);
+                    
+                    const fadeInterval = setInterval(() => {
+                        if (audio.volume > step) {
+                            audio.volume -= step;
+                        } else {
+                            audio.volume = 0;
+                            clearInterval(fadeInterval);
+                            audio.pause();
+                        }
+                    }, interval);
+                }, 1000);
+            };
+
             useEffect(() => {
                 // Trigger wipe on initial mount (post-loader)
                 setIsWiping(true);
                 setIsDissolving(true);
                 setTransitionKey(prev => prev + 1);
+                
+                playFireSFX();
                 
                 const swapTimer = setTimeout(() => {
                     setIsDissolving(false);
@@ -698,6 +851,8 @@
                     setIsWiping(true);
                     setIsDissolving(true);
                     setTransitionKey(prev => prev + 1);
+
+                    playFireSFX();
                     
                     // MIDPOINT: Swap content when fire covers screen
                     const swapTimer = setTimeout(() => {
@@ -734,15 +889,57 @@
         };
 
         const App = () => {
-            const [isLoading, setIsLoading] = useState(true);
+            const [isTimerDone, setIsTimerDone] = useState(false);
+            const [isAuthChecked, setIsAuthChecked] = useState(false);
+            const [user, setUser] = useState(null);
+            const videoRef = useRef();
 
-            if (isLoading) {
-                return <LoadingPage onComplete={() => setIsLoading(false)} />;
+            useEffect(() => {
+                const unsubscribe = auth.onAuthStateChanged((u) => {
+                    setUser(u);
+                    setIsAuthChecked(true);
+                    
+                    // If user is already found (logged in), we can skip some of the wait 
+                    // to make the "redirect" feel faster.
+                    if (u) {
+                        localStorage.setItem('faiora_logged_in', 'true');
+                    }
+                });
+                return () => unsubscribe();
+            }, []);
+
+            useEffect(() => {
+                const timer = setTimeout(() => {
+                    setIsTimerDone(true);
+                }, 2500);
+                return () => clearTimeout(timer);
+            }, []);
+
+            useEffect(() => {
+                if (videoRef.current) {
+                    videoRef.current.playbackRate = 1.5;
+                }
+            }, [user, isTimerDone, isAuthChecked]);
+
+            // We show the loader until:
+            // 1. The 2.5s aesthetic timer is done.
+            // 2. AND we've actually checked with Firebase if someone is logged in.
+            if (!isTimerDone || !isAuthChecked) {
+                return <LoadingPage onComplete={() => setIsTimerDone(true)} />;
             }
 
+            // If we are "Checking" but have no user, show the modal.
+            // As soon as 'user' is set by the popup, this component re-renders and swaps to the main app.
+            if (!user) {
+                return <LoginModal />;
+            }
+
+            // REDIRECT TO INDEX: When user is authenticated, we render the main app.
+            // Since it's a new mount of MemoryRouter, it defaults to path="/".
             return (
                 <MemoryRouter>
                     <video 
+                        ref={videoRef}
                         className="fire-bg-video"
                         autoPlay 
                         loop 
@@ -751,12 +948,12 @@
                         src="fire_bg_video.mp4"
                     />
                     <TransitionManager>
-                        <Route path="/" element={<DashboardPage />} />
-                        <Route path="/notes" element={<NotesPage />} />
-                        <Route path="/calendar" element={<CalendarPage />} />
-                        <Route path="/stats" element={<StatsPage />} />
-                        <Route path="/streak" element={<StreakPage />} />
-                        <Route path="/clock" element={<ClockPage />} />
+                        <Route path="/" element={<DashboardPage user={user} />} />
+                        <Route path="/notes" element={<NotesPage user={user} />} />
+                        <Route path="/calendar" element={<CalendarPage user={user} />} />
+                        <Route path="/stats" element={<StatsPage user={user} />} />
+                        <Route path="/streak" element={<StreakPage user={user} />} />
+                        <Route path="/clock" element={<ClockPage user={user} />} />
                     </TransitionManager>
                 </MemoryRouter>
             );
