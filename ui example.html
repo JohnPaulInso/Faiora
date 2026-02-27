@@ -1,0 +1,243 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Faiora - Fiery Reminder Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f97316",
+                        "primary-dark": "#ea580c",
+                        "burnt-orange": "#7c2d12",
+                        "charcoal": "#0a0a0a",
+                        "cream-light": "#fff7ed",
+                        "pastel-orange": "#ffedd5",
+                        "pastel-peach": "#fed7aa",
+                        "pastel-amber": "#fef3c7",
+                        "pastel-yellow": "#fef9c3",
+                    },
+                    fontFamily: {
+                        "display": ["Newsreader", "serif"],
+                        "sans": ["Inter", "system-ui", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "3xl": "2rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        .dark-gradient-bg {
+            background: linear-gradient(180deg, #7c2d12 0%, #111827 40%, #0a0a0a 100%);
+            background-attachment: fixed;
+        }
+        .card-glow {
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(253, 186, 116, 0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-glow:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6), 0 0 30px rgba(249, 115, 22, 0.2);
+            z-index: 10;
+        }
+        .glow-orange {
+            filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.6));
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .fab-shadow {
+            box-shadow: 0 15px 35px -5px rgba(249, 115, 22, 0.4);
+        }
+        .sticky-note-1 { transform: rotate(-1.5deg); }
+        .sticky-note-2 { transform: rotate(1.2deg); }
+        .sticky-note-3 { transform: rotate(-0.8deg); }
+        .sticky-note-4 { transform: rotate(2deg); }
+        .sticky-note-5 { transform: rotate(-1.2deg); }
+        .sticky-note-add { transform: rotate(0.5deg); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="dark-gradient-bg font-display text-slate-100 min-h-screen selection:bg-primary/30">
+<div class="flex h-screen overflow-hidden">
+<aside class="w-20 md:w-24 border-r border-white/5 flex flex-col items-center py-10 gap-10 bg-black/40 backdrop-blur-xl z-20">
+<div class="text-primary mb-6">
+<span class="material-symbols-outlined text-4xl font-light glow-orange" style="font-variation-settings: &quot;FILL&quot; 1;">local_fire_department</span>
+</div>
+<nav class="flex flex-col gap-8">
+<a class="group relative p-3 rounded-2xl bg-primary/10 text-primary transition-all duration-300" href="#" title="Tasks" style="">
+<span class="material-symbols-outlined text-3xl" style="">check_box</span>
+<span class="absolute left-full ml-4 px-2 py-1 bg-charcoal text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap" style="">Tasks</span>
+</a>
+<a class="group relative p-3 rounded-2xl text-slate-500 hover:text-primary transition-all duration-300" href="#" title="Menu" style="">
+<span class="material-symbols-outlined text-3xl" style="">grid_view</span>
+</a>
+<a class="group relative p-3 rounded-2xl text-slate-500 hover:text-primary transition-all duration-300" href="#" title="Calendar" style="">
+<span class="material-symbols-outlined text-3xl" style="">calendar_month</span>
+</a>
+<a class="group relative p-3 rounded-2xl text-slate-500 hover:text-primary transition-all duration-300" href="#" title="Graph" style="">
+<span class="material-symbols-outlined text-3xl" style="">leaderboard</span>
+</a>
+<a class="group relative p-3 rounded-2xl text-primary glow-orange" href="#" title="Flame" style="">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: &quot;FILL&quot; 1;">local_fire_department</span>
+</a>
+<a class="group relative p-3 rounded-2xl text-slate-500 hover:text-primary transition-all duration-300" href="#" title="Clock" style="">
+<span class="material-symbols-outlined text-3xl" style="">history</span>
+</a>
+</nav>
+</aside>
+<main class="flex-1 flex flex-col overflow-y-auto no-scrollbar relative">
+<div class="max-w-7xl mx-auto w-full px-8 md:px-16 py-12">
+<header class="flex justify-between items-start mb-16">
+<div class="flex items-center gap-4">
+<div>
+<h1 class="text-7xl font-bold tracking-tight text-cream-light italic leading-none" style="">Faiora</h1>
+<p class="text-primary/70 text-sm mt-3 uppercase tracking-[0.4em] font-sans font-semibold" style="">Digital Planner</p>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="text-cream-light/40 hover:text-cream-light transition-colors" style="">
+<span class="material-symbols-outlined text-2xl" style="">search</span>
+</button>
+<div class="w-12 h-12 rounded-full overflow-hidden border border-white/10 ring-4 ring-black/20">
+<img alt="User Profile" class="w-full h-full object-cover bg-primary/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDcGtyXRnxupAp3cn2c_dCgdjy3dpoL-qsf7SOvMP4qI2xcKbYF2O1pvTQCGvz_LLVBOS7jyqRDEiJqSqETkoO4YZGFt_Uq6R0OYjIOzGaedCzjnud7WhGABNgkl6nL3bCtR0_-evoyfdeuxSulgvWkFvPvKVqAqYJriUwCUqBzfzVraknrNcTJm3aa-u-v49B2v_P-rgzRX8j5cZrE24K_piGyJ5H8-pLonf7eSuUpcjL8KAOnHZkxmcQDZUm_yMkhh7IceYKzVWo" style="">
+</div>
+</div>
+</header>
+<section class="mb-12">
+<div class="flex items-center gap-4">
+<h2 class="text-2xl font-bold text-cream-light/90 uppercase tracking-[0.3em]" style="">TO-DO LIST</h2>
+<div class="h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
+</div>
+</section>
+<section class="grid grid-cols-2 lg:grid-cols-6 gap-6 mb-20 px-2">
+<div class="card-glow sticky-note-1 aspect-square bg-orange-100/90 rounded-2xl p-6 flex flex-col justify-between border-b-4 border-orange-300/50 group cursor-pointer relative overflow-hidden">
+<div class="flex justify-start">
+<span class="material-symbols-outlined text-orange-600/60 text-xl" style="">push_pin</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-[0.6rem] font-sans font-bold text-orange-900/30 uppercase tracking-[0.2em]" style="">Priority</p>
+<p class="text-xl font-bold text-orange-950/80 tracking-tight" style="">3A</p>
+</div>
+</div>
+<div class="card-glow sticky-note-2 aspect-square bg-amber-50/90 rounded-2xl p-6 flex flex-col justify-between border-b-4 border-amber-200/50 group cursor-pointer">
+<div class="flex justify-start">
+<span class="material-symbols-outlined text-amber-600/60 text-xl" style="">shopping_bag</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-[0.6rem] font-sans font-bold text-amber-900/30 uppercase tracking-[0.2em]" style="">Label</p>
+<p class="text-xl font-bold text-amber-950/80 tracking-tight" style="">Errands</p>
+</div>
+</div>
+<div class="card-glow sticky-note-3 aspect-square bg-orange-50/90 rounded-2xl p-6 flex flex-col justify-between border-b-4 border-orange-200/50 group cursor-pointer">
+<div class="flex justify-start">
+<span class="material-symbols-outlined text-orange-500/60 text-xl" style="">cleaning_services</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-[0.6rem] font-sans font-bold text-orange-900/30 uppercase tracking-[0.2em]" style="">Label</p>
+<p class="text-xl font-bold text-orange-950/80 tracking-tight" style="">Chores</p>
+</div>
+</div>
+<div class="card-glow sticky-note-4 aspect-square bg-pastel-peach/90 rounded-2xl p-6 flex flex-col justify-between border-b-4 border-orange-300/50 group cursor-pointer">
+<div class="flex justify-start">
+<span class="material-symbols-outlined text-orange-700/60 text-xl" style="">shopping_cart</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-[0.6rem] font-sans font-bold text-orange-900/30 uppercase tracking-[0.2em]" style="">Label</p>
+<p class="text-xl font-bold text-orange-950/80 tracking-tight" style="">Groceries</p>
+</div>
+</div>
+<div class="card-glow sticky-note-5 aspect-square bg-yellow-50/90 rounded-2xl p-6 flex flex-col justify-between border-b-4 border-yellow-200/50 group cursor-pointer">
+<div class="flex justify-start">
+<span class="material-symbols-outlined text-yellow-700/60 text-xl" style="">more_horiz</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-[0.6rem] font-sans font-bold text-yellow-900/30 uppercase tracking-[0.2em]" style="">Label</p>
+<p class="text-xl font-bold text-yellow-950/80 tracking-tight" style="">Others</p>
+</div>
+</div>
+<div class="sticky-note-add aspect-square border-2 border-dashed border-primary/40 rounded-2xl p-6 flex flex-col items-center justify-center group cursor-pointer hover:bg-primary/5 transition-colors">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3">
+<span class="material-symbols-outlined text-2xl" style="">add</span>
+</div>
+<p class="text-sm font-bold text-primary/80 uppercase tracking-widest text-center px-2" style="">Add New Reminder</p>
+</div>
+</section>
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-32">
+<div class="lg:col-span-2 space-y-6">
+<div class="glass-panel rounded-3xl p-8 flex items-center justify-between group hover:bg-white/5 transition-colors cursor-pointer">
+<div class="flex items-center gap-6">
+<div class="w-12 h-12 rounded-full border border-primary/40 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="">circle</span>
+</div>
+<div>
+<h4 class="text-xl text-cream-light font-medium" style="">Finalize project proposal</h4>
+<p class="text-cream-light/40 text-sm font-sans mt-1" style="">Due Today • Priority 3A</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-cream-light/20 group-hover:text-primary transition-colors" style="">chevron_right</span>
+</div>
+<div class="glass-panel rounded-3xl p-8 flex items-center justify-between group hover:bg-white/5 transition-colors cursor-pointer">
+<div class="flex items-center gap-6">
+<div class="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-cream-light/20">
+<span class="material-symbols-outlined" style="">circle</span>
+</div>
+<div>
+<h4 class="text-xl text-cream-light font-medium" style="">Weekly meal prep</h4>
+<p class="text-cream-light/40 text-sm font-sans mt-1" style="">Due Tomorrow • Chores</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-cream-light/20 group-hover:text-primary transition-colors" style="">chevron_right</span>
+</div>
+</div>
+<div class="glass-panel rounded-3xl p-10 flex flex-col items-center justify-center text-center space-y-6">
+<div class="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-2">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: &quot;FILL&quot; 1;">bolt</span>
+</div>
+<h3 class="text-2xl font-bold text-cream-light" style="">Quick Focus</h3>
+<p class="text-cream-light/60 font-sans leading-relaxed" style="">Start a 25-minute pomodoro session to breeze through your tasks.</p>
+<button class="w-full bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 py-4 rounded-2xl font-bold transition-all uppercase tracking-widest text-xs" style="">Start Session</button>
+</div>
+</section>
+</div>
+<button class="fixed bottom-12 right-12 w-20 h-20 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center fab-shadow transition-all duration-300 hover:scale-110 active:scale-95 z-50 group" style="">
+<span class="material-symbols-outlined text-4xl group-hover:rotate-90 transition-transform duration-300" style="">add</span>
+</button>
+</main>
+</div>
+<nav class="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-2xl border-t border-white/5 flex justify-around items-center py-5 md:hidden z-50">
+<a class="text-primary" href="#" style="">
+<span class="material-symbols-outlined text-3xl" style="">check_box</span>
+</a>
+<a class="text-slate-500" href="#" style="">
+<span class="material-symbols-outlined text-3xl" style="">grid_view</span>
+</a>
+<a class="text-primary glow-orange" href="#" style="">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: &quot;FILL&quot; 1;">local_fire_department</span>
+</a>
+<a class="text-slate-500" href="#" style="">
+<span class="material-symbols-outlined text-3xl" style="">leaderboard</span>
+</a>
+<a class="text-slate-500" href="#" style="">
+<span class="material-symbols-outlined text-3xl" style="">history</span>
+</a>
+</nav>
+
+</body></html>
