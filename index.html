@@ -417,7 +417,7 @@
         }
 
         .footer-action-btn {
-            padding: 10px;
+            padding: 6px;
             border-radius: 8px;
             color: rgba(0,0,0,0.6);
             transition: all 0.2s;
@@ -425,9 +425,32 @@
             align-items: center;
             justify-content: center;
         }
+        @media (min-width: 768px) {
+            .footer-action-btn {
+                padding: 10px;
+            }
+        }
         .footer-action-btn:hover {
             background: rgba(0,0,0,0.04);
             color: rgba(0,0,0,0.9);
+        }
+        /* Format popup: shrink buttons on mobile to fit 1 row */
+        @media (max-width: 767px) {
+            .format-popup-bar > div > button,
+            .format-popup-bar > div > div > button,
+            .format-popup-bar > div button:first-child {
+                width: 36px !important;
+                height: 36px !important;
+            }
+            .format-popup-bar .fmt-divider {
+                margin-left: 2px !important;
+                margin-right: 2px !important;
+                height: 18px !important;
+            }
+            .format-popup-bar {
+                padding: 4px !important;
+                gap: 0 !important;
+            }
         }
         /* Save Button */
         .save-pill-btn {
@@ -997,7 +1020,7 @@
     <script type="text/babel" data-presets="env,react">
         const { useState, useEffect, useRef, useMemo, useCallback } = React;
         const { createRoot } = ReactDOM;
-        const { MemoryRouter, Routes, Route, Link, useNavigate, useLocation } = ReactRouterDOM;
+        const { HashRouter, Routes, Route, Link, useNavigate, useLocation } = ReactRouterDOM;
 
         // --- Firebase Initialization ---
         const firebaseConfig = {
@@ -1397,10 +1420,19 @@
                 if (!user) return;
 
                 // 1. Optimistically update local state via prop handler
+                const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
                 const newNote = {
                     ...updatedNote,
                     id: noteId,
-                    updatedAt: new Date().toISOString()
+                    updatedAt: new Date().toISOString(),
+                    versions: {
+                        ...(editingNote?.versions || {}),
+                        [today]: {
+                            title: updatedNote.title,
+                            content: updatedNote.content,
+                            updatedAt: new Date().toISOString()
+                        }
+                    }
                 };
                 
                 if (onUpdateNote) {
@@ -1513,7 +1545,7 @@
                 setTimeout(() => {
                     if (shouldShowToast && showToast) showToast("Changes Saved");
                     onClose();
-                }, 180);
+                }, 230);
             };
 
             const handleClose = () => {
@@ -2343,10 +2375,10 @@
             var currentThemeClass = theme ? theme.themeClass : '';
 
             return (
-                <div className={"fixed inset-0 z-[110] flex items-center justify-center p-0 md:p-8 transition-all duration-200 " + (isClosing ? 'opacity-0 scale-95' : 'animate-in fade-in duration-500')}>
-                    <div className={"absolute inset-0 bg-black/70 backdrop-blur-2xl transition-opacity duration-200 hidden md:block " + (isClosing ? 'opacity-0' : '')} onClick={handleClose}></div>
+                <div className={"fixed inset-0 z-[110] flex items-center justify-center p-0 md:p-8 transition-all duration-300 " + (isClosing ? 'opacity-0 scale-95 pointer-events-none' : 'animate-in fade-in duration-500')}>
+                    <div className={"absolute inset-0 bg-black/70 backdrop-blur-2xl transition-opacity duration-300 hidden md:block " + (isClosing ? 'opacity-0' : '')} onClick={handleClose}></div>
                     
-                    <div className={"task-creator-modal w-full max-w-full md:max-w-4xl h-full md:h-[85vh] rounded-none md:rounded-[2rem] overflow-hidden flex flex-col relative z-10 shadow-2xl transition-all duration-200 ease-out " + (isClosing ? 'scale-95 opacity-0' : 'animate-in zoom-in-95 duration-500') + ' transition-colors duration-500 ' + currentThemeClass}>
+                    <div className={"task-creator-modal w-full max-w-full md:max-w-4xl h-full md:h-[85vh] rounded-none md:rounded-[2rem] overflow-hidden flex flex-col relative z-10 shadow-2xl transition-all duration-250 " + (isClosing ? 'opacity-0 scale-95 translate-y-20 md:translate-y-0 ease-in' : 'animate-in zoom-in-95 duration-500 ease-out') + ' transition-colors duration-500 ' + currentThemeClass}>
                         
                         {/* Top Progress Bar Slider */}
                         <div 
@@ -2378,14 +2410,14 @@
                                 </div>
                             )}
                             <div className="flex justify-between items-start mb-4 relative z-10">
-                                {/* Mobile: Back arrow */}
-                                <button 
-                                    onClick={handleClose}
-                                    className="md:hidden p-1.5 -ml-1 rounded-full text-slate-500 hover:text-slate-700 hover:bg-black/5 transition-all flex-shrink-0 mr-2 mt-1"
-                                >
-                                    <span className="material-symbols-outlined text-[22px]">arrow_back</span>
-                                </button>
                                 <div className="flex-1 flex flex-col gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={handleClose}
+                                            className="md:hidden flex items-center justify-center flex-shrink-0 text-slate-500 hover:text-slate-800 transition-colors p-1 -ml-1"
+                                        >
+                                            <span className="material-symbols-outlined text-[22px]">arrow_back</span>
+                                        </button>
                                     <input 
                                         type="text" 
                                         placeholder="Main title" 
@@ -2403,6 +2435,7 @@
                                             saveToFirestore({ title: formatted, content: (editorRef.current ? editorRef.current.innerHTML : content), progress, isPinned, noteTheme, noteIcon, labels, reminderDate, section: (editingNote ? editingNote.section : '') || '' });
                                         }}
                                     />
+                                    </div>
                                     <div className="flex flex-wrap items-center gap-2 px-0 md:px-4">
                                         {labels.map(label => (
                                             <span key={label} className="text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-2 py-1 rounded-md flex items-center gap-1 font-montserrat">
@@ -2427,7 +2460,6 @@
                                     >
                                         <span className="material-symbols-outlined text-[22px] md:text-[24px]" style={isPinned ? {fontVariationSettings: "'FILL' 1"} : {}}>push_pin</span>
                                     </button>
-                                    {/* Desktop only: X close button */}
                                     <button 
                                         onClick={handleClose}
                                         className="hidden md:block p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-black/5 transition-all"
@@ -2450,13 +2482,10 @@
                                     dangerouslySetInnerHTML={{ __html: initialContent }}
                                 />
                             </div>
-
                         </div>
-
-                        {/* Bottom Actions Toolbar */}
-                        <div className="task-creator-footer mt-auto flex flex-col md:flex-row md:items-center md:justify-between md:gap-4">
-                            {/* Row 1 (Mobile) / Main row (Desktop): flex-wrap layout to prevent clipping on mobile */}
-                            <div className="flex items-center flex-wrap gap-0.5 md:gap-1 flex-1 pb-0 md:pb-0">
+                        <div className="task-creator-footer mt-auto flex items-center justify-between p-1.5 md:p-3 bg-white/50 backdrop-blur-xl border-t border-black/5 relative z-[100] gap-1 md:gap-2 overflow-visible">
+                            {/* Left Side: Main Tools Group */}
+                            <div className="flex items-center gap-0 md:gap-1 flex-nowrap overflow-visible">
                                 {/* Nested Horizontal Formatting Dropdown */}
                                 <div className="relative flex-shrink-0">
                                     <button onClick={() => setActivePopup(activePopup === 'format' ? null : 'format')} className={"footer-action-btn h-[32px] w-[32px] flex items-center justify-center transition-all rounded-xl " + (activePopup === 'format' ? "bg-black/5 text-primary" : "text-primary hover:bg-black/5")} title="Formatting">
@@ -2464,20 +2493,16 @@
                                     </button>
                                     
                                     {activePopup === 'format' && (
-                                        <React.Fragment>
-                                            <div className="absolute bottom-full left-0 w-full h-8 bg-transparent"></div>
-                                            
-                                            {/* Main Horizontal Bar - positioning adjusted to avoid center-alignment clipping */}
-                                            <div className="absolute bottom-[calc(100%+8px)] left-0 bg-white rounded-2xl shadow-xl border border-black/5 flex items-center p-2.5 z-50 animate-in slide-in-from-bottom-2 duration-200">
+                                        <div className="format-popup-bar absolute bottom-[calc(100%+8px)] left-0 bg-white rounded-2xl shadow-xl border border-black/5 flex flex-nowrap items-center p-1.5 z-[150] animate-in slide-in-from-bottom-2 duration-200">
                                                 
                                                 {/* Style Sub-menu Trigger */}
                                                 <div className="relative group/styleSub">
-                                                    <button className="h-10 px-3 flex items-center gap-1.5 hover:bg-black/5 rounded-lg text-slate-600 transition-colors">
-                                                        <span className="text-xs font-bold tracking-tight uppercase font-montserrat">Style</span>
+                                                    <button className="w-10 h-10 flex items-center justify-center gap-1 hover:bg-black/5 rounded-lg text-slate-600 transition-colors">
+                                                        <span className="text-[11px] font-bold tracking-tight uppercase font-montserrat">H1</span>
                                                         <span className="material-symbols-outlined text-sm">arrow_drop_up</span>
                                                     </button>
                                                     {/* Style Horizontal Bar */}
-                                                    <div className="absolute bottom-full left-0 mb-2 bg-white rounded-lg shadow-lg border border-black/5 hidden group-hover/styleSub:flex items-center p-1.5 z-[60] animate-in slide-in-from-bottom-1 duration-200">
+                                                    <div className="absolute bottom-full left-0 mb-2 bg-white rounded-lg shadow-lg border border-black/5 hidden group-hover/styleSub:flex items-center p-1.5 z-[160] animate-in slide-in-from-bottom-1 duration-200">
                                                         <button onMouseDown={(e) => { e.preventDefault(); convertActiveBlock('h1'); }} className="h-9 px-4 flex items-center hover:bg-black/5 rounded-md text-base font-bold text-slate-700 font-montserrat">H1</button>
                                                         <button onMouseDown={(e) => { e.preventDefault(); convertActiveBlock('h2'); }} className="h-9 px-4 flex items-center hover:bg-black/5 rounded-md text-sm font-bold text-slate-600 font-montserrat">H2</button>
                                                         <button onMouseDown={(e) => { e.preventDefault(); convertActiveBlock('normal'); }} className="h-9 px-4 flex items-center hover:bg-black/5 rounded-md text-sm text-slate-500 font-montserrat">Normal</button>
@@ -2486,12 +2511,12 @@
                                                     <div className="absolute bottom-full left-0 w-full h-4 bg-transparent"></div>
                                                 </div>
 
-                                                <div className="w-px h-7 bg-black/5 mx-1.5"></div>
+                                                <div className="fmt-divider w-px h-6 bg-black/5 mx-1"></div>
 
                                                 {/* Case Sub-menu Trigger */}
                                                 <div className="relative group/caseSub">
-                                                    <button className="h-10 px-3 flex items-center gap-1.5 hover:bg-black/5 rounded-lg text-slate-600 transition-colors">
-                                                        <span className="text-xs font-bold tracking-tight uppercase font-montserrat">Case</span>
+                                                    <button className="w-10 h-10 flex items-center justify-center gap-1 hover:bg-black/5 rounded-lg text-slate-600 transition-colors">
+                                                        <span className="text-[14px] font-bold tracking-tight font-montserrat">Aa</span>
                                                         <span className="material-symbols-outlined text-sm">arrow_drop_up</span>
                                                     </button>
                                                     {/* Case Horizontal Bar */}
@@ -2504,7 +2529,7 @@
                                                     <div className="absolute bottom-full left-0 w-full h-4 bg-transparent"></div>
                                                 </div>
 
-                                                <div className="w-px h-7 bg-black/5 mx-1.5"></div>
+                                                <div className="fmt-divider w-px h-6 bg-black/5 mx-1"></div>
 
                                                 {/* Basic Formatting Buttons */}
                                                 <div className="flex items-center">
@@ -2522,31 +2547,20 @@
                                                     </button>
                                                 </div>
 
-                                                <div className="w-px h-7 bg-black/5 mx-1.5"></div>
+                                                <div className="fmt-divider w-px h-6 bg-black/5 mx-1"></div>
 
-                                                {/* Alignment Buttons */}
-                                                <div className="flex items-center">
-                                                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('justifyLeft'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Align Left">
-                                                        <span className="material-symbols-outlined text-xl">format_align_left</span>
-                                                    </button>
-                                                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('justifyCenter'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Align Center">
-                                                        <span className="material-symbols-outlined text-xl">format_align_center</span>
-                                                    </button>
-                                                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('justifyRight'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Align Right">
-                                                        <span className="material-symbols-outlined text-xl">format_align_right</span>
-                                                    </button>
-                                                </div>
+                                                
 
 
 
                                                 <div className="relative group/highlightSub">
-                                                    <button className="h-10 px-3 flex items-center gap-1.5 hover:bg-black/5 rounded-lg text-slate-600 transition-colors">
+                                                    <button className="w-10 h-10 flex items-center justify-center gap-1 hover:bg-black/5 rounded-lg text-slate-600 transition-colors">
                                                         <span className="material-symbols-outlined text-xl">ink_highlighter</span>
                                                         <span className="material-symbols-outlined text-sm">arrow_drop_up</span>
                                                     </button>
-                                                    {/* Highlight Horizontal Bar (8x2 grid) */}
-                                                    <div className="absolute bottom-full left-0 mb-2 p-3 bg-white rounded-xl shadow-2xl border border-black/5 hidden group-hover/highlightSub:block z-[60] animate-in slide-in-from-bottom-1 duration-200">
-                                                        <div className="grid grid-cols-8 gap-2 w-max">
+                                                    {/* Highlight Horizontal Bar */}
+                                                    <div className="absolute bottom-full right-0 md:left-0 md:right-auto mb-2 p-3 bg-white rounded-xl shadow-2xl border border-black/5 hidden group-hover/highlightSub:block z-[160] animate-in slide-in-from-bottom-1 duration-200">
+                                                        <div className="grid grid-cols-5 md:grid-cols-8 gap-2">
                                                             <button 
                                                                 onMouseDown={(e) => { e.preventDefault(); toggleHighlight('transparent'); }}
                                                                 className="highlight-option flex items-center justify-center bg-white border-dashed"
@@ -2582,7 +2596,7 @@
                                                         <span className="material-symbols-outlined text-sm">arrow_drop_up</span>
                                                     </button>
                                                     {/* Divider Color Horizontal Bar */}
-                                                    <div className="absolute bottom-full left-0 mb-2 p-2 bg-white rounded-xl shadow-2xl border border-black/5 hidden group-hover/dividerSub:flex items-center gap-2 z-[60] animate-in slide-in-from-bottom-1 duration-200">
+                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 md:left-0 md:translate-x-0 mb-2 p-2 bg-white rounded-xl shadow-2xl border border-black/5 hidden group-hover/dividerSub:flex items-center gap-2 z-[160] animate-in slide-in-from-bottom-1 duration-200">
                                                         {['#ea580c', '#334155', '#64748b', '#94a3b8', '#cbd5e1'].map(color => (
                                                             <button 
                                                                 key={color}
@@ -2600,24 +2614,39 @@
                                                     {/* Bridge */}
                                                     <div className="absolute bottom-full left-0 w-full h-4 bg-transparent"></div>
                                                 </div>
-                                            </div>
-                                        </React.Fragment>
+                                        </div>
                                     )}
                                 </div>
                                 
 
 
-                                <button onClick={() => convertActiveBlock('todo')} className="footer-action-btn flex-shrink-0" title="Checklist">
-                                    <span className="material-symbols-outlined text-[22px]">checklist</span>
-                                </button>
-                                <button onClick={() => convertActiveBlock('bullet')} className="footer-action-btn flex-shrink-0" title="Bullets">
-                                    <span className="material-symbols-outlined text-[22px]">format_list_bulleted</span>
-                                </button>
-                                <button onClick={() => convertActiveBlock('number')} className="footer-action-btn flex-shrink-0" title="Numbers">
-                                    <span className="material-symbols-outlined text-[22px]">format_list_numbered</span>
-                                </button>
+                                {/* 2. Tools Dropdown (Overflow Menu) */}
+                                <div className="relative flex-shrink-0">
+                                    <button onClick={() => setActivePopup(activePopup === 'tools' ? null : 'tools')} className={"footer-action-btn flex items-center justify-center transition-all rounded-xl " + (activePopup === 'tools' ? "bg-black/5 text-primary" : "text-primary hover:bg-black/5")} title="More Tools">
+                                        <span className="material-symbols-outlined text-[24px]">menu</span>
+                                    </button>
+                                    {activePopup === 'tools' && (
+                                        <div className="absolute bottom-[calc(100%+8px)] left-0 md:left-0 md:translate-x-0 bg-white rounded-2xl shadow-xl border border-black/5 flex items-center p-1 z-[150] animate-in slide-in-from-bottom-2 duration-200">
+                                                 <div className="flex items-center px-1">
+                                                     <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('justifyLeft'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Align Left"><span className="material-symbols-outlined text-[20px]">format_align_left</span></button>
+                                                     <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('justifyCenter'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Align Center"><span className="material-symbols-outlined text-[20px]">format_align_center</span></button>
+                                                     <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('justifyRight'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Align Right"><span className="material-symbols-outlined text-[20px]">format_align_right</span></button>
+                                                 </div>
+                                                 <div className="w-px h-6 bg-black/5 mx-1"></div>
+                                                 <div className="flex items-center px-1">
+                                                     <button onClick={() => { convertActiveBlock('todo'); setActivePopup(null); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Checklist"><span className="material-symbols-outlined text-[20px]">checklist</span></button>
+                                                     <button onClick={() => { convertActiveBlock('bullet'); setActivePopup(null); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Bullets"><span className="material-symbols-outlined text-[20px]">format_list_bulleted</span></button>
+                                                     <button onClick={() => { convertActiveBlock('number'); setActivePopup(null); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Numbering"><span className="material-symbols-outlined text-[20px]">format_list_numbered</span></button>
+                                                 </div>
+                                                 <div className="w-px h-6 bg-black/5 mx-1"></div>
+                                                 <div className="flex items-center px-1">
+                                                     <button onClick={() => { fileInputRef.current.click(); setActivePopup(null); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Add Image"><span className="material-symbols-outlined text-[20px]">image</span></button>
+                                                 </div>
+                                             </div>
+                                    )}
+                                </div>
                                 
-                                <div className="footer-divider flex-shrink-0"></div>
+                                <div className="footer-divider flex-shrink-0 hidden md:block"></div>
 
                                 {/* Rest of Footer Icons */}
                                 <div className="relative flex-shrink-0">
@@ -2626,7 +2655,7 @@
                                         {reminderDate && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-white"></span>}
                                     </button>
                                     {activePopup === 'reminder' && (
-                                        <div className="absolute bottom-full mb-4 left-0 bg-white rounded-xl shadow-2xl border border-black/5 z-50 w-72 animate-in slide-in-from-bottom-2 duration-300 py-2">
+                                        <div className="absolute bottom-full mb-4 left-0 bg-white rounded-xl shadow-2xl border border-black/5 z-[150] w-72 animate-in slide-in-from-bottom-2 duration-300 py-2">
                                             {!showCustomReminder ? (
                                                 <div className="flex flex-col">
                                                     <div className="px-5 py-3 border-b border-black/5 mb-1">
@@ -2724,7 +2753,7 @@
                                         <span className="material-symbols-outlined text-[22px]">palette</span>
                                     </button>
                                     {activePopup === 'palette' && (
-                                        <div className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 md:left-0 md:translate-x-0 flex flex-wrap justify-center gap-1.5 p-3 bg-white rounded-xl shadow-2xl border border-black/5 z-50 max-w-[280px] md:max-w-none md:flex-nowrap">
+                                        <div className="absolute bottom-full mb-4 left-0 md:left-0 md:translate-x-0 grid grid-cols-6 gap-2 p-3 w-max bg-white rounded-2xl shadow-2xl border border-black/5 z-[150] animate-in slide-in-from-bottom-2 duration-200">
                                             {themes.map(t => (
                                                 <button 
                                                     key={t.id}
@@ -2736,22 +2765,19 @@
                                         </div>
                                     )}
                                 </div>
-                                    <button onClick={() => fileInputRef.current.click()} className="footer-action-btn flex-shrink-0" title="Add Image">
-                                        <span className="material-symbols-outlined text-[22px]">image</span>
-                                    </button>
-                                    <input 
-                                        type="file" 
-                                        ref={fileInputRef} 
-                                        className="hidden" 
-                                        accept="image/*" 
-                                        onChange={handleImageUpload}
-                                    />
+                                <input 
+                                    type="file" 
+                                    ref={fileInputRef} 
+                                    className="hidden" 
+                                    accept="image/*" 
+                                    onChange={handleImageUpload}
+                                />
                                 <div className="relative flex-shrink-0">
                                     <button onClick={() => setActivePopup(activePopup === 'icon' ? null : 'icon')} className={"footer-action-btn " + (activePopup === 'icon' ? "bg-black/5 text-primary" : "")} title="Choose Icon">
                                         <span className="material-symbols-outlined text-[22px]">add_reaction</span>
                                     </button>
                                     {activePopup === 'icon' && (
-                                        <div className="absolute bottom-full mb-4 -left-2 flex flex-col p-3 bg-white rounded-2xl shadow-2xl border border-black/5 z-[120] w-64 animate-in slide-in-from-bottom-2 duration-200">
+                                        <div className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 md:left-0 md:translate-x-0 flex flex-col p-3 bg-white rounded-2xl shadow-2xl border border-black/5 z-[120] w-72 md:w-80 animate-in slide-in-from-bottom-2 duration-200">
                                             <div className="search-bar-container">
                                                 <span className="material-symbols-outlined text-slate-400 text-lg">search</span>
                                                 <input 
@@ -2790,263 +2816,138 @@
                                         </div>
                                     )}
                                 </div>
-                                <div className="relative flex-shrink-0 hidden md:block">
+                            </div>
+                            {/* Right Side: Undo, Redo, More */}
+                             <div className="flex items-center gap-1 md:gap-2">
+                                 <button onClick={undo} disabled={historyIndex <= 0} className="footer-action-btn flex-shrink-0 disabled:opacity-20" title="Undo">
+                                     <span className="material-symbols-outlined text-[22px]">undo</span>
+                                 </button>
+                                 <button onClick={redo} disabled={historyIndex >= history.length - 1} className="footer-action-btn flex-shrink-0 disabled:opacity-20" title="Redo">
+                                     <span className="material-symbols-outlined text-[22px]">redo</span>
+                                 </button>
+                                 <div className="relative flex-shrink-0">
                                      <button onClick={(e) => { e.stopPropagation(); setActivePopup(activePopup === 'more' ? null : 'more'); }} className={"footer-action-btn " + (activePopup === 'more' ? "bg-black/5 text-primary" : "")} title="More Options">
                                          <span className="material-symbols-outlined text-[22px]">more_vert</span>
                                      </button>
-                                    {activePopup === 'more' && (
-                                        <div className="more-menu-dropdown z-[120] animate-in slide-in-from-bottom-2 duration-200">
-                                            <button onClick={() => { setActivePopup('labels'); }} className="menu-item font-montserrat">
-                                                <span className="material-symbols-outlined text-lg">label</span>
-                                                Add Label
-                                            </button>
-                                            <button onClick={() => { 
-                                                if(confirm("Duplicate this note?")) {
-                                                    alert("Note duplicated (Simulated)");
-                                                    setActivePopup(null);
-                                                }
-                                            }} className="menu-item font-montserrat">
-                                                <span className="material-symbols-outlined text-lg">content_copy</span>
-                                                Duplicate Note
-                                            </button>
-                                            <button onClick={() => { setActivePopup('history'); }} className="menu-item font-montserrat">
-                                                <span className="material-symbols-outlined text-lg">history</span>
-                                                Version History
-                                            </button>
-                                            <div className="h-px bg-slate-100 my-1"></div>
-                                            <button 
-                                                onClick={handleDeleteNote}
-                                                className="menu-item danger font-montserrat"
-                                            >
-                                                <span className="material-symbols-outlined text-lg">delete</span>
-                                                Delete Note
-                                            </button>
-                                        </div>
-                                    )}
-                                    {activePopup === 'labels' && (
-                                        <div className="more-menu-dropdown z-[120] w-56 animate-in scale-95 duration-200">
-                                            <div className="flex items-center gap-2 mb-3 p-1">
-                                                <button onClick={() => setActivePopup('more')} className="p-1 hover:bg-slate-100 rounded-full">
-                                                    <span className="material-symbols-outlined text-sm">arrow_back</span>
-                                                </button>
-                                                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Add Label</span>
-                                            </div>
-                                            <div className="flex flex-col gap-1 mb-2 max-h-40 overflow-y-auto no-scrollbar">
-                                                {["PRIORITY", "PERSONAL", "WORK", "URGENT", "STRATEGY"].map(l => (
-                                                    <button key={l} onClick={() => { 
-                                                        const newLabels = labels.includes(l) ? labels.filter(x => x !== l) : [...labels, l];
-                                                        setLabels(newLabels); 
-                                                        setActivePopup(null); 
-                                                        setHasChanges(true); 
-                                                        saveToFirestore({ title, content: (editorRef.current ? editorRef.current.innerHTML : content), progress, isPinned, noteTheme, noteIcon, labels: newLabels, reminderDate, section: (editingNote ? editingNote.section : '') || '' });
-                                                    }} className="menu-item !py-2 justify-between font-montserrat">
-                                                        <span>{l}</span>
-                                                        {labels.includes(l) && <span className="material-symbols-outlined text-primary text-sm">check</span>}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            <div className="h-px bg-slate-100 my-1"></div>
-                                            <div className="flex gap-1 p-1">
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Custom label..." 
-                                                    className="flex-1 bg-slate-50 border-none rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30 font-montserrat"
-                                                    value={newLabelText}
-                                                    onChange={e => setNewLabelText(e.target.value)}
-                                                    onKeyDown={e => {
-                                                        if(e.key === 'Enter' && newLabelText.trim()) {
-                                                            const cleanLabel = newLabelText.trim().toUpperCase();
-                                                            const newLabels = labels.includes(cleanLabel) ? labels : [...labels, cleanLabel];
-                                                            setLabels(newLabels);
-                                                            setNewLabelText("");
-                                                            setActivePopup(null);
-                                                            setHasChanges(true);
-                                                            saveToFirestore({ title, content: (editorRef.current ? editorRef.current.innerHTML : content), progress, isPinned, noteTheme, noteIcon, labels: newLabels, reminderDate, section: (editingNote ? editingNote.section : '') || '' });
-                                                        }
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                    {activePopup === 'history' && (
-                                        <div className="more-menu-dropdown z-[120] w-72 p-0 overflow-hidden animate-in slide-in-from-bottom-2 duration-200">
-                                            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                                                <div className="flex items-center gap-2">
-                                                    <button onClick={() => setActivePopup('more')} className="p-1 hover:bg-slate-200 rounded-full">
-                                                        <span className="material-symbols-outlined text-sm">arrow_back</span>
-                                                    </button>
-                                                    <span className="text-sm font-bold text-slate-800 font-montserrat tracking-tight">Version history</span>
-                                                </div>
-                                                <button onClick={() => setActivePopup(null)} className="text-slate-400 hover:text-slate-600">
-                                                    <span className="material-symbols-outlined text-lg">close</span>
-                                                </button>
-                                            </div>
-                                            <div className="max-h-64 overflow-y-auto no-scrollbar p-1">
-                                                {[
-                                                    { date: 'Feb 27, 11:27 AM', user: 'You', current: true },
-                                                    { date: 'Feb 26, 1:38 PM', user: 'You' },
-                                                    { date: 'Nov 15, 2025, 8:15 AM', user: 'You' }
-                                                ].map((v, i) => (
-                                                    <div key={i} className="p-3 hover:bg-slate-50 rounded-xl flex items-center justify-between group">
-                                                        <div className="flex flex-col">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="material-symbols-outlined text-slate-400 text-sm">article</span>
-                                                                <span className="text-xs font-bold text-slate-700">{v.date}</span>
-                                                            </div>
-                                                            <span className="text-[10px] text-slate-400 ml-6 uppercase tracking-wider font-bold">{v.current ? 'Current Version' : v.user}</span>
-                                                        </div>
-                                                        <button className="text-xs font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity">Download</button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div className="p-3 bg-slate-50 flex justify-end">
-                                                <button onClick={() => setActivePopup(null)} className="text-xs font-bold text-slate-800 hover:text-primary">Dismiss</button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                                {/* Desktop only: divider + undo/redo inline */}
-                                <div className="hidden md:flex items-center gap-0.5">
-                                    <div className="footer-divider flex-shrink-0"></div>
-                                    <button onClick={undo} disabled={historyIndex <= 0} className="footer-action-btn flex-shrink-0 disabled:opacity-20" title="Undo">
-                                        <span className="material-symbols-outlined text-[22px]">undo</span>
-                                    </button>
-                                    <button onClick={redo} disabled={historyIndex >= history.length - 1} className="footer-action-btn flex-shrink-0 disabled:opacity-20" title="Redo">
-                                        <span className="material-symbols-outlined text-[22px]">redo</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Row 2 (Mobile only): Undo/Redo/More pinned right */}
-                            <div className="md:hidden flex items-center justify-end gap-1 border-t border-black/5 pt-1.5 -mx-1">
-                                <button onClick={undo} disabled={historyIndex <= 0} className="footer-action-btn flex-shrink-0 disabled:opacity-20" title="Undo">
-                                    <span className="material-symbols-outlined text-[20px]">undo</span>
-                                </button>
-                                <button onClick={redo} disabled={historyIndex >= history.length - 1} className="footer-action-btn flex-shrink-0 disabled:opacity-20" title="Redo">
-                                    <span className="material-symbols-outlined text-[20px]">redo</span>
-                                </button>
-                                <div className="relative flex-shrink-0">
-                                     <button onClick={(e) => { e.stopPropagation(); setActivePopup(activePopup === 'more' ? null : 'more'); }} className={"footer-action-btn " + (activePopup === 'more' ? "bg-black/5 text-primary" : "")} title="More Options">
-                                         <span className="material-symbols-outlined text-[20px]">more_vert</span>
-                                     </button>
-                                    {activePopup === 'more' && (
-                                        <div className="more-menu-dropdown z-[120] animate-in slide-in-from-bottom-2 duration-200">
-                                            <button onClick={() => { setActivePopup('labels'); }} className="menu-item font-montserrat">
-                                                <span className="material-symbols-outlined text-lg">label</span>
-                                                Add Label
-                                            </button>
-                                            <button onClick={() => { 
-                                                if(confirm("Duplicate this note?")) {
-                                                    alert("Note duplicated (Simulated)");
-                                                    setActivePopup(null);
-                                                }
-                                            }} className="menu-item font-montserrat">
-                                                <span className="material-symbols-outlined text-lg">content_copy</span>
-                                                Duplicate Note
-                                            </button>
-                                            <button onClick={() => { setActivePopup('history'); }} className="menu-item font-montserrat">
-                                                <span className="material-symbols-outlined text-lg">history</span>
-                                                Version History
-                                            </button>
-                                            <div className="h-px bg-slate-100 my-1"></div>
-                                            <button 
-                                                onClick={handleDeleteNote}
-                                                className="menu-item danger font-montserrat"
-                                            >
-                                                <span className="material-symbols-outlined text-lg">delete</span>
-                                                Delete Note
-                                            </button>
-                                        </div>
-                                    )}
-                                    {activePopup === 'labels' && (
-                                        <div className="more-menu-dropdown z-[120] w-56 animate-in scale-95 duration-200">
-                                            <div className="flex items-center gap-2 mb-3 p-1">
-                                                <button onClick={() => setActivePopup('more')} className="p-1 hover:bg-slate-100 rounded-full">
-                                                    <span className="material-symbols-outlined text-sm">arrow_back</span>
-                                                </button>
-                                                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Add Label</span>
-                                            </div>
-                                            <div className="flex flex-col gap-1 mb-2 max-h-40 overflow-y-auto no-scrollbar">
-                                                {["PRIORITY", "PERSONAL", "WORK", "URGENT", "STRATEGY"].map(l => (
-                                                    <button key={l} onClick={() => { 
-                                                        const newLabels = labels.includes(l) ? labels.filter(x => x !== l) : [...labels, l];
-                                                        setLabels(newLabels); 
-                                                        setActivePopup(null); 
-                                                        setHasChanges(true); 
-                                                        saveToFirestore({ title, content: (editorRef.current ? editorRef.current.innerHTML : content), progress, isPinned, noteTheme, noteIcon, labels: newLabels, reminderDate, section: (editingNote ? editingNote.section : '') || '' });
-                                                    }} className="menu-item !py-2 justify-between font-montserrat">
-                                                        <span>{l}</span>
-                                                        {labels.includes(l) && <span className="material-symbols-outlined text-primary text-sm">check</span>}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            <div className="h-px bg-slate-100 my-1"></div>
-                                            <div className="flex gap-1 p-1">
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Custom label..." 
-                                                    className="flex-1 bg-slate-50 border-none rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30 font-montserrat"
-                                                    value={newLabelText}
-                                                    onChange={e => setNewLabelText(e.target.value)}
-                                                    onKeyDown={e => {
-                                                        if(e.key === 'Enter' && newLabelText.trim()) {
-                                                            const cleanLabel = newLabelText.trim().toUpperCase();
-                                                            const newLabels = labels.includes(cleanLabel) ? labels : [...labels, cleanLabel];
-                                                            setLabels(newLabels);
-                                                            setNewLabelText("");
-                                                            setActivePopup(null);
-                                                            setHasChanges(true);
-                                                            saveToFirestore({ title, content: (editorRef.current ? editorRef.current.innerHTML : content), progress, isPinned, noteTheme, noteIcon, labels: newLabels, reminderDate, section: (editingNote ? editingNote.section : '') || '' });
-                                                        }
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                    {activePopup === 'history' && (
-                                        <div className="more-menu-dropdown z-[120] w-72 p-0 overflow-hidden animate-in slide-in-from-bottom-2 duration-200">
-                                            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                                                <div className="flex items-center gap-2">
-                                                    <button onClick={() => setActivePopup('more')} className="p-1 hover:bg-slate-200 rounded-full">
-                                                        <span className="material-symbols-outlined text-sm">arrow_back</span>
-                                                    </button>
-                                                    <span className="text-sm font-bold text-slate-800 font-montserrat tracking-tight">Version history</span>
-                                                </div>
-                                                <button onClick={() => setActivePopup(null)} className="text-slate-400 hover:text-slate-600">
-                                                    <span className="material-symbols-outlined text-lg">close</span>
-                                                </button>
-                                            </div>
-                                            <div className="max-h-64 overflow-y-auto no-scrollbar p-1">
-                                                {[
-                                                    { date: 'Feb 27, 11:27 AM', user: 'You', current: true },
-                                                    { date: 'Feb 26, 1:38 PM', user: 'You' },
-                                                    { date: 'Nov 15, 2025, 8:15 AM', user: 'You' }
-                                                ].map((v, i) => (
-                                                    <div key={i} className="p-3 hover:bg-slate-50 rounded-xl flex items-center justify-between group">
-                                                        <div className="flex flex-col">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="material-symbols-outlined text-slate-400 text-sm">article</span>
-                                                                <span className="text-xs font-bold text-slate-700">{v.date}</span>
-                                                            </div>
-                                                            <span className="text-[10px] text-slate-400 ml-6 uppercase tracking-wider font-bold">{v.current ? 'Current Version' : v.user}</span>
-                                                        </div>
-                                                        <button className="text-xs font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity">Download</button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div className="p-3 bg-slate-50 flex justify-end">
-                                                <button onClick={() => setActivePopup(null)} className="text-xs font-bold text-slate-800 hover:text-primary">Dismiss</button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-3">
-                                {/* Auto-save status could go here if we wanted a small indicator, but the toast handles it well */}
-                            </div>
-                        </div>
-                    </div>
+                                     {activePopup === 'more' && (
+                                         <div className="more-menu-dropdown z-[120] animate-in slide-in-from-bottom-2 duration-200">
+                                             <button onClick={() => { setActivePopup('labels'); }} className="menu-item font-montserrat">
+                                                 <span className="material-symbols-outlined text-lg">label</span>
+                                                 Add Label
+                                             </button>
+                                             <button onClick={() => { 
+                                                 if(confirm("Duplicate this note?")) {
+                                                     alert("Note duplicated (Simulated)");
+                                                     setActivePopup(null);
+                                                 }
+                                             }} className="menu-item font-montserrat">
+                                                 <span className="material-symbols-outlined text-lg">content_copy</span>
+                                                 Duplicate Note
+                                             </button>
+                                             <button onClick={() => { setActivePopup('history'); }} className="menu-item font-montserrat">
+                                                 <span className="material-symbols-outlined text-lg">history</span>
+                                                 Version History
+                                             </button>
+                                             <div className="h-px bg-slate-100 my-1"></div>
+                                             <button 
+                                                 onClick={handleDeleteNote}
+                                                 className="menu-item danger font-montserrat"
+                                             >
+                                                 <span className="material-symbols-outlined text-lg">delete</span>
+                                                 Delete Note
+                                             </button>
+                                         </div>
+                                     )}
+                                     {activePopup === 'labels' && (
+                                         <div className="more-menu-dropdown z-[120] w-56 animate-in scale-95 duration-200">
+                                             <div className="flex items-center gap-2 mb-3 p-1">
+                                                 <button onClick={() => setActivePopup('more')} className="p-1 hover:bg-slate-100 rounded-full">
+                                                     <span className="material-symbols-outlined text-sm">arrow_back</span>
+                                                 </button>
+                                                 <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Add Label</span>
+                                             </div>
+                                             <div className="flex flex-col gap-1 mb-2 max-h-40 overflow-y-auto no-scrollbar">
+                                                 {["PRIORITY", "PERSONAL", "WORK", "URGENT", "STRATEGY"].map(l => (
+                                                     <button key={l} onClick={() => { 
+                                                         const newLabels = labels.includes(l) ? labels.filter(x => x !== l) : [...labels, l];
+                                                         setLabels(newLabels); 
+                                                         setActivePopup(null); 
+                                                         setHasChanges(true); 
+                                                         saveToFirestore({ title, content: (editorRef.current ? editorRef.current.innerHTML : content), progress, isPinned, noteTheme, noteIcon, labels: newLabels, reminderDate, section: (editingNote ? editingNote.section : '') || '' });
+                                                     }} className="menu-item !py-2 justify-between font-montserrat">
+                                                         <span>{l}</span>
+                                                         {labels.includes(l) && <span className="material-symbols-outlined text-primary text-sm">check</span>}
+                                                     </button>
+                                                 ))}
+                                             </div>
+                                             <div className="h-px bg-slate-100 my-1"></div>
+                                             <div className="flex gap-1 p-1">
+                                                 <input 
+                                                     type="text" 
+                                                     placeholder="Custom label..." 
+                                                     className="flex-1 bg-slate-50 border-none rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30 font-montserrat"
+                                                     value={newLabelText}
+                                                     onChange={e => setNewLabelText(e.target.value)}
+                                                     onKeyDown={e => {
+                                                         if(e.key === 'Enter' && newLabelText.trim()) {
+                                                             const cleanLabel = newLabelText.trim().toUpperCase();
+                                                             const newLabels = labels.includes(cleanLabel) ? labels : [...labels, cleanLabel];
+                                                             setLabels(newLabels);
+                                                             setNewLabelText("");
+                                                             setActivePopup(null);
+                                                             setHasChanges(true);
+                                                             saveToFirestore({ title, content: (editorRef.current ? editorRef.current.innerHTML : content), progress, isPinned, noteTheme, noteIcon, labels: newLabels, reminderDate, section: (editingNote ? editingNote.section : '') || '' });
+                                                         }
+                                                     }}
+                                                 />
+                                             </div>
+                                         </div>
+                                     )}
+                                     {activePopup === 'history' && (
+                                         <div className="more-menu-dropdown z-[120] w-72 p-0 overflow-hidden animate-in slide-in-from-bottom-2 duration-200">
+                                             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                                                 <div className="flex items-center gap-2">
+                                                     <button onClick={() => setActivePopup('more')} className="p-1 hover:bg-slate-200 rounded-full">
+                                                         <span className="material-symbols-outlined text-sm">arrow_back</span>
+                                                     </button>
+                                                     <span className="text-sm font-bold text-slate-800 font-montserrat tracking-tight">Version history</span>
+                                                 </div>
+                                                 <button onClick={() => setActivePopup(null)} className="text-slate-400 hover:text-slate-600">
+                                                     <span className="material-symbols-outlined text-lg">close</span>
+                                                 </button>
+                                             </div>
+                                             <div className="max-h-64 overflow-y-auto no-scrollbar p-1">
+                                                  {Object.entries(editingNote?.versions || {}).sort((a,b) => b[0].localeCompare(a[0])).map(([dayId, version]) => (
+                                                      <div key={dayId} className="p-3 hover:bg-slate-50 rounded-xl flex items-center justify-between group">
+                                                          <div className="flex flex-col">
+                                                              <div className="flex items-center gap-2">
+                                                                  <span className="material-symbols-outlined text-slate-400 text-sm">event</span>
+                                                                  <span className="text-xs font-bold text-slate-700">{dayId}</span>
+                                                              </div>
+                                                              <span className="text-[10px] text-slate-400 ml-6 uppercase tracking-wider font-bold">Daily Snapshot</span>
+                                                          </div>
+                                                          <button 
+                                                              onClick={() => {
+                                                                  const blob = new Blob([version.content.replace(/<[^>]*>/g, '')], { type: 'text/plain' });
+                                                                  const url = URL.createObjectURL(blob);
+                                                                  const a = document.createElement('a');
+                                                                  a.href = url;
+                                                                  a.download = (version.title || 'Note') + '_' + dayId + '.txt';
+                                                                  a.click();
+                                                              }}
+                                                              className="text-xs font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                                                          >Download</button>
+                                                      </div>
+                                                  ))}
+                                             </div>
+                                             <div className="p-3 bg-slate-50 flex justify-end">
+                                                  <button onClick={() => setActivePopup(null)} className="text-xs font-bold text-slate-800 hover:text-primary">Dismiss</button>
+                                             </div>
+                                         </div>
+                                     )}
+                                 </div>
+                             </div>
+                         </div>
                     {showConfirm.show && (
                         <ConfirmationModal 
                             title={showConfirm.title}
@@ -3067,6 +2968,7 @@
                         />
                     )}
                 </div>
+            </div>
             );
         };
         const LoginModal = () => {
@@ -3207,7 +3109,7 @@
             ).join(' ');
         };
 
-        const NoteCard = ({ note, onClick, index, variant = 'full', onRemoveReminder }) => {
+        const NoteCard = ({ note, onClick, index, variant = 'full', onRemoveReminder, isSelected = false }) => {
             const theme = getThemeClasses(note.noteTheme);
             const preview = stripHtml(note.content);
 
@@ -3234,7 +3136,8 @@
             return (
                 <div 
                     onClick={onClick}
-                    className={`card-glow sticky-note-${(index % 5) + 1} ${isCompact ? 'rounded-2xl p-5 h-[140px]' : 'rounded-3xl p-6 h-[220px]'} flex flex-col border-b-4 group cursor-pointer relative overflow-hidden font-montserrat ${theme.bg} ${theme.border}`}
+                    className={`card-glow sticky-note-${(index % 5) + 1} ${isCompact ? 'rounded-2xl p-5 h-[140px]' : 'rounded-3xl p-6 h-[220px]'} flex flex-col border-b-4 group cursor-pointer relative overflow-hidden font-montserrat ${theme.bg} ${theme.border} ${isSelected ? 'scale-[0.97]' : ''}`}
+                    style={isSelected ? { boxShadow: '0 0 0 3px #f97316, 0 0 20px rgba(249, 115, 22, 0.3)', transition: 'all 0.3s ease' } : {}}
                 >
                     <div className="absolute top-4 right-4 text-right">
                         <span className={`material-symbols-outlined text-xl ${theme.icon} transition-opacity`} style={note.isPinned ? {fontVariationSettings: "'FILL' 1"} : {}}>{note.noteIcon || 'push_pin'}</span>
@@ -3270,6 +3173,11 @@
                         )}
                         </div>
                     </div>
+                    {isSelected && (
+                        <div className="absolute top-3 left-3 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-lg z-10 animate-in zoom-in-50 duration-200">
+                            <span className="material-symbols-outlined text-white text-sm font-bold">check</span>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -3320,6 +3228,11 @@
             const startLongPress = (noteId, e, cardEl) => {
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                
+                // Save initial position to check for scroll movement
+                cardEl._startX = clientX;
+                cardEl._startY = clientY;
+
                 longPressTimer.current = setTimeout(() => {
                     if (navigator.vibrate) try { navigator.vibrate(50); } catch(err) {}
                     const rect = cardEl.getBoundingClientRect();
@@ -3358,34 +3271,40 @@
                     const onMove = (moveE) => {
                         const s = dragRef.current;
                         if (!s) return;
-                        if (moveE.cancelable) moveE.preventDefault();
+                        // ONLY prevent default if we've actually moved enough to be "dragging"
                         const mx = moveE.touches ? moveE.touches[0].clientX : moveE.clientX;
                         const my = moveE.touches ? moveE.touches[0].clientY : moveE.clientY;
-                        if (!s.didMove && (Math.abs(mx - s.startX) > 5 || Math.abs(my - s.startY) > 5)) s.didMove = true;
-                        if (!s.didMove) return;
-                        s.cloneEl.style.left = (mx - s.offsetX) + 'px';
-                        s.cloneEl.style.top = (my - s.offsetY) + 'px';
+                        
+                        if (!s.didMove && (Math.abs(mx - s.startX) > 10 || Math.abs(my - s.startY) > 10)) {
+                             s.didMove = true;
+                        }
 
-                        let hoveredNoteId = null;
-                        document.querySelectorAll('[data-priority-note-id]').forEach(el => {
-                            const nid = el.getAttribute('data-priority-note-id');
-                            if (nid === s.noteId) return;
-                            const r = el.getBoundingClientRect();
-                            const centerX = r.left + r.width / 2;
-                            const centerY = r.top + r.height / 2;
-                            if (Math.abs(mx - centerX) < 80 && Math.abs(my - centerY) < 80) hoveredNoteId = nid;
-                        });
+                        if (s.didMove) {
+                            if (moveE.cancelable) moveE.preventDefault();
+                            s.cloneEl.style.left = (mx - s.offsetX) + 'px';
+                            s.cloneEl.style.top = (my - s.offsetY) + 'px';
 
-                        if (hoveredNoteId) {
-                            setLocalNotes(prev => {
-                                const sourceIdx = prev.findIndex(n => n.id === s.noteId);
-                                const targetIdx = prev.findIndex(n => n.id === hoveredNoteId);
-                                if (sourceIdx === -1 || targetIdx === -1) return prev;
-                                const newNotes = [...prev];
-                                const [removed] = newNotes.splice(sourceIdx, 1);
-                                newNotes.splice(targetIdx, 0, removed);
-                                return newNotes;
+                            let hoveredNoteId = null;
+                            document.querySelectorAll('[data-priority-note-id]').forEach(el => {
+                                const nid = el.getAttribute('data-priority-note-id');
+                                if (nid === s.noteId) return;
+                                const r = el.getBoundingClientRect();
+                                const centerX = r.left + r.width / 2;
+                                const centerY = r.top + r.height / 2;
+                                if (Math.abs(mx - centerX) < 80 && Math.abs(my - centerY) < 80) hoveredNoteId = nid;
                             });
+
+                            if (hoveredNoteId) {
+                                setLocalNotes(prev => {
+                                    const sourceIdx = prev.findIndex(n => n.id === s.noteId);
+                                    const targetIdx = prev.findIndex(n => n.id === hoveredNoteId);
+                                    if (sourceIdx === -1 || targetIdx === -1) return prev;
+                                    const newNotes = [...prev];
+                                    const [removed] = newNotes.splice(sourceIdx, 1);
+                                    newNotes.splice(targetIdx, 0, removed);
+                                    return newNotes;
+                                });
+                            }
                         }
                     };
 
@@ -3427,6 +3346,18 @@
                     document.addEventListener('touchmove', onMove, { passive: false });
                     document.addEventListener('touchend', onEnd);
                 }, 350);
+            };
+
+            const handleTouchMove = (e) => {
+                const sX = e.currentTarget._startX;
+                const sY = e.currentTarget._startY;
+                const mX = e.touches[0].clientX;
+                const mY = e.touches[0].clientY;
+                
+                // If moved significantly during the 350ms wait, it's a scroll
+                if (Math.abs(mX - sX) > 10 || Math.abs(mY - sY) > 10) {
+                    cancelLongPress();
+                }
             };
 
             const cancelLongPress = () => {
@@ -3477,6 +3408,7 @@
                                                 onMouseUp={cancelLongPress}
                                                 onMouseLeave={cancelLongPress}
                                                 onTouchStart={(e) => startLongPress(note.id, e, e.currentTarget)}
+                                                onTouchMove={handleTouchMove}
                                                 onTouchEnd={cancelLongPress}
                                                 onContextMenu={(e) => e.preventDefault()}
                                                 style={{ touchAction: 'none' }}
@@ -3495,7 +3427,7 @@
                                         {sortedPriorityNotes.length < 6 && (
                                             <button 
                                                 onClick={onOpenCreator}
-                                                className="sticky-note-add h-[150px] md:h-[120px] border-2 border-dashed border-primary/40 rounded-[1.8rem] p-6 flex flex-col items-center justify-center group cursor-pointer hover:bg-primary/5 transition-colors"
+                                                className="sticky-note-add h-[150px] md:h-[160px] border-2 border-dashed border-primary/40 rounded-[1.8rem] p-6 flex flex-col items-center justify-center group cursor-pointer hover:bg-primary/5 transition-colors"
                                             >
                                                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3">
                                                     <span className="material-symbols-outlined text-2xl">add</span>
@@ -3530,128 +3462,146 @@
                                     </div>
                                 ) : (
                                     <React.Fragment>
-                                        {sortedQuickTasks.slice(0, visibleTasksCount).map(task => {
-                                            const formatDueDate = (date, time) => {
-                                                if (!date) return { label: '', isOverdue: false };
-                                                const d = new Date(date);
-                                                const now = new Date();
-                                                const today = now.toISOString().split('T')[0];
-                                                const tomorrow = new Date();
-                                                tomorrow.setDate(tomorrow.getDate() + 1);
-                                                const tomorrowStr = tomorrow.toISOString().split('T')[0];
-                                                
-                                                // Check for Overdue
-                                                let isOverdue = false;
-                                                const target = new Date(date);
-                                                if (time) {
-                                                    const [h, m] = time.split(':');
-                                                    target.setHours(parseInt(h), parseInt(m), 0, 0);
-                                                } else {
-                                                    target.setHours(23, 59, 59, 999);
-                                                }
-                                                
-                                                if (now > target) {
-                                                    isOverdue = true;
-                                                }
-
-                                                if (date === today) {
-                                                    if (time) {
-                                                        const [h, m] = time.split(':');
-                                                        const diffMs = target - now;
-                                                        const diffHours = diffMs / (1000 * 60 * 60);
-                                                        
-                                                        if (diffHours > 0 && diffHours <= 8) {
-                                                            return { label: `Due in ${Math.ceil(diffHours)} ${Math.ceil(diffHours) === 1 ? 'hour' : 'hours'}`, isOverdue };
-                                                        }
-                                                    }
-                                                    let label = isOverdue ? 'Past due' : 'Due Today';
-                                                    if (time) {
-                                                        const [h, m] = time.split(':');
-                                                        const hours = parseInt(h);
-                                                        const ampm = hours >= 12 ? 'PM' : 'AM';
-                                                        const h12 = hours % 12 || 12;
-                                                        label += ` • ${h12}:${m} ${ampm}`;
-                                                    }
-                                                    return { label, isOverdue };
-                                                }
-                                                
-                                                if (date === tomorrowStr) {
-                                                    let label = isOverdue ? 'Past due' : 'Due Tomorrow';
-                                                    if (time) {
-                                                        const [h, m] = time.split(':');
-                                                        const hours = parseInt(h);
-                                                        const ampm = hours >= 12 ? 'PM' : 'AM';
-                                                        const h12 = hours % 12 || 12;
-                                                        label += ` • ${h12}:${m} ${ampm}`;
-                                                    }
-                                                    return { label, isOverdue };
-                                                }
-
-                                                const options = { month: 'short', day: 'numeric' };
-                                                let str = d.toLocaleDateString('en-US', options);
-                                                if (time) {
-                                                    const [h, m] = time.split(':');
-                                                    const hours = parseInt(h);
-                                                    const ampm = hours >= 12 ? 'PM' : 'AM';
-                                                    const h12 = hours % 12 || 12;
-                                                    str += ` • ${h12}:${m} ${ampm}`;
-                                                }
-                                                return { label: isOverdue ? `Past due • ${str}` : str, isOverdue };
-                                            };
+                                        {(() => {
+                                            const incompleteTasks = sortedQuickTasks.filter(t => !t.completed);
+                                            const completedTasks = sortedQuickTasks.filter(t => t.completed);
                                             
-                                            const { label: dueDateStr, isOverdue } = formatDueDate(task.dueDate, task.dueTime);
+                                            // Always show at least 'visibleTasksCount' total, 
+                                            // but prioritize incomplete ones.
+                                            let displayTasks = [];
+                                            if (incompleteTasks.length >= visibleTasksCount) {
+                                                displayTasks = incompleteTasks.slice(0, visibleTasksCount);
+                                            } else {
+                                                displayTasks = [...incompleteTasks, ...completedTasks.slice(0, visibleTasksCount - incompleteTasks.length)];
+                                            }
 
-                                            return (
-                                                <div 
-                                                    key={task.id}
-                                                    className={`glass-panel rounded-[1.5rem] p-4 md:p-5 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 transition-all duration-200 cursor-pointer border border-white/5 shadow-lg hover:shadow-primary/5 ${task.completed ? 'opacity-40 grayscale-[0.5]' : ''} ${isOverdue && !task.completed ? 'border-red-500/30' : ''}`}
-                                                    style={{ minHeight: window.innerWidth < 768 ? '64px' : 'auto' }}
-                                                    onClick={() => {
-                                                        onToggleQuickTask(task.id);
-                                                        // Play sound
-                                                        try {
-                                                            const audio = new Audio('https://www.soundjay.com/buttons/sounds/button-37a.mp3');
-                                                            audio.volume = 0.2;
-                                                            audio.play().catch(() => {});
-                                                        } catch(e) {}
-                                                    }}
-                                                    onContextMenu={(e) => {
-                                                        e.preventDefault();
-                                                        onEditQuickTask(task);
-                                                    }}
-                                                    onTouchStart={(e) => {
-                                                        const timer = setTimeout(() => onEditQuickTask(task), 600);
-                                                        e.currentTarget._touchTimer = timer;
-                                                    }}
-                                                    onTouchEnd={(e) => {
-                                                        clearTimeout(e.currentTarget._touchTimer);
-                                                    }}
-                                                >
-                                                    <div className="flex items-center gap-5 pointer-events-none">
-                                                        <div className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${task.completed ? 'bg-primary border-primary text-white scale-110 shadow-lg shadow-primary/20' : 'border-white/10 text-transparent group-hover:border-primary/40'}`}>
-                                                            <span className="material-symbols-outlined text-[1rem] font-bold">check</span>
-                                                        </div>
-                                                        <div className="flex flex-col gap-0.5">
-                                                            <h4 className={`text-sm md:text-base text-cream-light font-display italic tracking-wide transition-all duration-300 ${task.completed ? 'line-through decoration-primary/50 opacity-60' : 'group-hover:text-primary'} ${isOverdue && !task.completed ? 'text-red-400' : ''}`}>
-                                                                {task.text}
-                                                            </h4>
-                                                            {dueDateStr && (
-                                                                <p className={`text-[9px] md:text-[10px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-opacity ${isOverdue && !task.completed ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
-                                                                    <span className="material-symbols-outlined text-[10px] md:text-xs">event</span>
-                                                                    {dueDateStr}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <button 
-                                                        onClick={(e) => { e.stopPropagation(); onDeleteQuickTask(task.id); }}
-                                                        className="opacity-0 group-hover:opacity-100 p-2 text-white/10 hover:text-red-400 transition-all duration-200 pointer-events-auto transform hover:scale-110"
+                                            // Ensure a recently completed or toggled task stays in view
+                                            // by checking if it's in the displayTasks. If not, we might need a different approach,
+                                            // but for now, showing 6 and prioritizing incomplete is much better.
+                                            
+                                            return displayTasks.map(task => {
+                                                const formatDueDate = (date, time) => {
+                                                    if (!date) return { label: '', isOverdue: false };
+                                                    const d = new Date(date);
+                                                    const now = new Date();
+                                                    const today = now.toISOString().split('T')[0];
+                                                    const tomorrow = new Date();
+                                                    tomorrow.setDate(tomorrow.getDate() + 1);
+                                                    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+                                                    
+                                                    // Check for Overdue
+                                                    let isOverdue = false;
+                                                    const target = new Date(date);
+                                                    if (time) {
+                                                        const [h, m] = time.split(':');
+                                                        target.setHours(parseInt(h), parseInt(m), 0, 0);
+                                                    } else {
+                                                        target.setHours(23, 59, 59, 999);
+                                                    }
+                                                    
+                                                    if (now > target) {
+                                                        isOverdue = true;
+                                                    }
+
+                                                    if (date === today) {
+                                                        if (time) {
+                                                            const [h, m] = time.split(':');
+                                                            const diffMs = target - now;
+                                                            const diffHours = diffMs / (1000 * 60 * 60);
+                                                            
+                                                            if (diffHours > 0 && diffHours <= 8) {
+                                                                return { label: `Due in ${Math.ceil(diffHours)} ${Math.ceil(diffHours) === 1 ? 'hour' : 'hours'}`, isOverdue };
+                                                            }
+                                                        }
+                                                        let label = isOverdue ? 'Past due' : 'Due Today';
+                                                        if (time) {
+                                                            const [h, m] = time.split(':');
+                                                            const hours = parseInt(h);
+                                                            const ampm = hours >= 12 ? 'PM' : 'AM';
+                                                            const h12 = hours % 12 || 12;
+                                                            label += ` • ${h12}:${m} ${ampm}`;
+                                                        }
+                                                        return { label, isOverdue };
+                                                    }
+                                                    
+                                                    if (date === tomorrowStr) {
+                                                        let label = isOverdue ? 'Past due' : 'Due Tomorrow';
+                                                        if (time) {
+                                                            const [h, m] = time.split(':');
+                                                            const hours = parseInt(h);
+                                                            const ampm = hours >= 12 ? 'PM' : 'AM';
+                                                            const h12 = hours % 12 || 12;
+                                                            label += ` • ${h12}:${m} ${ampm}`;
+                                                        }
+                                                        return { label, isOverdue };
+                                                    }
+
+                                                    const options = { month: 'short', day: 'numeric' };
+                                                    let str = d.toLocaleDateString('en-US', options);
+                                                    if (time) {
+                                                        const [h, m] = time.split(':');
+                                                        const hours = parseInt(h);
+                                                        const ampm = hours >= 12 ? 'PM' : 'AM';
+                                                        const h12 = hours % 12 || 12;
+                                                        str += ` • ${h12}:${m} ${ampm}`;
+                                                    }
+                                                    return { label: isOverdue ? `Past due • ${str}` : str, isOverdue };
+                                                };
+                                                
+                                                const { label: dueDateStr, isOverdue } = formatDueDate(task.dueDate, task.dueTime);
+
+                                                return (
+                                                    <div 
+                                                        key={task.id}
+                                                        className={`glass-panel rounded-[1.5rem] p-4 md:p-5 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 transition-all duration-200 cursor-pointer border border-white/5 shadow-lg hover:shadow-primary/5 ${task.completed ? 'opacity-40 grayscale-[0.5]' : ''} ${isOverdue && !task.completed ? 'border-red-500/30' : ''}`}
+                                                        style={{ minHeight: window.innerWidth < 768 ? '64px' : 'auto' }}
+                                                        onClick={() => {
+                                                            onToggleQuickTask(task.id);
+                                                            // Play sound
+                                                            try {
+                                                                const audio = new Audio('https://www.soundjay.com/buttons/sounds/button-37a.mp3');
+                                                                audio.volume = 0.3;
+                                                                audio.play().catch(() => {});
+                                                            } catch(e) {}
+                                                        }}
+                                                        onContextMenu={(e) => {
+                                                            e.preventDefault();
+                                                            onEditQuickTask(task);
+                                                        }}
+                                                        onTouchStart={(e) => {
+                                                            const timer = setTimeout(() => onEditQuickTask(task), 600);
+                                                            e.currentTarget._touchTimer = timer;
+                                                        }}
+                                                        onTouchEnd={(e) => {
+                                                            clearTimeout(e.currentTarget._touchTimer);
+                                                        }}
                                                     >
-                                                        <span className="material-symbols-outlined text-xl">delete</span>
-                                                    </button>
-                                                </div>
-                                            );
-                                        })}
+                                                        <div className="flex items-center gap-5 pointer-events-none">
+                                                            <div className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${task.completed ? 'bg-primary border-primary text-white scale-110 shadow-lg shadow-primary/20' : 'border-white/10 text-transparent group-hover:border-primary/40'}`}>
+                                                                <span className="material-symbols-outlined text-[1rem] font-bold">check</span>
+                                                            </div>
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <h4 className={`text-sm md:text-base text-cream-light font-display italic tracking-wide transition-all duration-300 ${task.completed ? 'line-through decoration-primary/50 opacity-60' : 'group-hover:text-primary'} ${isOverdue && !task.completed ? 'text-red-400' : ''}`}>
+                                                                    {task.text}
+                                                                </h4>
+                                                                {dueDateStr && (
+                                                                    <p className={`text-[9px] md:text-[10px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-opacity ${isOverdue && !task.completed ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
+                                                                        <span className="material-symbols-outlined text-[10px] md:text-xs">event</span>
+                                                                        {dueDateStr}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); onDeleteQuickTask(task.id); }}
+                                                            className="opacity-0 group-hover:opacity-100 p-2 text-white/10 hover:text-red-400 transition-all duration-200 pointer-events-auto transform hover:scale-110"
+                                                        >
+                                                            <span className="material-symbols-outlined text-xl">delete</span>
+                                                        </button>
+                                                    </div>
+                                                );
+                                            });
+                                        })()}
 
                                         {quickTasks.length > visibleTasksCount && (
                                             <button 
@@ -3680,7 +3630,7 @@
             );
         };
 
-        const NotesPage = ({ user, notes, onOpenCreator, onEditNote, noteSections, onAddSection, onDeleteSection, onMoveNote, onReorderNote, onRemoveReminder }) => {
+        const NotesPage = ({ user, notes, onOpenCreator, onEditNote, noteSections, onAddSection, onDeleteSection, onMoveNote, onReorderNote, onRemoveReminder, onBulkUpdate, onBulkDelete }) => {
             const navigate = useNavigate();
             const pinnedNotes = notes.filter(n => n.isPinned);
             const [labelFilter, setLabelFilter] = useState('');
@@ -3690,9 +3640,13 @@
             const [pendingDeleteSection, setPendingDeleteSection] = useState(null);
             const longPressTimer = useRef(null);
             const dropdownRef = useRef(null);
-            const [dragState, setDragState] = useState(null); // { noteId, cloneEl, startX, startY, offsetX, offsetY }
+            const [dragState, setDragState] = useState(null);
             const [localNotes, setLocalNotes] = useState(notes);
-            const dragRef = useRef(null); // mutable ref for drag state in event handlers
+            const dragRef = useRef(null);
+            const [selectedNotes, setSelectedNotes] = useState([]);
+            const selectionMode = selectedNotes.length > 0;
+            const [selectionPopup, setSelectionPopup] = useState(null);
+            const [newLabelText, setNewLabelText] = useState('');
 
             // Sync localNotes with prop notes when not dragging
             useEffect(() => {
@@ -3767,70 +3721,90 @@
                 };
             }, []);
 
-            // Long press handlers — start drag mode
+            // Long press handlers — start drag or selection mode
             const startLongPress = (noteId, e, cardEl) => {
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                
+                // Save initial position to check for scroll movement
+                cardEl._startX = clientX;
+                cardEl._startY = clientY;
+
                 longPressTimer.current = setTimeout(() => {
                     if (navigator.vibrate) try { navigator.vibrate(50); } catch(err) {}
-                    // Create floating clone
-                    const rect = cardEl.getBoundingClientRect();
-                    const clone = cardEl.cloneNode(true);
-                    clone.style.position = 'fixed';
-                    clone.style.left = rect.left + 'px';
-                    clone.style.top = rect.top + 'px';
-                    clone.style.width = rect.width + 'px';
-                    clone.style.height = rect.height + 'px';
-                    clone.style.zIndex = '9999';
-                    clone.style.pointerEvents = 'none';
-                    clone.style.opacity = '0.9';
-                    clone.style.transform = 'scale(1.05) rotate(2deg)';
-                    clone.style.boxShadow = '0 25px 60px rgba(0,0,0,0.5), 0 0 30px rgba(249, 115, 22, 0.3)';
-                    clone.style.transition = 'transform 0.15s ease, box-shadow 0.15s ease';
-                    clone.style.borderRadius = '1.5rem';
-                    document.body.appendChild(clone);
-                    document.body.style.cursor = 'grabbing';
-
-                    // Dim the original card
-                    cardEl.style.opacity = '0.3';
-                    cardEl.style.transform = 'scale(0.95)';
-                    cardEl.style.transition = 'opacity 0.2s, transform 0.2s';
-
-                    // Highlight all section drop targets
-                    document.querySelectorAll('[data-drop-section]').forEach(el => {
-                        el.style.outline = '2px dashed rgba(249, 115, 22, 0.4)';
-                        el.style.outlineOffset = '4px';
-                        el.style.borderRadius = '1.5rem';
-                        el.style.transition = 'outline 0.2s, background 0.2s';
-                    });
-
-                    const state = {
+                    
+                    // Don't create clone yet — wait for movement to decide drag vs selection
+                    const pendingState = {
                         noteId,
-                        cloneEl: clone,
-                        originalEl: cardEl,
-                        offsetX: clientX - rect.left,
-                        offsetY: clientY - rect.top,
+                        cardEl,
                         startX: clientX,
                         startY: clientY,
+                        cloneCreated: false,
+                        cloneEl: null,
+                        originalEl: cardEl,
+                        offsetX: 0,
+                        offsetY: 0,
                         didMove: false
                     };
-                    dragRef.current = state;
-                    setDragState(state);
+                    dragRef.current = pendingState;
+
+                    // Visual feedback: slight pulse on the card
+                    cardEl.style.transform = 'scale(0.97)';
+                    cardEl.style.transition = 'transform 0.15s ease';
 
                     // Attach move/end listeners
                     const onMove = (moveE) => {
                         const state = dragRef.current;
                         if (!state) return;
                         
-                        if (moveE.cancelable) moveE.preventDefault();
                         const mx = moveE.touches ? moveE.touches[0].clientX : moveE.clientX;
                         const my = moveE.touches ? moveE.touches[0].clientY : moveE.clientY;
                         
-                        if (!state.didMove && (Math.abs(mx - state.startX) > 5 || Math.abs(my - state.startY) > 5)) {
+                        // Create clone on first significant movement
+                        if (!state.cloneCreated && (Math.abs(mx - state.startX) > 5 || Math.abs(my - state.startY) > 5)) {
+                            state.cloneCreated = true;
                             state.didMove = true;
+                            
+                            const rect = cardEl.getBoundingClientRect();
+                            const clone = cardEl.cloneNode(true);
+                            clone.style.position = 'fixed';
+                            clone.style.left = rect.left + 'px';
+                            clone.style.top = rect.top + 'px';
+                            clone.style.width = rect.width + 'px';
+                            clone.style.height = rect.height + 'px';
+                            clone.style.zIndex = '9999';
+                            clone.style.pointerEvents = 'none';
+                            clone.style.opacity = '0.9';
+                            clone.style.transform = 'scale(1.05) rotate(2deg)';
+                            clone.style.boxShadow = '0 25px 60px rgba(0,0,0,0.5), 0 0 30px rgba(249, 115, 22, 0.3)';
+                            clone.style.transition = 'transform 0.15s ease, box-shadow 0.15s ease';
+                            clone.style.borderRadius = '1.5rem';
+                            document.body.appendChild(clone);
+                            document.body.style.cursor = 'grabbing';
+                            
+                            state.cloneEl = clone;
+                            state.offsetX = mx - rect.left;
+                            state.offsetY = my - rect.top;
+                            
+                            // Dim the original card
+                            cardEl.style.opacity = '0.3';
+                            cardEl.style.transform = 'scale(0.95)';
+                            
+                            // Highlight all section drop targets
+                            document.querySelectorAll('[data-drop-section]').forEach(el => {
+                                el.style.outline = '2px dashed rgba(249, 115, 22, 0.4)';
+                                el.style.outlineOffset = '4px';
+                                el.style.borderRadius = '1.5rem';
+                                el.style.transition = 'outline 0.2s, background 0.2s';
+                            });
+                            
+                            setDragState(state);
                         }
-
-                        if (!state.didMove) return;
+                        
+                        // Prevent browser scrolling for ALL touch moves once long press detected
+                        if (moveE.cancelable) moveE.preventDefault();
+                        
+                        if (!state.cloneCreated) return;
 
                         const clone = state.cloneEl;
                         clone.style.left = (mx - state.offsetX) + 'px';
@@ -3850,30 +3824,26 @@
                             }
                         });
 
-                        // 2. Detect hovered note for reordering within the same visual flow
+                        // 2. Detect hovered note for reordering
                         let hoveredNoteId = null;
                         document.querySelectorAll('[data-note-id]').forEach(el => {
                             const nid = el.getAttribute('data-note-id');
                             if (nid === state.noteId) return;
                             const r = el.getBoundingClientRect();
-                            // Midpoint check to prevent flickering (check if within 80px of center)
                             const centerX = r.left + r.width / 2;
                             const centerY = r.top + r.height / 2;
                             const dx = mx - centerX;
                             const dy = my - centerY;
                             const dist = Math.sqrt(dx*dx + dy*dy);
-                            if (dist < 120) { 
-                                hoveredNoteId = nid;
-                            }
+                            if (dist < 120) hoveredNoteId = nid;
                         });
 
-                        // 3. Transient Reordering: Swap if we reached a new center
+                        // 3. Transient Reordering
                         if (hoveredNoteId) {
                             setLocalNotes(prev => {
                                 const sourceIdx = prev.findIndex(n => n.id === state.noteId);
                                 const targetIdx = prev.findIndex(n => n.id === hoveredNoteId);
                                 if (sourceIdx === -1 || targetIdx === -1 || sourceIdx === targetIdx) return prev;
-                                
                                 const newNotes = [...prev];
                                 const [removed] = newNotes.splice(sourceIdx, 1);
                                 newNotes.splice(targetIdx, 0, removed);
@@ -3881,7 +3851,7 @@
                             });
                         }
 
-                        // 4. Handle section move logic (if hovered over a section different from current)
+                        // 4. Handle section move
                         if (hoveredSect !== null) {
                             setLocalNotes(prev => {
                                 const noteIdx = prev.findIndex(n => n.id === state.noteId);
@@ -3893,54 +3863,48 @@
                                 return prev;
                             });
                         }
-                        
-                        if (moveE.touches) moveE.preventDefault();
                     };
 
-                    const onEnd = (endE) => {
+                    const onEnd = () => {
                         document.removeEventListener('mousemove', onMove, true);
                         document.removeEventListener('mouseup', onEnd, true);
-                        document.removeEventListener('touchmove', onMove, { passive: false });
+                        document.removeEventListener('touchmove', onMove, true);
                         document.removeEventListener('touchend', onEnd, true);
 
                         const state = dragRef.current;
                         if (!state) return;
 
-                        if (state.didMove) {
-                            // Final Sync: Use the current state of localNotes
+                        if (state.cloneCreated && state.didMove) {
+                            // Drag completed — sync reorder
                             setLocalNotes(currentLocal => {
                                 const finalNote = currentLocal.find(n => n.id === state.noteId);
                                 const originalNote = notes.find(n => n.id === state.noteId);
-                                
-                                // If section changed, trigger move
                                 if (finalNote && originalNote && (finalNote.section || '') !== (originalNote.section || '')) {
                                     onMoveNote(state.noteId, finalNote.section || '');
                                 }
-                                
-                                // Reorder based on final local index within its section
                                 const finalIdx = currentLocal.findIndex(n => n.id === state.noteId);
                                 const targetIdx = finalIdx > 0 ? finalIdx - 1 : 0;
                                 const targetId = currentLocal[targetIdx].id;
                                 if (targetId !== state.noteId) {
                                     onReorderNote(state.noteId, targetId);
                                 } else if (currentLocal.length > 1) {
-                                    // Special case: if we are at the very beginning, target is the one that WAS first
-                                    const nextId = currentLocal[1].id;
-                                    onReorderNote(state.noteId, nextId);
+                                    onReorderNote(state.noteId, currentLocal[1].id);
                                 }
-                                
                                 return currentLocal;
                             });
+                            // Cleanup clone
+                            if (state.cloneEl) state.cloneEl.remove();
+                        } else {
+                            // No movement after long press — toggle selection!
+                            toggleNoteSelection(state.noteId);
                         }
 
                         // Cleanup
-                        state.cloneEl.remove();
                         document.body.style.cursor = '';
                         if (state.originalEl) {
                             state.originalEl.style.opacity = '';
                             state.originalEl.style.transform = '';
                         }
-                        
                         document.querySelectorAll('[data-drop-section]').forEach(el => {
                             el.style.background = '';
                             el.style.outline = '';
@@ -3954,9 +3918,22 @@
 
                     document.addEventListener('mousemove', onMove, true);
                     document.addEventListener('mouseup', onEnd, true);
-                    document.addEventListener('touchmove', onMove, { passive: false });
+                    document.addEventListener('touchmove', onMove, { capture: true, passive: false });
                     document.addEventListener('touchend', onEnd, true);
                 }, 350);
+            };
+            const handleTouchMove = (e) => {
+                // If drag is already active, don't cancel it
+                if (dragRef.current) return;
+                const sX = e.currentTarget._startX;
+                const sY = e.currentTarget._startY;
+                const mX = e.touches[0].clientX;
+                const mY = e.touches[0].clientY;
+                
+                // If moved significantly during the 350ms wait, it's a scroll
+                if (Math.abs(mX - sX) > 10 || Math.abs(mY - sY) > 10) {
+                    cancelLongPress();
+                }
             };
             const cancelLongPress = () => {
                 if (longPressTimer.current) clearTimeout(longPressTimer.current);
@@ -3969,6 +3946,93 @@
                     setShowAddSection(false);
                 }
             };
+
+            // Toggle note selection
+            const toggleNoteSelection = (noteId) => {
+                setSelectedNotes(prev => prev.includes(noteId) ? prev.filter(id => id !== noteId) : [...prev, noteId]);
+            };
+
+            // Bulk action handlers
+            const bulkTogglePin = () => {
+                const allPinned = selectedNotes.every(id => {
+                    const n = notes.find(note => note.id === id);
+                    return n && n.isPinned;
+                });
+                selectedNotes.forEach(id => {
+                    const n = notes.find(note => note.id === id);
+                    if (n) onBulkUpdate(id, { isPinned: !allPinned });
+                });
+                setSelectedNotes([]);
+            };
+
+            const bulkDelete = () => {
+                if (confirm(`Delete ${selectedNotes.length} note(s)? This cannot be undone.`)) {
+                    selectedNotes.forEach(id => onBulkDelete(id));
+                    setSelectedNotes([]);
+                }
+            };
+
+            const bulkDuplicate = () => {
+                selectedNotes.forEach(id => {
+                    const n = notes.find(note => note.id === id);
+                    if (n) {
+                        const dup = { ...n, id: 'note_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5), title: n.title + ' (Copy)', isPinned: false };
+                        onBulkUpdate(dup.id, dup, true);
+                    }
+                });
+                setSelectedNotes([]);
+            };
+
+            const bulkApplyPalette = (themeId) => {
+                selectedNotes.forEach(id => {
+                    onBulkUpdate(id, { noteTheme: themeId });
+                });
+                setSelectionPopup(null);
+                setSelectedNotes([]);
+            };
+
+            const bulkApplyLabel = (label) => {
+                selectedNotes.forEach(id => {
+                    const n = notes.find(note => note.id === id);
+                    if (n) {
+                        const newLabels = (n.labels || []).includes(label) ? n.labels : [...(n.labels || []), label];
+                        onBulkUpdate(id, { labels: newLabels });
+                    }
+                });
+                setSelectionPopup(null);
+                setNewLabelText('');
+                setSelectedNotes([]);
+            };
+
+            const bulkSetReminder = () => {
+                const dateStr = prompt('Enter reminder date (YYYY-MM-DD):');
+                if (dateStr) {
+                    selectedNotes.forEach(id => {
+                        onBulkUpdate(id, { reminderDate: dateStr + 'T08:00' });
+                    });
+                    setSelectedNotes([]);
+                }
+            };
+
+            const themes = [
+                { id: 'glass', color: 'rgba(255,255,255,0.05)' },
+                { id: 'peach', color: '#ffedd5' },
+                { id: 'amber', color: '#fef3c7' },
+                { id: 'orange', color: '#ffedd5' },
+                { id: 'yellow', color: '#fef9c3' },
+                { id: 'warm1', color: '#e9d9c4' },
+                { id: 'warm2', color: '#e9e5d8' },
+                { id: 'warm3', color: '#e9e2da' },
+                { id: 'warm4', color: '#e8c59d' },
+                { id: 'warm5', color: '#e9e6d5' },
+                { id: 'sage', color: '#ecfdf5' },
+                { id: 'sky', color: '#e0f2fe' },
+                { id: 'lavender', color: '#eef2ff' },
+                { id: 'rose', color: '#fff1f2' },
+                { id: 'slate', color: '#f1f5f9' },
+                { id: 'teal', color: '#f0fdfa' },
+                { id: 'indigo', color: '#f5f3ff' }
+            ];
 
             const renderNoteGrid = (notesList, gridClass) => {
                 const count = notesList.length;
@@ -3993,25 +4057,38 @@
                                 );
                             }
 
+                            const isSelected = selectedNotes.includes(note.id);
+
                             return (
                                 <div 
                                     key={note.id}
                                     data-note-id={note.id}
-                                    onMouseDown={(e) => { if (e.button === 0) startLongPress(note.id, e, e.currentTarget); }}
-                                    onMouseUp={() => { cancelLongPress(); }}
+                                    onMouseDown={(e) => { if (e.button === 0) { if (selectionMode) { toggleNoteSelection(note.id); } else { startLongPress(note.id, e, e.currentTarget); } } }}
+                                    onMouseUp={cancelLongPress}
                                     onMouseLeave={cancelLongPress}
-                                    onTouchStart={(e) => startLongPress(note.id, e, e.currentTarget)}
+                                    onTouchStart={(e) => { if (selectionMode) { toggleNoteSelection(note.id); } else { startLongPress(note.id, e, e.currentTarget); } }}
+                                    onTouchMove={handleTouchMove}
                                     onTouchEnd={cancelLongPress}
                                     onContextMenu={(e) => e.preventDefault()}
-                                    style={{ cursor: dragState ? 'grabbing' : 'pointer', touchAction: 'none' }}
-                                    className="transition-transform duration-300"
+                                    style={{ 
+                                        cursor: selectionMode ? 'pointer' : (dragState ? 'grabbing' : 'pointer'), 
+                                        touchAction: selectionMode ? 'auto' : 'none'
+                                    }}
+                                    className="transition-all duration-300"
                                 >
                                     <NoteCard 
                                         note={note} 
-                                        onClick={() => { if (!dragRef.current || !dragRef.current.didMove) onEditNote(note); }} 
+                                        onClick={() => { 
+                                            if (selectionMode) {
+                                                toggleNoteSelection(note.id);
+                                            } else if (!dragRef.current || !dragRef.current.didMove) {
+                                                onEditNote(note); 
+                                            }
+                                        }} 
                                         index={index} 
                                         onRemoveReminder={onRemoveReminder}
                                         variant="default"
+                                        isSelected={isSelected}
                                     />
                                 </div>
                             );
@@ -4059,7 +4136,146 @@
             return (
                 <Layout onOpenCreator={onOpenCreator}>
                     <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-0 md:pt-12 pb-12">
-                        <Header user={user} title="Faiora" subtitle="Notes Archive" />
+                        {selectionMode ? (
+                            <React.Fragment>
+                                <div className="fixed top-0 left-0 right-0 z-[120] bg-black/95 backdrop-blur-2xl border-b border-white/10 flex items-center justify-between px-4 py-4 animate-in slide-in-from-top-2 duration-200 font-montserrat">
+                                    <div className="flex items-center gap-3">
+                                        <button onClick={() => setSelectedNotes([])} className="text-cream-light/60 hover:text-cream-light transition-colors p-1">
+                                            <span className="material-symbols-outlined text-2xl">close</span>
+                                        </button>
+                                        <span className="text-cream-light font-bold text-lg font-montserrat">{selectedNotes.length}</span>
+                                    </div>
+                                    <div className="flex items-center gap-0.5">
+                                        {(() => {
+                                            const allPinned = selectedNotes.every(id => { const n = localNotes.find(note => note.id === id); return n && n.isPinned; });
+                                            return (
+                                                <button onClick={bulkTogglePin} className={"p-2.5 rounded-xl transition-colors " + (allPinned ? "bg-primary/20" : "hover:bg-white/10")} title={allPinned ? "Unpin" : "Pin"}>
+                                                    <span className={"material-symbols-outlined text-xl " + (allPinned ? "text-primary" : "text-cream-light/70")} style={{fontVariationSettings: allPinned ? "'FILL' 1" : "'FILL' 0"}}>push_pin</span>
+                                                </button>
+                                            );
+                                        })()}
+                                        <div className="relative">
+                                            <button onClick={() => setSelectionPopup(selectionPopup === 'reminder' ? null : 'reminder')} className={"p-2.5 rounded-xl transition-colors " + (selectionPopup === 'reminder' ? "bg-white/10" : "hover:bg-white/10")} title="Reminder">
+                                                <span className="material-symbols-outlined text-cream-light/70 text-xl">notifications</span>
+                                            </button>
+                                            {selectionPopup === 'reminder' && (
+                                                <div className="absolute right-0 top-full mt-2 bg-slate-950/95 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl z-[130] p-4 w-64 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-cream-light/40 mb-3">Set Reminder</p>
+                                                    <input 
+                                                        type="datetime-local" 
+                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-cream-light focus:outline-none focus:border-primary/40 mb-3"
+                                                        style={{ colorScheme: 'dark' }}
+                                                        onChange={(e) => {
+                                                            if (e.target.value) {
+                                                                selectedNotes.forEach(id => {
+                                                                    onBulkUpdate(id, { reminderDate: e.target.value });
+                                                                });
+                                                                setSelectionPopup(null);
+                                                                setSelectedNotes([]);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => {
+                                                            const tomorrow = new Date();
+                                                            tomorrow.setDate(tomorrow.getDate() + 1);
+                                                            tomorrow.setHours(8, 0, 0, 0);
+                                                            const val = tomorrow.toISOString().slice(0, 16);
+                                                            selectedNotes.forEach(id => onBulkUpdate(id, { reminderDate: val }));
+                                                            setSelectionPopup(null); setSelectedNotes([]);
+                                                        }} className="flex-1 text-[10px] font-bold uppercase tracking-wider bg-primary/15 text-primary rounded-xl py-2 hover:bg-primary/25 transition-colors">Tomorrow</button>
+                                                        <button onClick={() => {
+                                                            const next = new Date();
+                                                            next.setDate(next.getDate() + 7);
+                                                            next.setHours(8, 0, 0, 0);
+                                                            const val = next.toISOString().slice(0, 16);
+                                                            selectedNotes.forEach(id => onBulkUpdate(id, { reminderDate: val }));
+                                                            setSelectionPopup(null); setSelectedNotes([]);
+                                                        }} className="flex-1 text-[10px] font-bold uppercase tracking-wider bg-primary/15 text-primary rounded-xl py-2 hover:bg-primary/25 transition-colors">Next Week</button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="relative">
+                                            <button onClick={() => setSelectionPopup(selectionPopup === 'palette' ? null : 'palette')} className={"p-2.5 rounded-xl transition-colors " + (selectionPopup === 'palette' ? "bg-white/10" : "hover:bg-white/10")} title="Theme">
+                                                <span className="material-symbols-outlined text-cream-light/70 text-xl">palette</span>
+                                            </button>
+                                            {selectionPopup === 'palette' && (
+                                                <div className="absolute right-0 top-full mt-2 bg-slate-950/95 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl z-[130] p-4 w-56 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-cream-light/40 mb-3">Choose Theme</p>
+                                                    <div className="grid grid-cols-5 gap-2.5">
+                                                        {themes.map(t => (
+                                                            <button 
+                                                                key={t.id} 
+                                                                onClick={() => bulkApplyPalette(t.id)} 
+                                                                className="w-9 h-9 rounded-xl border-2 border-white/10 hover:scale-110 hover:border-primary/50 transition-all shadow-md" 
+                                                                style={{backgroundColor: t.color}} 
+                                                                title={t.id} 
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="relative">
+                                            <button onClick={() => setSelectionPopup(selectionPopup === 'label' ? null : 'label')} className={"p-2.5 rounded-xl transition-colors " + (selectionPopup === 'label' ? "bg-white/10" : "hover:bg-white/10")} title="Label">
+                                                <span className="material-symbols-outlined text-cream-light/70 text-xl">label</span>
+                                            </button>
+                                            {selectionPopup === 'label' && (
+                                                <div className="absolute right-0 top-full mt-2 bg-slate-950/95 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl z-[130] p-4 w-56 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-cream-light/40 mb-3">Add Label</p>
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <input 
+                                                            type="text" 
+                                                            value={newLabelText} 
+                                                            onChange={(e) => setNewLabelText(e.target.value.toUpperCase())}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter' && newLabelText.trim()) { bulkApplyLabel(newLabelText.trim()); } }}
+                                                            placeholder="Type label..."
+                                                            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-cream-light placeholder:text-white/20 focus:outline-none focus:border-primary/40 uppercase tracking-wider font-bold"
+                                                            style={{ caretColor: '#f97316' }}
+                                                            autoFocus
+                                                        />
+                                                        <button onClick={() => { if (newLabelText.trim()) bulkApplyLabel(newLabelText.trim()); }} className="p-2 text-primary hover:bg-primary/10 rounded-xl transition-colors">
+                                                            <span className="material-symbols-outlined text-lg">add_circle</span>
+                                                        </button>
+                                                    </div>
+                                                    {allLabels.length > 0 && (
+                                                        <div className="border-t border-white/5 pt-3">
+                                                            <p className="text-[9px] font-bold uppercase tracking-widest text-cream-light/25 mb-2">Existing Labels</p>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {allLabels.map(l => (
+                                                                    <button key={l} onClick={() => bulkApplyLabel(l)} className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 bg-primary/15 text-primary rounded-lg hover:bg-primary/25 transition-colors border border-primary/20">{l}</button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="relative">
+                                            <button onClick={() => setSelectionPopup(selectionPopup === 'more' ? null : 'more')} className={"p-2.5 rounded-xl transition-colors " + (selectionPopup === 'more' ? "bg-white/10" : "hover:bg-white/10")} title="More">
+                                                <span className="material-symbols-outlined text-cream-light/70 text-xl">more_vert</span>
+                                            </button>
+                                            {selectionPopup === 'more' && (
+                                                <div className="absolute right-0 top-full mt-2 bg-slate-950/95 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl z-[130] py-2 w-48 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                    <button onClick={bulkDuplicate} className="w-full text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-cream-light/60 hover:bg-white/5 hover:text-cream-light transition-colors flex items-center gap-3">
+                                                        <span className="material-symbols-outlined text-base">content_copy</span> Duplicate
+                                                    </button>
+                                                    <div className="h-px bg-white/5 mx-3 my-1"></div>
+                                                    <button onClick={bulkDelete} className="w-full text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-red-400/80 hover:bg-red-500/10 hover:text-red-400 transition-colors flex items-center gap-3">
+                                                        <span className="material-symbols-outlined text-base">delete</span> Delete
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* Spacer to push content below fixed toolbar */}
+                                <div className="h-20"></div>
+                            </React.Fragment>
+                        ) : (
+                            <Header user={user} title="Faiora" subtitle="Notes Archive" />
+                        )}
                         <div className="px-2 md:px-0 pt-4">
                             {(searchQuery || labelFilter) && localNotes.filter(matchesFilter).length === 0 && (
                                 <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in slide-in-from-bottom-4 duration-500 font-montserrat">
@@ -4175,32 +4391,23 @@
                         {/* Section Deletion Confirmation Modal */}
                         {pendingDeleteSection && (
                             <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[200] flex items-center justify-center p-6 animate-in fade-in duration-300">
-                                <div className="glass-panel w-full max-w-md rounded-[2.5rem] border border-white/10 p-10 text-center animate-in zoom-in-95 duration-300">
+                                <div className="glass-panel w-full max-w-md rounded-[2.5rem] border border-white/10 p-10 text-center animate-in zoom-in-95 duration-300 font-montserrat">
                                     <div className="w-20 h-20 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center mx-auto mb-8">
                                         <span className="material-symbols-outlined text-red-400 text-4xl">warning</span>
                                     </div>
-                                    <h3 className="text-2xl font-bold text-cream-light mb-4 font-montserrat">Delete Section?</h3>
-                                    <p className="text-white/50 text-base leading-relaxed mb-10 font-sans">
-                                        Are you sure you want to delete <span className="text-primary font-bold">"{pendingDeleteSection}"</span>? You can either move its notes to <span className="text-white/80 font-semibold">ALL NOTES</span>, or delete them permanently.
+                                    <h3 className="text-2xl font-bold text-cream-light mb-4">Delete Section?</h3>
+                                    <p className="text-white/50 text-base leading-relaxed mb-10">
+                                        Are you sure you want to delete <span className="text-primary font-bold">"{pendingDeleteSection}"</span>? Its notes will be automatically moved to <span className="text-white/80 font-semibold">ALL NOTES</span>.
                                     </p>
                                     <div className="flex flex-col gap-4">
-                                        <button 
-                                            onClick={() => {
-                                                onDeleteSection(pendingDeleteSection, true);
-                                                setPendingDeleteSection(null);
-                                            }}
-                                            className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold uppercase tracking-widest transition-all shadow-xl shadow-red-500/20"
-                                        >
-                                            Delete Section & All Notes
-                                        </button>
                                         <button 
                                             onClick={() => {
                                                 onDeleteSection(pendingDeleteSection, false);
                                                 setPendingDeleteSection(null);
                                             }}
-                                            className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-bold uppercase tracking-widest transition-all"
+                                            className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold uppercase tracking-widest transition-all shadow-xl shadow-red-500/20"
                                         >
-                                            Keep Notes (Move to All Notes)
+                                            Delete Section
                                         </button>
                                         <button 
                                             onClick={() => setPendingDeleteSection(null)}
@@ -4590,7 +4797,7 @@
 
             const playFireSFX = () => {
                 const audio = new Audio('fire_transition_sfx.mp3');
-                audio.volume = 0.4;
+                audio.volume = 0.6;
                 audio.play().catch(e => {
                     // Silent catch for autoplay restrictions
                 });
@@ -4939,9 +5146,69 @@
             const [quickTasks, setQuickTasks] = useState([]);
             const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
             const [editingQuickTask, setEditingQuickTask] = useState(null);
+            const [isOnline, setIsOnline] = useState(navigator.onLine);
 
             const [toasts, setToasts] = useState([]);
             const videoRef = useRef();
+            const prevPopState = useRef(0);
+
+            useEffect(() => {
+                const handleBackButton = () => {
+                    const now = Date.now();
+                    
+                    // 1. Close Modals First
+                    if (isCreatorOpen) {
+                        handleCloseCreator();
+                        return;
+                    }
+                    if (isQuickTaskModalOpen) {
+                        setIsQuickTaskModalOpen(false);
+                        return;
+                    }
+                    if (editingQuickTask) {
+                        setEditingQuickTask(null);
+                        return;
+                    }
+
+                    // 2. Navigation Logic
+                    const path = window.location.hash.replace('#', '');
+                    if (path !== '/' && path !== '') {
+                        // If not on home, go home
+                        window.location.hash = '/';
+                    } else {
+                        // On home, double-back to exit
+                        if (now - prevPopState.current < 2000) {
+                            showToast("Closing app...");
+                            // In a real PWA or wrapped app, this would trigger exit
+                            // For browser, we can't always close, but we can try
+                            window.close();
+                        } else {
+                            showToast("Press back again to exit");
+                            prevPopState.current = now;
+                        }
+                    }
+                };
+
+                window.addEventListener('popstate', handleBackButton);
+                return () => window.removeEventListener('popstate', handleBackButton);
+            }, [isCreatorOpen, isQuickTaskModalOpen, editingQuickTask]);
+
+            useEffect(() => {
+                const handleOnline = () => {
+                    setIsOnline(true);
+                    showToast("Back online! Syncing...");
+                };
+                const handleOffline = () => {
+                    setIsOnline(false);
+                    showToast("Working offline");
+                };
+                window.addEventListener('online', handleOnline);
+                window.addEventListener('offline', handleOffline);
+                return () => {
+                    window.removeEventListener('online', handleOnline);
+                    window.removeEventListener('offline', handleOffline);
+                };
+            }, []);
 
             const showToast = useCallback((message) => {
                 const id = Date.now();
@@ -5037,6 +5304,45 @@
                     }
                     return newNotes;
                 });
+            };
+
+            // Bulk update: partially update a note by id (or create if isNew)
+            const handleBulkUpdate = (noteId, updates, isNew = false) => {
+                setNotes(prev => {
+                    let newNotes;
+                    if (isNew) {
+                        newNotes = [...prev, { ...updates, updatedAt: new Date().toISOString() }];
+                    } else {
+                        newNotes = prev.map(n => n.id === noteId ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n);
+                    }
+                    if (user) localStorage.setItem('faiora_notes_' + user.uid, JSON.stringify(newNotes));
+                    return newNotes;
+                });
+                // Sync to Firestore
+                if (user && activeCollection) {
+                    if (isNew) {
+                        db.collection(activeCollection).doc(user.uid).update({
+                            [`notes.${noteId}`]: { ...updates, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }
+                        }).catch(e => console.warn('Bulk create sync fail', e));
+                    } else {
+                        const fsUpdates = {};
+                        Object.keys(updates).forEach(key => {
+                            fsUpdates[`notes.${noteId}.${key}`] = updates[key];
+                        });
+                        fsUpdates[`notes.${noteId}.updatedAt`] = firebase.firestore.FieldValue.serverTimestamp();
+                        db.collection(activeCollection).doc(user.uid).update(fsUpdates).catch(e => console.warn('Bulk update sync fail', e));
+                    }
+                }
+            };
+
+            // Bulk delete: delete note and sync to Firestore
+            const handleBulkDelete = (noteId) => {
+                handleDeleteNoteLocal(noteId);
+                if (user && activeCollection) {
+                    db.collection(activeCollection).doc(user.uid).update({
+                        [`notes.${noteId}`]: firebase.firestore.FieldValue.delete()
+                    }).catch(e => console.warn('Bulk delete sync fail', e));
+                }
             };
 
             const handleRestoreDefaults = () => {
@@ -5389,8 +5695,10 @@
                 return <LoginModal />;
             }
 
+
+
             return (
-                <MemoryRouter>
+                <HashRouter>
                     <video 
                         ref={videoRef}
                         className="fire-bg-video"
@@ -5402,7 +5710,7 @@
                     />
                     <TransitionManager>
                         <Route path="/" element={<DashboardPage user={user} notes={notes} quickTasks={quickTasks} onOpenCreator={handleOpenCreator} onEditNote={handleEditNote} onRestoreDefaults={handleRestoreDefaults} onReorderPriorityNote={handleReorderPriorityNote} onToggleQuickTask={handleToggleQuickTask} onAddQuickTaskClick={() => setIsQuickTaskModalOpen(true)} onDeleteQuickTask={handleDeleteQuickTask} onUpdateQuickTask={handleUpdateQuickTask} onEditQuickTask={(task) => setEditingQuickTask(task)} editingQuickTask={editingQuickTask} setEditingQuickTask={setEditingQuickTask} isQuickTaskModalOpen={isQuickTaskModalOpen} setIsQuickTaskModalOpen={setIsQuickTaskModalOpen} onRemoveReminder={handleRemoveReminder} />} />
-                        <Route path="/notes" element={<NotesPage user={user} notes={notes} onOpenCreator={handleOpenCreator} onEditNote={handleEditNote} noteSections={noteSections} onAddSection={handleAddSection} onDeleteSection={handleDeleteSection} onMoveNote={handleMoveNoteToSection} onReorderNote={handleReorderNote} onRemoveReminder={handleRemoveReminder} />} />
+                        <Route path="/notes" element={<NotesPage user={user} notes={notes} onOpenCreator={handleOpenCreator} onEditNote={handleEditNote} noteSections={noteSections} onAddSection={handleAddSection} onDeleteSection={handleDeleteSection} onMoveNote={handleMoveNoteToSection} onReorderNote={handleReorderNote} onRemoveReminder={handleRemoveReminder} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} />} />
                         <Route path="/calendar" element={
                             <CalendarPage 
                                 user={user} 
@@ -5442,7 +5750,7 @@
                             </div>
                         ))}
                     </div>
-                </MemoryRouter>
+                </HashRouter>
             );
         };
 
