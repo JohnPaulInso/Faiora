@@ -4596,6 +4596,12 @@
 
                         setNotes(fetchedNotes);
                         localStorage.setItem('faiora_notes_' + user.uid, JSON.stringify(fetchedNotes));
+
+                        // Sync Sections
+                        const fetchedSections = data.noteSections || [];
+                        setNoteSections(fetchedSections);
+                        localStorage.setItem('faiora_sections', JSON.stringify(fetchedSections));
+
                         console.log("App synced with cloud:", fetchedNotes.length, "notes");
 
                         // Ensure at least one Priority note exists
@@ -4826,7 +4832,12 @@
                 const updated = [...noteSections, name.trim().toUpperCase()];
                 setNoteSections(updated);
                 localStorage.setItem('faiora_sections', JSON.stringify(updated));
-            }, [noteSections]);
+                // Sync to Firestore
+                if (user && activeCollection) {
+                    db.collection(activeCollection).doc(user.uid).update({ noteSections: updated })
+                        .catch(e => console.warn('Section add sync fail', e));
+                }
+            }, [user, activeCollection, noteSections]);
 
             const handleDeleteSection = useCallback((name, deleteNotes = false) => {
                 const updated = noteSections.filter(s => s !== name);
@@ -4860,15 +4871,17 @@
                 });
 
                 // Sync to Firestore (Batch update)
-                if (user && activeCollection && affectedNoteIds.length > 0) {
-                    const updates = {};
-                    affectedNoteIds.forEach(id => {
-                        if (deleteNotes) {
-                            updates[`notes.${id}`] = firebase.firestore.FieldValue.delete();
-                        } else {
-                            updates[`notes.${id}.section`] = '';
-                        }
-                    });
+                if (user && activeCollection) {
+                    const updates = { noteSections: updated };
+                    if (affectedNoteIds.length > 0) {
+                        affectedNoteIds.forEach(id => {
+                            if (deleteNotes) {
+                                updates[`notes.${id}`] = firebase.firestore.FieldValue.delete();
+                            } else {
+                                updates[`notes.${id}.section`] = '';
+                            }
+                        });
+                    }
                     db.collection(activeCollection).doc(user.uid).update(updates).catch(e => console.warn('Section delete sync fail', e));
                 }
             }, [user, activeCollection, noteSections]);
