@@ -417,6 +417,11 @@
             const [selectedImage, setSelectedImage] = useState(null);
             const [isClosing, setIsClosing] = useState(false);
             const [hasSavedOnce, setHasSavedOnce] = useState(false);
+            const [sharedWith, setSharedWith] = useState(editingNote ? editingNote.sharedWith || [] : []);
+            const [shareEmail, setShareEmail] = useState('');
+            const [isPublic, setIsPublic] = useState(editingNote ? !!editingNote.isPublic : false);
+            const [allowPublicEdit, setAllowPublicEdit] = useState(editingNote ? !!editingNote.allowPublicEdit : false);
+            const [publicShareToken, setPublicShareToken] = useState(editingNote ? editingNote.publicShareToken || '' : '');
             const fileInputRef = useRef(null);
             const editorRef = useRef(null);
             const initialContent = useMemo(() => editingNote ? editingNote.content || '' : '', [editingNote]);
@@ -491,22 +496,36 @@
             }, [user, editingNote, activeCollection]);
 
             const saveToFirestore = useCallback((updatedNote, forceSync = false) => {
-                if (!user) return;
+                // Allow guest saving for public notes
 
                 // 1. Optimistically update local state via prop handler
                 const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
                 const newNote = {
                     ...updatedNote,
                     id: noteId,
+                    title: updatedNote.title !== undefined ? updatedNote.title : title,
+                    content: updatedNote.content !== undefined ? updatedNote.content : (editorRef.current ? editorRef.current.innerHTML : content),
+                    progress: updatedNote.progress !== undefined ? updatedNote.progress : progress,
+                    isPinned: updatedNote.isPinned !== undefined ? updatedNote.isPinned : isPinned,
+                    noteTheme: updatedNote.noteTheme !== undefined ? updatedNote.noteTheme : noteTheme,
+                    noteIcon: updatedNote.noteIcon !== undefined ? updatedNote.noteIcon : noteIcon,
+                    labels: updatedNote.labels !== undefined ? updatedNote.labels : labels,
+                    reminderDate: updatedNote.reminderDate !== undefined ? updatedNote.reminderDate : reminderDate,
                     updatedAt: new Date().toISOString(),
                     versions: {
                         ...(editingNote?.versions || {}),
                         [today]: {
-                            title: updatedNote.title,
-                            content: updatedNote.content,
+                            title: updatedNote.title !== undefined ? updatedNote.title : title,
+                            content: updatedNote.content !== undefined ? updatedNote.content : (editorRef.current ? editorRef.current.innerHTML : content),
                             updatedAt: new Date().toISOString()
                         }
-                    }
+                    },
+                    sharedWith: updatedNote.sharedWith !== undefined ? updatedNote.sharedWith : sharedWith,
+                    ownerId: editingNote?.ownerId || user?.uid || 'guest',
+                    isPublic: updatedNote.isPublic !== undefined ? updatedNote.isPublic : isPublic,
+                    allowPublicEdit: updatedNote.allowPublicEdit !== undefined ? updatedNote.allowPublicEdit : allowPublicEdit,
+                    publicShareToken: updatedNote.publicShareToken !== undefined ? updatedNote.publicShareToken : publicShareToken,
+                    section: updatedNote.section !== undefined ? updatedNote.section : (editingNote && editingNote.section ? editingNote.section : '')
                 };
                 
                 if (onUpdateNote) {
@@ -514,28 +533,43 @@
                 }
 
                 // 2. Background sync to Firestore (only if forced)
-                if (forceSync && activeCollection) {
-                    db.collection(activeCollection).doc(user.uid).update({
-                        [`notes.${noteId}`]: {
-                            ...newNote,
-                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                        }
-                    }).catch(e => {
-                        if (e.code === 'not-found') {
-                            db.collection(activeCollection).doc(user.uid).set({
-                                notes: {
-                                    [noteId]: {
-                                        ...newNote,
-                                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                                    }
-                                }
-                            }, { merge: true });
-                        } else {
-                            console.warn("Silent background save failed:", e.message);
-                        }
-                    });
+                const effectiveCollection = activeCollection || 'tasks';
+                if (forceSync && effectiveCollection) {
+                    const targetUid = newNote.ownerId || user?.uid;
+                    
+                    const noteData = {
+                        ...newNote,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+
+                    if (targetUid && targetUid !== 'guest') {
+                        db.collection(effectiveCollection).doc(targetUid).update({
+                            [`notes.${noteId}`]: noteData
+                        }).catch(e => {
+                            if (e.code === 'not-found') {
+                                db.collection(effectiveCollection).doc(targetUid).set({
+                                    notes: { [noteId]: noteData }
+                                }, { merge: true });
+                            } else {
+                                console.warn("Silent background save failed:", e.message);
+                            }
+                        });
+                    }
+
+                    if (newNote.isPublic && newNote.publicShareToken) {
+                        db.collection('public_shares').doc(newNote.publicShareToken).set({
+                            ...noteData,
+                            ownerCollection: effectiveCollection // Store collection for guest back-sync
+                        })
+                            .catch(e => console.warn("Public share sync failed:", e.message));
+                    } else if (!newNote.isPublic && (newNote.publicShareToken || editingNote?.publicShareToken)) {
+                        // Delete from public_shares if toggled off (use whichever token is available)
+                        const tokenToDelete = newNote.publicShareToken || editingNote?.publicShareToken;
+                        db.collection('public_shares').doc(tokenToDelete).delete()
+                            .catch(e => {});
+                    }
                 }
-            }, [user, noteId, editingNote, onUpdateNote, activeCollection]);
+            }, [user, noteId, editingNote, onUpdateNote, activeCollection, title, content, progress, isPinned, noteTheme, noteIcon, labels, reminderDate, sharedWith, isPublic, publicShareToken, allowPublicEdit]);
 
             useEffect(() => {
                 const handleGlobalKeyDown = (e) => {
@@ -561,7 +595,7 @@
 
             // Debounced Auto-Save
             useEffect(() => {
-                if (!user || !hasChanges) return;
+                if (!hasChanges) return;
                 const timer = setTimeout(() => {
                     const html = editorRef.current ? editorRef.current.innerHTML : content;
                     saveToFirestore({ 
@@ -573,15 +607,40 @@
                         noteIcon, 
                         labels, 
                         reminderDate,
+                        sharedWith,
                         section: (editingNote && editingNote.section) ? editingNote.section : ''
                     }, true); // Force Firestore sync
                     setHasChanges(false);
                     setHasSavedOnce(true);
                 }, 1500); // 1.5s debounce for smoother typing
                 return () => clearTimeout(timer);
-            }, [title, content, progress, isPinned, noteTheme, noteIcon, labels, reminderDate, user, hasChanges, saveToFirestore]);
+            }, [title, content, progress, isPinned, noteTheme, noteIcon, labels, reminderDate, sharedWith, isPublic, allowPublicEdit, publicShareToken, user, hasChanges, saveToFirestore]);
 
             // Set editor content on initial load or note change
+            useEffect(() => {
+                if (isPublic && publicShareToken && hasChanges && hasSavedOnce) {
+                    const html = editorRef.current ? editorRef.current.innerHTML : content;
+                    const noteData = {
+                        id: noteId,
+                        title,
+                        content: html,
+                        progress,
+                        isPinned,
+                        noteTheme,
+                        noteIcon,
+                        labels,
+                        reminderDate,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        isPublic: true,
+                        publicShareToken,
+                        allowPublicEdit,
+                        ownerCollection: activeCollection || 'tasks'
+                    };
+                    db.collection('public_shares').doc(publicShareToken).set(noteData)
+                        .catch(e => console.warn("Background public sync failed", e));
+                }
+            }, [isPublic, publicShareToken, allowPublicEdit, hasChanges, hasSavedOnce]);
+
             useEffect(() => {
                 if (editorRef.current && initialContent !== undefined) {
                     editorRef.current.innerHTML = initialContent;
@@ -646,6 +705,10 @@
                         noteIcon, 
                         labels: labels, 
                         reminderDate,
+                        sharedWith,
+                        isPublic,
+                        allowPublicEdit,
+                        publicShareToken,
                         section: (editingNote && editingNote.section) ? editingNote.section : ''
                     }, true);
                     triggerClose(true);
@@ -743,6 +806,10 @@
                     noteIcon, 
                     labels, 
                     reminderDate,
+                    sharedWith,
+                    isPublic,
+                    allowPublicEdit,
+                    publicShareToken,
                     section: (editingNote && editingNote.section) ? editingNote.section : ''
                 };
                 const newHistory = history.slice(0, historyIndex + 1);
@@ -753,7 +820,7 @@
                 // Update local state immediately but don't force Firestore sync (wait for debounce)
                 saveToFirestore(currentState, false);
                 setHasChanges(true);
-            }, [title, content, progress, isPinned, noteTheme, noteIcon, labels, reminderDate, history, historyIndex, saveToFirestore, editingNote]);
+            }, [title, content, progress, isPinned, noteTheme, noteIcon, labels, reminderDate, sharedWith, isPublic, allowPublicEdit, publicShareToken, history, historyIndex, saveToFirestore, editingNote]);
 
             const convertActiveBlock = (type) => {
                 const selection = window.getSelection();
@@ -1510,8 +1577,17 @@
                 };
             }, [selectedImage]);
 
-            var theme = themes.find(function(t) { return t.id === noteTheme; });
-            var currentThemeClass = theme ? theme.themeClass : '';
+            const ownerId = editingNote ? editingNote.ownerId : user?.uid;
+            const canEdit = useMemo(() => {
+                if (!user) return isPublic && allowPublicEdit;
+                if (!ownerId || user.uid === ownerId) return true;
+                if (user.email && sharedWith.includes(user.email.toLowerCase())) return true;
+                if (isPublic && allowPublicEdit) return true;
+                return false;
+            }, [user, ownerId, sharedWith, isPublic, allowPublicEdit]);
+
+            const theme = themes.find(t => t.id === noteTheme);
+            const currentThemeClass = theme ? theme.themeClass : '';
 
             return (
                 <div className={"fixed inset-0 z-[110] flex items-center justify-center p-0 md:p-8 transition-all duration-300 " + (isClosing ? 'opacity-0 scale-95 pointer-events-none' : 'animate-in fade-in duration-500')}>
@@ -1544,10 +1620,6 @@
 
                         <div 
                             className="flex-1 overflow-y-auto p-4 md:p-10 no-scrollbar relative flex flex-col"
-                            onClick={() => {
-                                if (activePopup) setActivePopup(null);
-                                if (activeSubPopup) setActiveSubPopup(null);
-                            }}
                         >
                             {noteIcon && (
                                 <div className="absolute top-24 right-10 pointer-events-none opacity-[0.07] select-none">
@@ -1567,14 +1639,17 @@
                                         type="text" 
                                         placeholder="Main title" 
                                         maxLength={24}
+                                        readOnly={!canEdit}
                                         className="bg-transparent border-none text-2xl md:text-4xl font-bold text-slate-800 placeholder:text-slate-600 focus:ring-0 w-full tracking-tight px-0 md:px-4 font-display"
                                         value={title}
                                         onChange={(e) => { 
+                                            if(!canEdit) return;
                                             const val = e.target.value;
                                             setTitle(val); 
                                             setHasChanges(true); 
                                         }}
                                         onBlur={() => {
+                                            if(!canEdit) return;
                                             const formatted = formatTitle(title);
                                             setTitle(formatted);
                                             saveToFirestore({ title: formatted, content: (editorRef.current ? editorRef.current.innerHTML : content), progress, isPinned, noteTheme, noteIcon, labels, reminderDate, section: (editingNote ? editingNote.section : '') || '' });
@@ -1585,9 +1660,11 @@
                                         {labels.map(label => (
                                             <span key={label} className="text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-2 py-1 rounded-md flex items-center gap-1 font-montserrat">
                                                 {label}
-                                                <button onClick={() => { setLabels(labels.filter(l => l !== label)); setHasChanges(true); saveState(); }} className="hover:text-primary-dark">
-                                                    <span className="material-symbols-outlined text-xs">close</span>
-                                                </button>
+                                                {canEdit && (
+                                                    <button onClick={() => { setLabels(labels.filter(l => l !== label)); setHasChanges(true); saveState(); }} className="hover:text-primary-dark">
+                                                        <span className="material-symbols-outlined text-xs">close</span>
+                                                    </button>
+                                                )}
                                             </span>
                                         ))}
                                         {reminderDate && (
@@ -1600,8 +1677,9 @@
                                 </div>
                                 <div className="flex items-center gap-0.5 flex-shrink-0">
                                     <button 
-                                        onClick={() => { setIsPinned(!isPinned); saveState(); }}
+                                        onClick={() => { if(!canEdit) return; setIsPinned(!isPinned); saveState(); }}
                                         className={"p-2 rounded-full transition-all " + (isPinned ? "text-primary bg-primary/10" : "text-slate-400 hover:text-slate-600")}
+                                        disabled={!canEdit}
                                     >
                                         <span className="material-symbols-outlined text-[22px] md:text-[24px]" style={isPinned ? {fontVariationSettings: "'FILL' 1"} : {}}>push_pin</span>
                                     </button>
@@ -1616,10 +1694,10 @@
                             <div className="flex-1">
                                 <div 
                                     ref={editorRef}
-                                    contentEditable="true"
+                                    contentEditable={canEdit ? "true" : "false"}
                                     className="note-editor-area"
                                     data-placeholder="Start typing your notes..."
-                                    onInput={(e) => { setHasChanges(true); }}
+                                    onInput={(e) => { if(!canEdit) return; setHasChanges(true); }}
                                     onBlur={saveState}
                                     onClick={handleEditorClick}
                                     onPaste={handlePaste}
@@ -1673,9 +1751,9 @@
                                                     {/* Case Horizontal Bar */}
                                                     {activeSubPopup === 'case' && (
                                                         <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-2xl border border-black/10 flex items-center p-1.5 px-2 z-[150] animate-in slide-in-from-bottom-2 duration-200 gap-1">
-                                                            <button onMouseDown={(e) => { e.preventDefault(); applyCase('cap'); setActiveSubPopup(null); }} className="h-5 px-3 flex items-center hover:bg-black/5 rounded-lg text-xs capitalize font-bold text-slate-700 font-montserrat">Aa</button>
-                                                            <button onMouseDown={(e) => { e.preventDefault(); applyCase('upper'); setActiveSubPopup(null); }} className="h-5 px-3 flex items-center hover:bg-black/5 rounded-lg text-xs uppercase font-bold text-slate-700 font-montserrat">AA</button>
-                                                            <button onMouseDown={(e) => { e.preventDefault(); applyCase('lower'); setActiveSubPopup(null); }} className="h-5 px-3 flex items-center hover:bg-black/5 rounded-lg text-xs lowercase font-bold text-slate-700 font-montserrat">aa</button>
+                                                            <button onMouseDown={(e) => { e.preventDefault(); applyCase('cap'); }} className="h-5 px-3 flex items-center hover:bg-black/5 rounded-lg text-xs capitalize font-bold text-slate-700 font-montserrat">Aa</button>
+                                                            <button onMouseDown={(e) => { e.preventDefault(); applyCase('upper'); }} className="h-5 px-3 flex items-center hover:bg-black/5 rounded-lg text-xs uppercase font-bold text-slate-700 font-montserrat">AA</button>
+                                                            <button onMouseDown={(e) => { e.preventDefault(); applyCase('lower'); }} className="h-5 px-3 flex items-center hover:bg-black/5 rounded-lg text-xs lowercase font-bold text-slate-700 font-montserrat">aa</button>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1717,7 +1795,7 @@
                                                         <div className="absolute bottom-full right-0 mb-2 p-2 bg-white rounded-xl shadow-2xl border border-black/5 flex items-center z-[160] animate-in slide-in-from-bottom-1 duration-200" style={{ minWidth: '130px' }}>
                                                             <div className="grid grid-cols-4 gap-2">
                                                                 <button 
-                                                                    onMouseDown={(e) => { e.preventDefault(); toggleHighlight('transparent'); setActiveSubPopup(null); }}
+                                                                    onMouseDown={(e) => { e.preventDefault(); toggleHighlight('transparent'); }}
                                                                     className="highlight-option flex items-center justify-center bg-white border-dashed"
                                                                     title="No Highlight"
                                                                 >
@@ -1726,7 +1804,7 @@
                                                                 {['#fed7aa', '#fef08a', '#bbf7d0', '#bfdbfe', '#ddd6fe', '#fecaca', '#f5f5f5', '#ffedd5', '#fef9c3', '#dcfce7', '#dbeafe', '#f3e8ff', '#ffe4e6', '#ccfbf1', '#fef3c7'].map(c => (
                                                                     <button 
                                                                         key={c}
-                                                                        onMouseDown={(e) => { e.preventDefault(); toggleHighlight(c); setActiveSubPopup(null); }}
+                                                                        onMouseDown={(e) => { e.preventDefault(); toggleHighlight(c); }}
                                                                         className="highlight-option" 
                                                                         style={{ backgroundColor: c }}
                                                                     />
@@ -1755,7 +1833,6 @@
                                                                         e.preventDefault(); 
                                                                         document.execCommand('insertHTML', false, `<hr style="border:none; border-top: 2px solid ${color}; margin: 1.5rem 0; width: 100%;" />`); 
                                                                         setHasChanges(true);
-                                                                        setActiveSubPopup(null);
                                                                     }}
                                                                     className="divider-option w-6 h-6 rounded-full border border-black/5 hover:scale-110 transition-transform flex-shrink-0"
                                                                     style={{ backgroundColor: color }}
@@ -1785,13 +1862,13 @@
                                                  </div>
                                                  <div className="w-px h-6 bg-black/5 mx-1"></div>
                                                  <div className="flex items-center px-1">
-                                                     <button onClick={() => { convertActiveBlock('todo'); setActivePopup(null); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Checklist"><span className="material-symbols-outlined text-[20px]">checklist</span></button>
-                                                     <button onClick={() => { convertActiveBlock('bullet'); setActivePopup(null); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Bullets"><span className="material-symbols-outlined text-[20px]">format_list_bulleted</span></button>
-                                                     <button onClick={() => { convertActiveBlock('number'); setActivePopup(null); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Numbering"><span className="material-symbols-outlined text-[20px]">format_list_numbered</span></button>
+                                                     <button onClick={() => { convertActiveBlock('todo'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Checklist"><span className="material-symbols-outlined text-[20px]">checklist</span></button>
+                                                     <button onClick={() => { convertActiveBlock('bullet'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Bullets"><span className="material-symbols-outlined text-[20px]">format_list_bulleted</span></button>
+                                                     <button onClick={() => { convertActiveBlock('number'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Numbering"><span className="material-symbols-outlined text-[20px]">format_list_numbered</span></button>
                                                  </div>
                                                  <div className="w-px h-6 bg-black/5 mx-1"></div>
                                                  <div className="flex items-center px-1">
-                                                     <button onClick={() => { fileInputRef.current.click(); setActivePopup(null); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Add Image"><span className="material-symbols-outlined text-[20px]">image</span></button>
+                                                     <button onClick={() => { fileInputRef.current.click(); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Add Image"><span className="material-symbols-outlined text-[20px]">image</span></button>
                                                  </div>
                                              </div>
                                     )}
@@ -1997,6 +2074,10 @@
                                                  <span className="material-symbols-outlined text-lg">label</span>
                                                  Add Label
                                              </button>
+                                             <button onClick={() => { setActivePopup('share'); }} className="menu-item font-montserrat">
+                                                 <span className="material-symbols-outlined text-lg">share</span>
+                                                 Share Note
+                                             </button>
                                              <button onClick={() => { 
                                                  if(confirm("Duplicate this note?")) {
                                                      alert("Note duplicated (Simulated)");
@@ -2062,6 +2143,143 @@
                                                          }
                                                      }}
                                                  />
+                                             </div>
+                                         </div>
+                                     )}
+                                     {activePopup === 'share' && (
+                                         <div className="more-menu-dropdown z-[120] w-80 p-0 overflow-hidden animate-in slide-in-from-bottom-2 duration-200">
+                                             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white">
+                                                 <div className="flex items-center gap-2">
+                                                     <button onClick={() => setActivePopup('more')} className="p-1 hover:bg-slate-100 rounded-full">
+                                                         <span className="material-symbols-outlined text-sm">arrow_back</span>
+                                                     </button>
+                                                     <span className="text-sm font-bold text-slate-800 font-montserrat tracking-tight">Share Note</span>
+                                                 </div>
+                                                 <button onClick={() => setActivePopup(null)} className="text-slate-400 hover:text-slate-600">
+                                                     <span className="material-symbols-outlined text-lg">close</span>
+                                                 </button>
+                                             </div>
+                                             <div className="p-4 space-y-5 bg-white">
+                                                 {/* Email Sharing */}
+                                                 <div>
+                                                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Invite by Email</label>
+                                                     <div className="flex gap-2">
+                                                         <input 
+                                                             type="email" 
+                                                             placeholder="Enter email..." 
+                                                             className="flex-1 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-montserrat"
+                                                             value={shareEmail}
+                                                             onChange={e => setShareEmail(e.target.value)}
+                                                             onKeyDown={e => {
+                                                                 if(e.key === 'Enter' && shareEmail.trim()) {
+                                                                     const email = shareEmail.trim().toLowerCase();
+                                                                     if(!sharedWith.includes(email)) {
+                                                                         setSharedWith([...sharedWith, email]);
+                                                                         setHasChanges(true);
+                                                                     }
+                                                                     setShareEmail("");
+                                                                 }
+                                                             }}
+                                                         />
+                                                         <button 
+                                                             onClick={() => {
+                                                                 if(shareEmail.trim()) {
+                                                                     const email = shareEmail.trim().toLowerCase();
+                                                                     if(!sharedWith.includes(email)) {
+                                                                         setSharedWith([...sharedWith, email]);
+                                                                         setHasChanges(true);
+                                                                     }
+                                                                     setShareEmail("");
+                                                                 }
+                                                             }}
+                                                             className="bg-primary text-white px-3 rounded-xl text-xs font-bold hover:bg-primary-dark transition-colors"
+                                                         >Invite</button>
+                                                     </div>
+                                                     <div className="mt-3 flex flex-wrap gap-2">
+                                                         {sharedWith.map(email => (
+                                                             <span key={email} className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 px-2 py-1 rounded-lg text-[10px] font-bold">
+                                                                 {email}
+                                                                 <button onClick={() => { setSharedWith(sharedWith.filter(e => e !== email)); setHasChanges(true); }} className="hover:text-red-500">
+                                                                     <span className="material-symbols-outlined text-xs">close</span>
+                                                                 </button>
+                                                             </span>
+                                                         ))}
+                                                     </div>
+                                                 </div>
+
+                                                 <div className="h-px bg-slate-100"></div>
+
+                                                 {/* Public Link */}
+                                                 <div className="space-y-3">
+                                                     <div className="flex items-center justify-between">
+                                                         <div className="flex flex-col">
+                                                             <span className="text-sm font-bold text-slate-700 font-montserrat">Public Access</span>
+                                                             <span className="text-[10px] text-slate-400 font-montserrat">Anyone with the link can view</span>
+                                                         </div>
+                                                         <button 
+                                                             onClick={() => {
+                                                                  const newVal = !isPublic;
+                                                                  let token = publicShareToken;
+                                                                  if(newVal && !token) {
+                                                                      token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                                                                      setPublicShareToken(token);
+                                                                  }
+                                                                  setIsPublic(newVal);
+                                                                  setHasChanges(true);
+                                                                  saveToFirestore({ 
+                                                                      title, 
+                                                                      content: (editorRef.current ? editorRef.current.innerHTML : content), 
+                                                                      isPublic: newVal,
+                                                                      publicShareToken: token,
+                                                                      allowPublicEdit
+                                                                  }, true);
+                                                              }}
+                                                             className={`w-10 h-5 rounded-full relative transition-colors ${isPublic ? 'bg-primary' : 'bg-slate-200'}`}
+                                                         >
+                                                             <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isPublic ? 'left-6' : 'left-1'}`}></div>
+                                                         </button>
+                                                     </div>
+
+                                                     {isPublic && (
+                                                         <>
+                                                             <div className="flex items-center justify-between animate-in fade-in slide-in-from-top-1 duration-200">
+                                                                 <div className="flex flex-col">
+                                                                     <span className="text-sm font-bold text-slate-700 font-montserrat">Allow Public Editing</span>
+                                                                     <span className="text-[10px] text-slate-400 font-montserrat">Anyone can edit this note</span>
+                                                                 </div>
+                                                                 <button 
+                                                                     onClick={() => { 
+                                                                          const newVal = !allowPublicEdit;
+                                                                          setAllowPublicEdit(newVal); 
+                                                                          setHasChanges(true); 
+                                                                          saveToFirestore({ 
+                                                                              title, 
+                                                                              content: (editorRef.current ? editorRef.current.innerHTML : content), 
+                                                                              allowPublicEdit: newVal,
+                                                                              isPublic,
+                                                                              publicShareToken
+                                                                          }, true);
+                                                                      }}
+                                                                     className={`w-10 h-5 rounded-full relative transition-colors ${allowPublicEdit ? 'bg-primary' : 'bg-slate-200'}`}
+                                                                 >
+                                                                     <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${allowPublicEdit ? 'left-6' : 'left-1'}`}></div>
+                                                                 </button>
+                                                             </div>
+                                                             <button 
+                                                                 onClick={() => {
+                                                                     const activeToken = publicShareToken || (editingNote?.publicShareToken);
+                                                                     const url = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share_note.html#/${activeToken}`;
+                                                                     navigator.clipboard.writeText(url);
+                                                                     showToast("Public link copied!");
+                                                                 }}
+                                                                 className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-bold font-montserrat transition-all flex items-center justify-center gap-2"
+                                                             >
+                                                                 <span className="material-symbols-outlined text-sm">link</span>
+                                                                 Copy Public Link
+                                                             </button>
+                                                         </>
+                                                     )}
+                                                 </div>
                                              </div>
                                          </div>
                                      )}
@@ -3856,7 +4074,7 @@
             return (
                 <Layout onOpenCreator={onOpenCreator} noPadding={true}>
                     <div className="flex-1 flex flex-col md:flex-row md:h-full md:overflow-hidden">
-                        <div className="flex-1 md:overflow-y-auto no-scrollbar px-0 md:px-1 pt-0 md:pt-12 pb-8">
+                        <div className="flex-1 md:overflow-y-auto no-scrollbar px-0 md:px-10 pt-0 md:pt-12 pb-8">
                             <Header user={user} />
                             <div className="px-4 md:px-0  mx-2 mt-3">
                                 <div className="flex items-center justify-between mb-4 md:mb-6">
@@ -4502,6 +4720,9 @@
             const [editingQuickTask, setEditingQuickTask] = useState(null);
             const [prefillDate, setPrefillDate] = useState(null);
             const [isOnline, setIsOnline] = useState(navigator.onLine);
+            const [sharedNotes, setSharedNotes] = useState([]);
+            const [publicNote, setPublicNote] = useState(null);
+            const [isPublicLoading, setIsPublicLoading] = useState(false);
 
             const [toasts, setToasts] = useState([]);
             const [isTransitioning, setIsTransitioning] = useState(true);
@@ -4638,6 +4859,46 @@
 
                 return () => unsubscribe();
             }, [user, activeCollection]);
+
+            // 3. Shared Notes Discovery (Email-based)
+            useEffect(() => {
+                if (!user || user.isAnonymous) return;
+
+                // Listen for notes shared with this user's email
+                const email = user.email ? user.email.toLowerCase() : '';
+                if (!email) return;
+
+                // This is a more complex query. For simplicity in this implementation, 
+                // we'll assume a shared_notes_access collection if we wanted high scale,
+                // but for now we'll query the tasks collection for any document where notes contain the user's email in sharedWith.
+                // Note: Firestore doesn't easily support "array-contains" on nested map fields across all docs.
+                // A better way: The owner adds a record to a 'shared_access' collection.
+                
+                const unsubscribe = db.collection('shared_access').where('sharedWith', '==', email).onSnapshot(snapshot => {
+                    const sharedDocs = [];
+                    snapshot.forEach(doc => {
+                        sharedDocs.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    // Fetch the actual notes from their owners' docs
+                    // (In a real app, this would be optimized)
+                    setSharedNotes(sharedDocs);
+                });
+
+                return () => unsubscribe();
+            }, [user]);
+
+            // 4. Public Note Routing
+            useEffect(() => {
+                const handleRoute = async () => {
+                    const hash = window.location.hash;
+                    setPublicNote(null);
+                };
+
+                window.addEventListener('hashchange', handleRoute);
+                handleRoute();
+                return () => window.removeEventListener('hashchange', handleRoute);
+            }, []);
 
             const handleUpdateNoteLocal = useCallback((updatedNote) => {
                 setNotes(prev => {
@@ -5088,6 +5349,14 @@
 
             if (!isTimerDone || !isAuthChecked) {
                 return <LoadingPage onComplete={handleLoadingComplete} />;
+            }
+
+            // Public Share Redirection Logic
+            const hash = window.location.hash;
+            if (hash.startsWith('#/share/')) {
+                const token = hash.replace('#/share/', '');
+                window.location.href = `share_note.html#/${token}`;
+                return <LoadingPage onComplete={() => {}} />;
             }
 
             if (!user) {
