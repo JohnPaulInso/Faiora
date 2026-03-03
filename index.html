@@ -2369,19 +2369,32 @@
                     .filter(n => (n.labels || []).some(l => l.toUpperCase() === 'PRIORITY'))
                     .sort((a, b) => (a.homeOrder || 0) - (b.homeOrder || 0))
             );
-            const [visibleTasksCount, setVisibleTasksCount] = useState(6);
+            const [visibleTasksCount, setVisibleTasksCount] = useState(10);
 
             const sortedQuickTasks = useMemo(() => {
                 const tasks = [...quickTasks];
                 tasks.sort((a, b) => {
+                    // 1. Completion status (uncompleted first)
                     if (a.completed && !b.completed) return 1;
                     if (!a.completed && b.completed) return -1;
-                    // For completed tasks, sort by completedAt so the most recently completed is at the top of the finished group
+                    
+                    // 2. For completed tasks, sort by completedAt descending (newest first)
                     if (a.completed && b.completed) {
-                        const timeA = a.completedAt || 0;
-                        const timeB = b.completedAt || 0;
-                        return timeB - timeA; // Descending: newest first
+                        return (b.completedAt || 0) - (a.completedAt || 0);
                     }
+                    
+                    // 3. For uncompleted tasks, sort by deadline ascending (earliest first)
+                    // If one has a deadline and the other doesn't, deadline comes first
+                    if (a.dueDate && !b.dueDate) return -1;
+                    if (!a.dueDate && b.dueDate) return 1;
+                    
+                    if (a.dueDate && b.dueDate) {
+                        const dateA = new Date(`${a.dueDate}T${a.dueTime || '00:00'}`);
+                        const dateB = new Date(`${b.dueDate}T${b.dueTime || '00:00'}`);
+                        if (dateA < dateB) return -1;
+                        if (dateA > dateB) return 1;
+                    }
+                    
                     return 0;
                 });
                 return tasks;
@@ -2764,7 +2777,7 @@
 
                                         {quickTasks.length > visibleTasksCount && (
                                             <button 
-                                                onClick={() => setVisibleTasksCount(prev => prev + 6)}
+                                                onClick={() => setVisibleTasksCount(prev => prev + 5)}
                                                 className="w-full py-4 glass-panel rounded-2xl text-[10px] font-bold text-primary/60 uppercase tracking-widest hover:bg-white/5 transition-all"
                                             >
                                                 Load More Tasks
@@ -3843,7 +3856,7 @@
             return (
                 <Layout onOpenCreator={onOpenCreator} noPadding={true}>
                     <div className="flex-1 flex flex-col md:flex-row md:h-full md:overflow-hidden">
-                        <div className="flex-1 md:overflow-y-auto no-scrollbar px-0 md:px-1 pt-0 md:pt-12pb-8">
+                        <div className="flex-1 md:overflow-y-auto no-scrollbar px-0 md:px-1 pt-0 md:pt-12 pb-8">
                             <Header user={user} />
                             <div className="px-4 md:px-0  mx-2 mt-3">
                                 <div className="flex items-center justify-between mb-4 md:mb-6">
