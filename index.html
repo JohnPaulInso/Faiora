@@ -558,7 +558,7 @@
                     {children}
                     <button 
                         onClick={handleFabClick}
-                        className="fixed bottom-[110px] md:bottom-12 right-6 md:right-12 w-[68px] h-[68px] md:w-20 md:h-20 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center fab-shadow transition-all duration-300 hover:scale-110 active:scale-95 z-40 group"
+                        className="fixed bottom-[100px] md:bottom-12 right-6 md:right-12 w-[68px] h-[68px] md:w-20 md:h-20 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center fab-shadow transition-all duration-300 hover:scale-110 active:scale-95 z-40 group"
                     >
                         <span className="material-symbols-outlined text-[32px] md:text-4xl group-hover:rotate-90 transition-transform duration-300">add</span>
                     </button>
@@ -2393,9 +2393,35 @@
                                                        
                                                     </div>
                                                     
-                                                    <button onClick={() => { setReminderDate(new Date().toISOString().split('T')[0] + 'T13:00'); setHasChanges(true); hasChangesRef.current = true; handleSetActivePopup(null); }} className="px-5 py-3 hover:bg-black/5 flex items-center justify-between text-sm text-slate-600 transition-colors font-montserrat">
-                                                        <span>Later today</span>
-                                                        <span className="text-xs text-slate-400 font-montserrat">1:00 PM</span>
+                                                    <button onClick={() => { 
+                                                        const now = new Date();
+                                                        const hour = now.getHours();
+                                                        let target = new Date(now);
+                                                        
+                                                        if (hour >= 18 || hour < 6) {
+                                                            if (hour >= 18) target.setDate(target.getDate() + 1);
+                                                            target.setHours(10, 0, 0, 0);
+                                                        } else {
+                                                            target = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+                                                        }
+                                                        
+                                                        const dateStr = target.toISOString().split('T')[0];
+                                                        const timeStr = target.getHours().toString().padStart(2, '0') + ':' + target.getMinutes().toString().padStart(2, '0');
+                                                        setReminderDate(dateStr + 'T' + timeStr); 
+                                                        setHasChanges(true); hasChangesRef.current = true; handleSetActivePopup(null); 
+                                                    }} className="px-5 py-3 hover:bg-black/5 flex items-center justify-between text-sm text-slate-600 transition-colors font-montserrat">
+                                                        <span>Later</span>
+                                                        <span className="text-xs text-slate-400 font-montserrat">
+                                                            {(() => {
+                                                                const now = new Date();
+                                                                const hour = now.getHours();
+                                                                if (hour >= 18 || hour < 6) return "Tomorrow, 10:00 AM";
+                                                                const future = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+                                                                const h = future.getHours();
+                                                                const m = future.getMinutes().toString().padStart(2, '0');
+                                                                return `${h % 12 || 12}:${m} ${h >= 12 ? 'PM' : 'AM'}`;
+                                                            })()}
+                                                        </span>
                                                     </button>
                                                     <button onClick={() => { 
                                                         const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -3131,15 +3157,26 @@
                     // 1. Completion status (uncompleted first)
                     if (a.completed !== b.completed) return a.completed ? 1 : -1;
                     
-                    // 2. Creation date (newest first)
+                    // 2. Deadline priority (Earliest first)
+                    const hasA = !!a.dueDate;
+                    const hasB = !!b.dueDate;
+                    if (hasA || hasB) {
+                        if (hasA && !hasB) return -1;
+                        if (!hasA && hasB) return 1;
+                        
+                        // Both have deadlines, compare date
+                        if (a.dueDate !== b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+                        
+                        // Same date, compare time (default to end of day if missing)
+                        const tA = a.dueTime || '23:59';
+                        const tB = b.dueTime || '23:59';
+                        if (tA !== tB) return tA.localeCompare(tB);
+                    }
+
+                    // 3. Creation date (Newest first) as final tie-breaker
                     const dateA = a.createdAt || 0;
                     const dateB = b.createdAt || 0;
-                    if (dateA !== dateB) return dateB - dateA;
-
-                    // 3. Fallback to dueDate
-                    if (a.dueDate && !b.dueDate) return -1;
-                    if (!a.dueDate && b.dueDate) return 1;
-                    return 0;
+                    return dateB - dateA;
                 });
                 return tasks;
             }, [quickTasks]);
@@ -3459,36 +3496,47 @@
                                                 }
 
                                                 if (date === today) {
+                                                    let label = isOverdue ? 'Past due' : 'Due Today';
+                                                    let isNearDeadline = false;
                                                     if (time) {
                                                         const [h, m] = time.split(':');
                                                         const diffMs = target - now;
                                                         const diffHours = diffMs / (1000 * 60 * 60);
                                                         
-                                                        if (diffHours > 0 && diffHours <= 8) {
-                                                            return { label: `Due in ${Math.ceil(diffHours)} ${Math.ceil(diffHours) === 1 ? 'hour' : 'hours'}`, isOverdue };
+                                                        if (diffHours > 0 && diffHours <= 4) {
+                                                            isNearDeadline = true;
+                                                            label = `Due in ${Math.ceil(diffHours)} ${Math.ceil(diffHours) === 1 ? 'hour' : 'hours'}`;
+                                                        } else if (diffHours > 0 && diffHours <= 8) {
+                                                            label = `Due in ${Math.ceil(diffHours)} ${Math.ceil(diffHours) === 1 ? 'hour' : 'hours'}`;
                                                         }
-                                                    }
-                                                    let label = isOverdue ? 'Past due' : 'Due Today';
-                                                    if (time) {
-                                                        const [h, m] = time.split(':');
+                                                        
                                                         const hours = parseInt(h);
                                                         const ampm = hours >= 12 ? 'PM' : 'AM';
                                                         const h12 = hours % 12 || 12;
                                                         label += ` • ${h12}:${m} ${ampm}`;
                                                     }
-                                                    return { label, isOverdue };
+                                                    return { label, isOverdue, isNearDeadline };
                                                 }
                                                 
                                                 if (date === tomorrowStr) {
                                                     let label = isOverdue ? 'Past due' : 'Due Tomorrow';
+                                                    let isNearDeadline = false;
                                                     if (time) {
                                                         const [h, m] = time.split(':');
+                                                        const tgt = new Date(date);
+                                                        tgt.setHours(parseInt(h), parseInt(m), 0, 0);
+                                                        const diffMs = tgt - now;
+                                                        const diffHours = diffMs / (1000 * 60 * 60);
+                                                        if (diffHours > 0 && diffHours <= 4) {
+                                                            isNearDeadline = true;
+                                                            label = `Due in ${Math.ceil(diffHours)} ${Math.ceil(diffHours) === 1 ? 'hour' : 'hours'}`;
+                                                        }
                                                         const hours = parseInt(h);
                                                         const ampm = hours >= 12 ? 'PM' : 'AM';
                                                         const h12 = hours % 12 || 12;
                                                         label += ` • ${h12}:${m} ${ampm}`;
                                                     }
-                                                    return { label, isOverdue };
+                                                    return { label, isOverdue, isNearDeadline };
                                                 }
 
                                                 const options = { month: 'short', day: 'numeric' };
@@ -3500,18 +3548,18 @@
                                                     const h12 = hours % 12 || 12;
                                                     str += ` • ${h12}:${m} ${ampm}`;
                                                 }
-                                                return { label: isOverdue ? `Past due • ${str}` : str, isOverdue };
+                                                return { label: isOverdue ? `Past due • ${str}` : str, isOverdue, isNearDeadline: false };
                                             };
 
                                             return (
                                                 <div className="space-y-4">
                                                            {displayTasks.map(task => {
-                                                        const { label: dueDateStr, isOverdue } = formatDueDate(task.dueDate, task.dueTime);
+                                                        const { label: dueDateStr, isOverdue, isNearDeadline } = formatDueDate(task.dueDate, task.dueTime);
 
                                                         return (
                                                             <div 
                                                                 key={task.id}
-                                                                className={`glass-panel rounded-[2rem] p-4 md:p-5 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 transition-all duration-200 cursor-pointer border border-white/5 shadow-lg hover:shadow-primary/5 ${task.completed ? 'opacity-40 grayscale-[0.5]' : ''} ${isOverdue && !task.completed ? 'border-red-500/30' : ''}`}
+                                                                className={`glass-panel rounded-[2rem] p-4 md:p-5 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 transition-all duration-200 cursor-pointer border border-white/5 shadow-lg hover:shadow-primary/5 ${task.completed ? 'opacity-40 grayscale-[0.5]' : ''} ${isOverdue && !task.completed ? 'border-red-500/30' : ''} ${isNearDeadline && !task.completed ? 'near-deadline-glow' : ''}`}
                                                                 style={{ minHeight: window.innerWidth < 768 ? '64px' : 'auto', touchAction: 'pan-y' }}
                                                                 onClick={() => onToggleQuickTask(task.id)}
                                                                 onContextMenu={(e) => {
@@ -3546,7 +3594,7 @@
                                                     })}
                                                 </div>
                                             );
-                                        })()}
+                                        })()}   
 
                                         {sortedQuickTasks.length > displayTasks.length && (
                                             <button 
@@ -5166,11 +5214,9 @@
                 const now = new Date();
                 const hour = now.getHours();
                 
-                // If it's 6PM-6AM (nighttime/evening/early morning)
+                // 6PM - 6AM -> Tomorrow 10AM
                 if (hour >= 18 || hour < 6) {
                     const target = new Date(now);
-                    // If it's already evening (>= 18), move to tomorrow 10am
-                    // If it's early morning (< 6), move to today 10am
                     if (hour >= 18) target.setDate(target.getDate() + 1);
                     return {
                         date: target.toISOString().split('T')[0],
@@ -5178,10 +5224,11 @@
                     };
                 }
                 
-                // Otherwise (6AM-6PM), default to 6PM "Later today"
+                // 6AM - 6PM -> 4 Hours later
+                const future = new Date(now.getTime() + 4 * 60 * 60 * 1000);
                 return {
-                    date: now.toISOString().split('T')[0],
-                    time: '18:00'
+                    date: future.toISOString().split('T')[0],
+                    time: future.getHours().toString().padStart(2, '0') + ':' + future.getMinutes().toString().padStart(2, '0')
                 };
             };
 
@@ -5192,6 +5239,11 @@
             const [dueTime, setDueTime] = useState((initialData && initialData.dueTime) || (prefillDate ? '10:00' : initialLater.time));
             const [isClosing, setIsClosing] = useState(false);
             const [showCustom, setShowCustom] = useState(!!prefillDate || !!(initialData && (initialData.dueDate || initialData.dueTime)));
+            const [selectedPreset, setSelectedPreset] = useState(() => {
+                if (showCustom) return 'custom';
+                if (prefillDate) return 'custom'; // though prefillDate implies custom usually
+                return 'later';
+            });
             const [isDropdownOpen, setIsDropdownOpen] = useState(false);
             const dropdownRef = useRef(null);
 
@@ -5225,8 +5277,8 @@
              const handleTextChange = (val) => {
                 const { date, time, cleanText } = extractDateFromText(val);
                 setText(cleanText);
-                if (date) { setDueDate(date); setShowCustom(true); }
-                if (time) { setDueTime(time); setShowCustom(true); }
+                if (date) { setDueDate(date); setShowCustom(true); setSelectedPreset('custom'); }
+                if (time) { setDueTime(time); setShowCustom(true); setSelectedPreset('custom'); }
             };
 
             const handleClose = () => {
@@ -5263,10 +5315,34 @@
                     return parts.length === 3 ? `${parts[1]}/${parts[2]}` : '';
                 };
 
-                if (showCustom) return { label: 'Custom', sub: `${formatD(dueDate)}, ${formatTime(dueTime)}`, icon: 'schedule' };
-                if (dueDate === todayStr && dueTime === '18:00') return { label: 'Later today', sub: 'Today, 6:00 PM', icon: 'wb_twilight' };
+                // Use logic to determine which preset to show if possible
+                if (selectedPreset === 'later') {
+                    const isLaterMatch = (dueDate === initialLater.date && dueTime === initialLater.time);
+                    if (isLaterMatch) {
+                        return { label: 'Later', sub: (initialLater.date === todayStr ? 'Today, ' : 'Tomorrow, ') + formatTime(initialLater.time), icon: 'wb_twilight' };
+                    }
+                }
+                
+                if (selectedPreset === 'tomorrow') {
+                    if (dueDate === tomorrowStr && dueTime === '10:00') {
+                        return { label: 'Tomorrow', sub: 'Tomorrow, 10:00 AM', icon: 'event' };
+                    }
+                }
+                
+                if (selectedPreset === 'monday') {
+                    if (dueDate === nextMonStr && dueTime === '08:00') {
+                        return { label: 'Next Monday', sub: 'Monday, 8:00 AM', icon: 'calendar_month' };
+                    }
+                }
+
+                if (showCustom || selectedPreset === 'custom') {
+                    return { label: 'Custom', sub: `${formatD(dueDate)}, ${formatTime(dueTime)}`, icon: 'schedule' };
+                }
+
+                // Fallback smart matching if preset is somehow lost or doesn't match
+                if (dueDate === initialLater.date && dueTime === initialLater.time) return { label: 'Later', sub: (initialLater.date === todayStr ? 'Today, ' : 'Tomorrow, ') + formatTime(initialLater.time), icon: 'wb_twilight' };
                 if (dueDate === tomorrowStr && dueTime === '10:00') return { label: 'Tomorrow', sub: 'Tomorrow, 10:00 AM', icon: 'event' };
-                if (dueDate === nextMonStr && dueTime === '08:00') return { label: 'Next Monday', sub: 'Monday, 8:00 AM', icon: 'calendar_month', date: nextMonStr, t: '08:00' };
+                if (dueDate === nextMonStr && dueTime === '08:00') return { label: 'Next Monday', sub: 'Monday, 8:00 AM', icon: 'calendar_month' };
                 return { label: 'Custom', sub: `${formatD(dueDate)}, ${formatTime(dueTime)}`, icon: 'schedule' };
             };
 
@@ -5335,7 +5411,14 @@
                                 {isDropdownOpen && (
                                     <div className="absolute top-full left-0 right-0 mt-2 bg-[#1e293b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                                          {[
-                                            { id: 'later', label: 'Later today', time: initialLater.date === new Date().toISOString().split('T')[0] ? `Today, ${parseInt(initialLater.time.split(':')[0]) > 12 ? (parseInt(initialLater.time.split(':')[0])-12)+':00 PM' : initialLater.time.split(':')[0]+':00 AM'}` : 'Soon', icon: 'wb_twilight', date: initialLater.date, t: initialLater.time },
+                                            { id: 'later', label: 'Later', time: (() => {
+                                                const h = parseInt(initialLater.time.split(':')[0]);
+                                                const m = initialLater.time.split(':')[1];
+                                                const ampm = h >= 12 ? 'PM' : 'AM';
+                                                const h12 = h % 12 || 12;
+                                                const day = initialLater.date === new Date().toISOString().split('T')[0] ? 'Today' : 'Tomorrow';
+                                                return `${day}, ${h12}:${m} ${ampm}`;
+                                            })(), icon: 'wb_twilight', date: initialLater.date, t: initialLater.time },
                                             { id: 'tomorrow', label: 'Tomorrow', time: 'Tomorrow, 10:00 AM', icon: 'event', date: getTomorrow(), t: '10:00' },
                                             { id: 'monday', label: 'Next Monday', time: 'Monday, 8:00 AM', icon: 'calendar_month', date: getNextMonday(), t: '08:00' },
                                             { id: 'custom', label: 'Custom', time: '', icon: 'schedule', date: null, t: null }
@@ -5344,6 +5427,7 @@
                                                 key={opt.id}
                                                 type="button"
                                                 onClick={() => {
+                                                    setSelectedPreset(opt.id);
                                                     if (opt.id === 'custom') {
                                                         setShowCustom(true);
                                                     } else {

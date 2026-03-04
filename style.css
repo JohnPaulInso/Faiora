@@ -1020,3 +1020,19 @@ body.dragging-image-active { cursor: grabbing !important; user-select: none !imp
     font-size: 0.85rem;
     color: #1e293b;
 }
+@keyframes deadline-glow {
+    0%, 100% { 
+        border-color: rgba(249, 115, 22, 0.4); 
+        box-shadow: 0 0 15px rgba(249, 115, 22, 0.2), inset 0 0 10px rgba(249, 115, 22, 0.05);
+    }
+    50% { 
+        border-color: rgba(249, 115, 22, 0.8); 
+        box-shadow: 0 0 25px rgba(249, 115, 22, 0.4), inset 0 0 15px rgba(249, 115, 22, 0.1);
+    }
+}
+
+.near-deadline-glow {
+    animation: deadline-glow 2s ease-in-out infinite !important;
+    border-width: 1.5px !important;
+    background: rgba(249, 115, 22, 0.03) !important;
+}
