@@ -207,10 +207,48 @@
             };
 
             // ------------------------------------------------------------------
+            // LABEL: NOTIF-LOCAL-SFX — Play notification sound effect
+            // ------------------------------------------------------------------
+            const playNotifSFX = () => {
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const playTone = (freq, start, dur, vol = 0.15) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+                        gain.gain.setValueAtTime(vol, ctx.currentTime + start);
+                        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(ctx.currentTime + start);
+                        osc.stop(ctx.currentTime + start + dur);
+                    };
+                    playTone(880, 0, 0.15, 0.12);
+                    playTone(1100, 0.12, 0.15, 0.1);
+                    playTone(1320, 0.24, 0.25, 0.08);
+                } catch(e) { /* AudioContext not available */ }
+            };
+
+            // ------------------------------------------------------------------
+            // LABEL: NOTIF-UTIL — Format time for notification title
+            // ------------------------------------------------------------------
+            const formatNotifTime = (dateObj) => {
+                let hours = dateObj.getHours();
+                const minutes = dateObj.getMinutes();
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12;
+                if (hours === 0) hours = 12;
+                const minStr = minutes === 0 ? '' : ':' + String(minutes).padStart(2, '0');
+                return `${hours}${minStr}${ampm}`;
+            };
+
+            // ------------------------------------------------------------------
             // LABEL: NOTIF-LOCAL-SEND — Show a local notification via Service Worker
             // ------------------------------------------------------------------
             const sendNotification = (title, body, tag) => {
                 if (!swRegistration) return;
+                playNotifSFX();
                 swRegistration.showNotification(title, {
                     body,
                     icon: 'logo.png',
@@ -219,7 +257,7 @@
                     renotify: true,
                     vibrate: [200, 100, 200],
                     requireInteraction: true,
-                    data: { url: location.origin + '/index.html' }
+                    data: { url: location.origin + location.pathname }
                 });
             };
 
@@ -244,11 +282,13 @@
                 const now = Date.now();
                 const dueMs = dueDateTime.getTime();
                 const taskTimers = [];
+                const taskName = task.text || task.title || 'Task';
+                const timeStr = formatNotifTime(dueDateTime);
 
                 // Timer 1: At exact due time
                 if (dueMs > now) {
                     const id = setTimeout(() => {
-                        sendNotification('🔥 Task Due Now!', task.text, `faiora-due-${task.id}`);
+                        sendNotification(`⏰ Reminder for "${taskName}" on ${timeStr}`, '🔥 Due Now!', `faiora-due-${task.id}`);
                     }, dueMs - now);
                     taskTimers.push(id);
                 }
@@ -257,7 +297,7 @@
                 const twoHoursBefore = dueMs - (2 * 60 * 60 * 1000);
                 if (twoHoursBefore > now) {
                     const id = setTimeout(() => {
-                        sendNotification('🔥 Due in 2 Hours', task.text, `faiora-2h-${task.id}`);
+                        sendNotification(`⌛ Reminder for "${taskName}" on ${timeStr}`, '⚡ Due in 2 hours!', `faiora-2h-${task.id}`);
                     }, twoHoursBefore - now);
                     taskTimers.push(id);
                 }
@@ -269,7 +309,7 @@
                 const dayBeforeMs = dayBefore.getTime();
                 if (dayBeforeMs > now) {
                     const id = setTimeout(() => {
-                        sendNotification('🔥 Due Tomorrow', task.text, `faiora-1d-${task.id}`);
+                        sendNotification(`📅 Reminder for "${taskName}" on ${timeStr}`, '✨ Due Tomorrow!', `faiora-1d-${task.id}`);
                     }, dayBeforeMs - now);
                     taskTimers.push(id);
                 }
@@ -381,7 +421,7 @@
             const handleFabClick = onFabClick || onOpenCreator;
             
             return (
-                <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-transparent">
+                <div className="flex flex-col md:flex-row h-[100dvh] overflow-hidden bg-transparent">
                     <ResponsiveNav />
                     <main className={`flex-1 overflow-y-auto no-scrollbar relative pt-0 pb-24 md:pb-12 ${noPadding ? 'px-0' : 'px-0 md:px-12'} md:ml-24`}>
                         {children}
@@ -2913,7 +2953,23 @@
             const dragRef = useRef(null);
             const gestureRef = useRef({ active: false, activated: false, scrolling: false });
             const longPressTimer = useRef(null);
-             const [localNotes, setLocalNotes] = useState(() => 
+            
+            // Move/Up/Cancel are added on document ONLY when a gesture starts,
+            // to avoid blocking native scroll with per-card handlers.
+            const docMoveRef = useRef(null);
+            const docEndRef = useRef(null);
+
+            const removeDocListeners = () => {
+                if (docMoveRef.current) document.removeEventListener('pointermove', docMoveRef.current);
+                if (docEndRef.current) {
+                    document.removeEventListener('pointerup', docEndRef.current);
+                    document.removeEventListener('pointercancel', docEndRef.current);
+                }
+                docMoveRef.current = null;
+                docEndRef.current = null;
+            };
+
+            const [localNotes, setLocalNotes] = useState(() => 
                  notes
                      .filter(n => (n.labels || []).some(l => l.toUpperCase() === 'PRIORITY'))
                      .sort((a, b) => {
@@ -2989,9 +3045,48 @@
                     lastY: clientY
                 };
 
+                // Attach document-level listeners for this gesture
+                const onMove = (ev) => {
+                    const gs = gestureRef.current;
+                    if (!gs.active) return;
+                    const { clientX: mx, clientY: my } = ev;
+
+                    if (gs.scrolling) return;
+
+                    // Before long-press: detect scroll and bail
+                    if (!gs.activated) {
+                        if (Math.abs(mx - gs.startX) > 8 || Math.abs(my - gs.startY) > 8) {
+                            if (longPressTimer.current) clearTimeout(longPressTimer.current);
+                            gs.scrolling = true;
+                            gs.active = false;
+                            try { gs.cardEl.releasePointerCapture(gs.pointerId); } catch(err) {}
+                            removeDocListeners();
+                        }
+                        return;
+                    }
+
+                    // Drag mode (after long press)
+                    handlePointerMoveCore(mx, my);
+                };
+
+                const onEnd = (ev) => {
+                    handlePointerEndCore(ev);
+                    removeDocListeners();
+                };
+
+                removeDocListeners();
+                docMoveRef.current = onMove;
+                docEndRef.current = onEnd;
+                document.addEventListener('pointermove', onMove);
+                document.addEventListener('pointerup', onEnd);
+                document.addEventListener('pointercancel', onEnd);
+
                 longPressTimer.current = setTimeout(() => {
                     if (navigator.vibrate) try { navigator.vibrate(50); } catch(err) {}
                     gestureRef.current.activated = true;
+
+                    try { cardEl.setPointerCapture(pointerId); } catch(err) {}
+
                     const rect = cardEl.getBoundingClientRect();
                     const clone = cardEl.cloneNode(true);
                     clone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;z-index:9999;pointer-events:none;opacity:0.9;transform:scale(1.05) rotate(2deg);box-shadow:0 25px 60px rgba(0,0,0,0.5), 0 0 30px rgba(249, 115, 22, 0.3);transition:transform 0.15s ease, box-shadow 0.15s ease;border-radius:1.5rem;`;
@@ -3024,29 +3119,7 @@
                 return document.documentElement;
             };
 
-            const handlePointerMove = (e) => {
-                const gs = gestureRef.current;
-                if (!gs.active) return;
-                const { clientX: mx, clientY: my } = e;
-
-                if (gs.scrolling) {
-                    const scrollParent = findScrollParent(gs.cardEl);
-                    scrollParent.scrollTop -= (my - gs.lastY);
-                    gs.lastY = my;
-                    return;
-                }
-
-                if (!gs.activated) {
-                    if (Math.abs(mx - gs.startX) > 10 || Math.abs(my - gs.startY) > 10) {
-                        if (longPressTimer.current) clearTimeout(longPressTimer.current);
-                        gs.scrolling = true;
-                        gs.lastY = my;
-                        const scrollParent = findScrollParent(gs.cardEl);
-                        scrollParent.scrollTop -= (my - gs.startY);
-                    }
-                    return;
-                }
-
+            const handlePointerMoveCore = (mx, my) => {
                 const s = dragRef.current;
                 if (!s) return;
                 s.didMove = true;
@@ -3072,10 +3145,10 @@
                 }
             };
 
-            const handlePointerEnd = (e) => {
+            const handlePointerEndCore = (e) => {
                 const gs = gestureRef.current;
                 if (!gs.active) return;
-                try { e.currentTarget.releasePointerCapture(gs.pointerId); } catch(err) {}
+                try { gs.cardEl.releasePointerCapture(gs.pointerId); } catch(err) {}
                 if (longPressTimer.current) clearTimeout(longPressTimer.current);
 
                 if (gs.scrolling) {
@@ -3107,7 +3180,13 @@
                 document.body.style.cursor = '';
                 setDragState(null);
                 dragRef.current = null;
+                gs.active = false;
             };
+
+            // Effect cleanup
+            useEffect(() => {
+                return () => removeDocListeners();
+            }, []);
 
             const sortedPriorityNotes = localNotes.slice(0, 6);
 
@@ -3115,7 +3194,7 @@
                 <Layout onOpenCreator={onOpenCreator} onFabClick={onAddQuickTaskClick}>
                     <div className="max-w-7xl mx-auto w-full px-0 md:px-0 pt-0 md:pt-12 pb-12">
                         <Header user={user} />
-                        <section className="mt-6 md:mt-8 mb-16 px-4 md:px-0">
+                        <section className="mt-3 md:mt-8 mb-12 md:mb-16 px-4 md:px-0">
                             <div className="flex items-center gap-4 mb-6 pt-0 md:mb-10">
                                 <h2 className="hidden md:block text-2xl font-bold text-cream-light/90 uppercase tracking-[0.3em] font-display">PRIORITY NOTES</h2>
                                 <h2 className="md:hidden text-lg font-bold text-cream-light/90 uppercase tracking-[0.2em] font-display">PRIORITY</h2>
@@ -3149,11 +3228,8 @@
                                             <div 
                                                 key={note.id}
                                                 onPointerDown={(e) => handlePointerDown(note.id, e)}
-                                                onPointerMove={handlePointerMove}
-                                                onPointerUp={handlePointerEnd}
-                                                onPointerCancel={handlePointerEnd}
                                                 onContextMenu={(e) => e.preventDefault()}
-                                                style={{ touchAction: 'none' }}
+                                                style={{ touchAction: 'pan-y' }}
                                                 className="transition-transform duration-300"
                                             >
                                                 <NoteCard 
@@ -3296,7 +3372,7 @@
                                                     <div 
                                                         key={task.id}
                                                         className={`glass-panel rounded-[2rem] p-4 md:p-5 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 transition-all duration-200 cursor-pointer border border-white/5 shadow-lg hover:shadow-primary/5 ${task.completed ? 'opacity-40 grayscale-[0.5]' : ''} ${isOverdue && !task.completed ? 'border-red-500/30' : ''}`}
-                                                        style={{ minHeight: window.innerWidth < 768 ? '64px' : 'auto' }}
+                                                        style={{ minHeight: window.innerWidth < 768 ? '64px' : 'auto', touchAction: 'pan-y' }}
                                                         onClick={() => {
                                                             onToggleQuickTask(task.id);
                                                             // Play sound
@@ -3519,15 +3595,26 @@
             }, []);
 
             // === POINTER EVENT HANDLERS (unified mouse+touch) ===
-            // Using setPointerCapture guarantees ALL pointermove events reach
-            // our handler, even when the finger/cursor moves outside the element.
+            // Only onPointerDown is on individual cards.
+            // Move/Up/Cancel are added on document ONLY when a gesture starts,
+            // to avoid blocking native scroll with per-card handlers.
+
+            const docMoveRef = useRef(null);
+            const docEndRef = useRef(null);
+
+            const removeDocListeners = () => {
+                if (docMoveRef.current) document.removeEventListener('pointermove', docMoveRef.current);
+                if (docEndRef.current) {
+                    document.removeEventListener('pointerup', docEndRef.current);
+                    document.removeEventListener('pointercancel', docEndRef.current);
+                }
+                docMoveRef.current = null;
+                docEndRef.current = null;
+            };
 
             const handlePointerDown = (noteId, e) => {
                 const cardEl = e.currentTarget;
                 const { clientX, clientY, pointerId } = e;
-
-                // Capture pointer — ALL future move/up events will fire on this element
-                cardEl.setPointerCapture(pointerId);
 
                 gestureRef.current = {
                     active: true,
@@ -3541,15 +3628,53 @@
                     lastY: clientY
                 };
 
+                // Attach document-level listeners for this gesture
+                const onMove = (ev) => {
+                    const gs = gestureRef.current;
+                    if (!gs.active) return;
+                    const { clientX: mx, clientY: my } = ev;
+
+                    if (gs.scrolling) return;
+
+                    // Before long-press: detect scroll and bail
+                    if (!gs.activated) {
+                        if (Math.abs(mx - gs.startX) > 8 || Math.abs(my - gs.startY) > 8) {
+                            if (longPressTimer.current) clearTimeout(longPressTimer.current);
+                            gs.scrolling = true;
+                            gs.active = false;
+                            try { gs.cardEl.releasePointerCapture(gs.pointerId); } catch(err) {}
+                            removeDocListeners();
+                        }
+                        return;
+                    }
+
+                    // Drag mode (after long press)
+                    handlePointerMoveCore(mx, my);
+                };
+
+                const onEnd = (ev) => {
+                    handlePointerEndCore(ev);
+                    removeDocListeners();
+                };
+
+                removeDocListeners();
+                docMoveRef.current = onMove;
+                docEndRef.current = onEnd;
+                document.addEventListener('pointermove', onMove);
+                document.addEventListener('pointerup', onEnd);
+                document.addEventListener('pointercancel', onEnd);
+
                 if (selectionMode) return;
 
                 longPressTimer.current = setTimeout(() => {
                     if (navigator.vibrate) try { navigator.vibrate(50); } catch(err) {}
                     gestureRef.current.activated = true;
+
+                    try { cardEl.setPointerCapture(pointerId); } catch(err) {}
+
                     const initialNote = notes.find(n => n.id === noteId);
                     const initialSection = initialNote ? (initialNote.isPinned ? "__pinned" : (initialNote.section || '')) : '';
                     
-                    // CACHE GEOMETRY WITH SCROLL COMPENSATION (ABSOLUTE COORDINATES)
                     const scrollParent = findScrollParent(cardEl);
                     const currentScroll = scrollParent.scrollTop;
                     
@@ -3601,40 +3726,15 @@
                 }, 350);
             };
 
-            const handlePointerMove = (e) => {
-                const gs = gestureRef.current;
-                if (!gs.active) return;
-                const { clientX: mx, clientY: my } = e;
-
-                // Manual scrolling (user moved > 10px during 350ms wait)
-                if (gs.scrolling) {
-                    const scrollParent = findScrollParent(gs.cardEl);
-                    scrollParent.scrollTop -= (my - gs.lastY);
-                    gs.lastY = my;
-                    return;
-                }
-
-                // Waiting for long press (first 350ms)
-                if (!gs.activated) {
-                    if (Math.abs(mx - gs.startX) > 10 || Math.abs(my - gs.startY) > 10) {
-                        if (longPressTimer.current) clearTimeout(longPressTimer.current);
-                        gs.scrolling = true;
-                        gs.lastY = my;
-                        const scrollParent = findScrollParent(gs.cardEl);
-                        scrollParent.scrollTop -= (my - gs.startY);
-                    }
-                    return;
-                }
-
-                // Drag mode
+            // Core move logic (called from document listener, only during drag)
+            const handlePointerMoveCore = (mx, my) => {
                 const state = dragRef.current;
                 if (!state) return;
 
-                // Create clone on first significant movement
                 if (!state.cloneCreated && (Math.abs(mx - state.startX) > 5 || Math.abs(my - state.startY) > 5)) {
                     state.cloneCreated = true;
                     state.didMove = true;
-
+                    const gs = gestureRef.current;
                     const rect = gs.cardEl.getBoundingClientRect();
                     const cloneEl = gs.cardEl.cloneNode(true);
                     document.body.style.cursor = 'grabbing';
@@ -3644,8 +3744,8 @@
                     cloneEl.style.height = rect.height + 'px';
                     cloneEl.style.opacity = '0.9';
                     cloneEl.style.filter = 'drop-shadow(0 20px 40px rgba(0,0,0,0.4))';
-                    cloneEl.style.left = (mx - (mx - rect.left)) + 'px'; // mx - offsetX
-                    cloneEl.style.top = (my - (my - rect.top)) + 'px'; // my - offsetY
+                    cloneEl.style.left = (mx - (mx - rect.left)) + 'px';
+                    cloneEl.style.top = (my - (my - rect.top)) + 'px';
                     cloneEl.style.borderRadius = '24px';
                     cloneEl.style.pointerEvents = 'none';
                     cloneEl.style.transform = 'scale(0.95)';
@@ -3664,15 +3764,10 @@
                         el.style.borderRadius = '1.5rem';
                         el.style.transition = 'outline 0.2s, background 0.2s';
                     });
-
-                    // NOTE: Do NOT call setDragState here! It causes a React re-render
-                    // that replaces this card with a placeholder, destroying the DOM element
-                    // that holds pointer capture and killing all subsequent pointer events on mobile.
                 }
 
                 if (!state.cloneCreated) return;
 
-                // Update clone position with RAF for maximum visual smoothness
                 requestAnimationFrame(() => {
                     if (state.cloneEl) {
                         state.cloneEl.style.left = (mx - state.offsetX) + 'px';
@@ -3681,7 +3776,6 @@
                     }
                 });
 
-                // AUTO-SCROLL (EDGE DETECTION)
                 const geo = geometryRef.current;
                 if (geo && geo.scrollParent) {
                     const threshold = 120;
@@ -3693,7 +3787,6 @@
                     }
                 }
 
-                // Detect hovering using ABSOLUTE COORDINATES (scroll-proof)
                 const currentScroll = geo ? geo.scrollParent.scrollTop : 0;
                 const absoluteMy = my + currentScroll;
                 const absoluteMx = mx;
@@ -3705,8 +3798,6 @@
                     geo.sections.forEach(s => {
                         const isTargetPinned = (s.sect === "__pinned");
                         if (isDraggingPinned !== isTargetPinned) return;
-                        
-                        // Compare against absolute vertical coordinates
                         if (absoluteMx >= s.absLeft && absoluteMx <= s.absRight && absoluteMy >= s.absTop && absoluteMy <= s.absBottom) {
                             hoveredSect = s.sect;
                             s.el.style.background = 'rgba(249, 115, 22, 0.05)';
@@ -3728,7 +3819,6 @@
                     });
                 }
 
-                // Throttle state updates for smoothness
                 const now = Date.now();
                 if (now - lastUpdateRef.current > 60 && (hoveredNoteId || hoveredSect !== null)) {
                     lastUpdateRef.current = now;
@@ -3766,16 +3856,13 @@
                 const state = dragRef.current;
                 const gs = gestureRef.current;
                 
-                // 1. CLEAR GLOBAL STYLES
                 document.body.style.cursor = '';
                 document.body.style.userSelect = '';
                 document.body.classList.remove('dragging-active');
                 
-                // 2. CLEAR CLONES (Robust: remove all with the class)
                 document.querySelectorAll('.drag-clone').forEach(el => el.remove());
                 if (state && state.cloneEl) state.cloneEl.remove();
 
-                // 3. RESET ORIGINAL ELEMENTS
                 if (state && state.originalEl) {
                     state.originalEl.style.opacity = '';
                     state.originalEl.style.transform = '';
@@ -3783,31 +3870,28 @@
                     state.originalEl.classList.remove('dragging-source');
                 }
 
-                // 4. CLEAR SECTION HIGHLIGHTS
                 document.querySelectorAll('[data-drop-section]').forEach(el => {
                     el.style.background = '';
                     el.style.outline = '';
                 });
 
-                // 5. RESET STATE
                 if (longPressTimer.current) clearTimeout(longPressTimer.current);
                 gs.active = false;
                 gs.activated = false;
                 gs.scrolling = false;
                 dragRef.current = null;
                 setDragState(null);
+                removeDocListeners();
             };
 
-            const handlePointerEnd = (e) => {
+            const handlePointerEndCore = (e) => {
                 const gs = gestureRef.current;
                 if (!gs.active) return;
 
-                // Release pointer capture
-                try { e.currentTarget.releasePointerCapture(gs.pointerId); } catch(err) {}
+                try { gs.cardEl.releasePointerCapture(gs.pointerId); } catch(err) {}
 
                 const state = dragRef.current;
                 
-                // DRAG COMPLETED: Check if we should update DB
                 if (state && state.cloneCreated && state.didMove) {
                     setLocalNotes(currentLocal => {
                         const finalNote = currentLocal.find(n => n.id === state.noteId);
@@ -3828,7 +3912,6 @@
                         return currentLocal;
                     });
                 } 
-                // TAP OR LONG-PRESS (No drag or minimal move)
                 else if (!gs.scrolling) {
                     if (selectionMode || gs.activated) {
                         pointerHandledRef.current = true;
@@ -3841,7 +3924,7 @@
 
             // Global cleanup on unmount
             useEffect(() => {
-                return () => cleanupDrag();
+                return () => { cleanupDrag(); removeDocListeners(); };
             }, []);
 
             const handleAddSectionSubmit = () => {
@@ -3965,9 +4048,6 @@
                                             <div 
                                                 data-note-id={note.id}
                                                 onPointerDown={(e) => handlePointerDown(note.id, e)}
-                                                onPointerMove={handlePointerMove}
-                                                onPointerUp={handlePointerEnd}
-                                                onPointerCancel={handlePointerEnd}
                                                 className="opacity-0 w-0 h-0 pointer-events-none overflow-hidden absolute" 
                                             />
                                         )}
@@ -3991,9 +4071,6 @@
                                     key={note.id}
                                     data-note-id={note.id}
                                     onPointerDown={(e) => handlePointerDown(note.id, e)}
-                                    onPointerMove={handlePointerMove}
-                                    onPointerUp={handlePointerEnd}
-                                    onPointerCancel={handlePointerEnd}
                                     onContextMenu={(e) => e.preventDefault()}
                                     onClick={() => { 
                                         if (pointerHandledRef.current) {
@@ -4007,7 +4084,7 @@
                                         }
                                     }} 
                                     style={{ 
-                                        touchAction: selectionMode ? 'pan-y' : 'none',
+                                        touchAction: 'pan-y',
                                         cursor: selectionMode ? 'pointer' : (dragState ? 'grabbing' : 'pointer')
                                     }}
                                     className="transition-all duration-300"
@@ -4970,6 +5047,18 @@
 
 
              const getLaterTiming = () => {
+                const now = new Date();
+                const hour = now.getHours();
+                // If it's 6PM or later (nighttime), default to 9AM tomorrow
+                if (hour >= 18) {
+                    const tomorrow = new Date(now);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    return {
+                        date: tomorrow.toISOString().split('T')[0],
+                        time: '09:00'
+                    };
+                }
+                // Otherwise, default to 6 hours from now
                 const d = new Date(Date.now() + 6 * 3600 * 1000);
                 d.setMinutes(0);
                 return {
@@ -5205,6 +5294,7 @@
                 try { return JSON.parse(localStorage.getItem('faiora_sections') || '[]'); } catch(e) { return []; }
             });
             const [quickTasks, setQuickTasks] = useState([]);
+            const qtWriteGuard = useRef(0); // Timestamp of last local quick task write
             const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
             const [editingQuickTask, setEditingQuickTask] = useState(null);
             const [prefillDate, setPrefillDate] = useState(null);
@@ -5326,11 +5416,13 @@
                         const fetchedNotesMap = data && data.notes ? data.notes : {};
                         const fetchedNotes = Object.values(fetchedNotesMap);
                         
-                        // Sync Quick Tasks
-                        const fetchedQuickTasks = data.quickTasks || [];
-                        setQuickTasks(fetchedQuickTasks);
-                        localStorage.setItem('faiora_quick_tasks_' + user.uid, JSON.stringify(fetchedQuickTasks));
-                        FaioraNotifications.rescheduleAll(fetchedQuickTasks);
+                        // Sync Quick Tasks — skip if we just wrote locally (prevents race condition)
+                        if (Date.now() - qtWriteGuard.current > 3000) {
+                            const fetchedQuickTasks = data.quickTasks || [];
+                            setQuickTasks(fetchedQuickTasks);
+                            localStorage.setItem('faiora_quick_tasks_' + user.uid, JSON.stringify(fetchedQuickTasks));
+                            FaioraNotifications.rescheduleAll(fetchedQuickTasks);
+                        }
 
                         // Centralized Sorting: Pinned first, then sortOrder, then updatedAt
                         fetchedNotes.sort((a, b) => {
@@ -5739,18 +5831,31 @@
                 if (showToast) showToast('Moved to ' + (sectionName || 'All Notes'));
             }, [user, activeCollection, showToast]);
 
-            const handleUpdateQuickTasks = (updatedTasks) => {
-                setQuickTasks(updatedTasks);
-                if (user) {
-                    localStorage.setItem('faiora_quick_tasks_' + user.uid, JSON.stringify(updatedTasks));
-                    if (activeCollection) {
-                        db.collection(activeCollection).doc(user.uid).update({ quickTasks: updatedTasks })
-                            .catch(e => console.warn('QuickTasks sync fail', e));
-                    }
-                }
-            };
+            const quickTasksRef = useRef(quickTasks);
+            useEffect(() => { quickTasksRef.current = quickTasks; }, [quickTasks]);
 
-            const handleAddQuickTask = (text, dueDate = '', dueTime = '') => {
+            const handleUpdateQuickTasks = useCallback((updatedTasks) => {
+                qtWriteGuard.current = Date.now();
+                setQuickTasks(updatedTasks);
+                quickTasksRef.current = updatedTasks;
+                const currentUser = auth.currentUser;
+                console.log('🔧 handleUpdateQuickTasks called, count:', updatedTasks.length, 'user:', currentUser?.uid);
+                if (currentUser) {
+                    localStorage.setItem('faiora_quick_tasks_' + currentUser.uid, JSON.stringify(updatedTasks));
+                    if (activeCollection) {
+                        db.collection(activeCollection).doc(currentUser.uid).set({ quickTasks: updatedTasks }, { merge: true })
+                            .then(() => console.log('✅ QuickTasks saved to Firestore'))
+                            .catch(e => console.error('❌ QuickTasks Firestore save FAILED:', e));
+                    } else {
+                        console.warn('⚠️ activeCollection is falsy:', activeCollection);
+                    }
+                } else {
+                    console.warn('⚠️ No currentUser — cannot save quick tasks');
+                }
+            }, [activeCollection]);
+
+            const handleAddQuickTask = useCallback((text, dueDate = '', dueTime = '') => {
+                console.log('🆕 handleAddQuickTask called:', { text, dueDate, dueTime });
                 const newTask = {
                     id: 'qt_' + Date.now(),
                     text,
@@ -5759,9 +5864,10 @@
                     completed: false,
                     createdAt: Date.now()
                 };
-                handleUpdateQuickTasks([newTask, ...quickTasks]);
+                const updated = [newTask, ...quickTasksRef.current];
+                handleUpdateQuickTasks(updated);
                 FaioraNotifications.scheduleForTask(newTask);
-            };
+            }, [handleUpdateQuickTasks]);
 
             const handleToggleQuickTask = (id) => {
                 const updated = quickTasks.map(t => {
@@ -5829,17 +5935,38 @@
                     setIsAuthChecked(true);
 
                     if (u) {
-                        // PARALLEL PROBE: Check all potential collections at once for maximum speed
+                        // ROBUST PROBE: Check collections sequentially but prioritize 'tasks'
+                        // and immediately resolve if notes are found.
                         const probeCollections = ['tasks', 'users', 'userdata', 'notes'];
-                        let failureCount = 0;
-                        let hasResolved = false;
-                        probeCollections.forEach(coll => {
-                            db.collection(coll).doc(u.uid).get().then(doc => {
-                                if (hasResolved) return;
-                                console.log(`Firestore probe: Found working collection '${coll}'`);
-                                setActiveCollection(coll);
-                                hasResolved = true;
+                        
+                        const tryProbe = async () => {
+                            let bestCollection = 'tasks';
+                            for (const coll of probeCollections) {
+                                try {
+                                    const doc = await db.collection(coll).doc(u.uid).get();
+                                    if (doc.exists) {
+                                        const data = doc.data();
+                                        if (data && data.notes && Object.keys(data.notes).length > 0) {
+                                            console.log(`Firestore probe: Found active data in '${coll}'`);
+                                            setActiveCollection(coll);
+                                            return;
+                                        }
+                                        bestCollection = coll; // Found a doc but maybe empty, keep as backup
+                                    }
+                                } catch (err) {
+                                    if (err.code !== 'permission-denied') {
+                                        console.warn(`Probe error for ${coll}:`, err.message);
+                                    }
+                                }
+                            }
+                            
+                            // If we didn't find a high-priority collection with data, use the best one found or default
+                            console.log(`Firestore probe: defaulting to '${bestCollection}'`);
+                            setActiveCollection(bestCollection);
 
+                            // Initial seed if absolutely empty
+                            try {
+                                const doc = await db.collection(bestCollection).doc(u.uid).get();
                                 if (!doc.exists) {
                                     const sampleNote = { 
                                         id: 'note_priority_welcome', 
@@ -5853,21 +5980,14 @@
                                     const notesMap = {
                                         [sampleNote.id]: { ...sampleNote, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }
                                     };
-                                    db.collection(coll).doc(u.uid).set({ notes: notesMap })
-                                        .catch(err => console.warn(`Silent seed fail for '${coll}':`, err.message));
+                                    await db.collection(bestCollection).doc(u.uid).set({ notes: notesMap });
                                 }
-                            }).catch(err => {
-                                failureCount++;
-                                if (failureCount === probeCollections.length && !hasResolved) {
-                                    console.warn("All Firestore probes blocked by permissions. Defaulting to 'tasks' (Local Cache mode).");
-                                    setActiveCollection('tasks');
-                                    hasResolved = true;
-                                }
-                                if (err.code !== 'permission-denied') {
-                                    console.warn(`Probe catch for ${coll}:`, err.message);
-                                }
-                            });
-                        });
+                            } catch (e) {
+                                console.warn("Seed attempt failed:", e.message);
+                            }
+                        };
+
+                        tryProbe();
 
                         localStorage.setItem('faiora_logged_in', 'true');
                         // Request notification permission on login

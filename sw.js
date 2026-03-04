@@ -60,7 +60,7 @@ messaging.onBackgroundMessage((payload) => {
                 { action: 'dismiss', title: 'Dismiss' }
             ],
             data: {
-                url: 'https://johnpaulinso.github.io/Faiora/index.html',
+                url: self.location.origin,
                 taskId: payload.data.taskId
             }
         });
@@ -114,7 +114,7 @@ function showLocalNotification(title, body, tag) {
             { action: 'dismiss', title: 'Dismiss' }
         ],
         data: {
-            url: self.location.origin + '/index.html'
+            url: self.location.origin
         }
     });
 }
@@ -132,7 +132,7 @@ self.addEventListener('notificationclick', (event) => {
     if (event.action === 'dismiss') return;
 
     // Otherwise, open or focus the app
-    const targetUrl = event.notification.data?.url || 'https://johnpaulinso.github.io/Faiora/index.html';
+    const targetUrl = event.notification.data?.url || self.location.origin;
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {

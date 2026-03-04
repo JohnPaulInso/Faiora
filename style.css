@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
 html {
     font-size: 14.4px; /* 90% of default 16px */
     user-select: none;
@@ -9,12 +17,13 @@ html {
 }
 
 body {
-    min-height: max(795px, 100dvh); /* 884px * 0.9 */
+    min-height: 100dvh;
 }
 
 .dark-gradient-bg {
     background: linear-gradient(180deg, #7c2d12 0%, #111827 40%, #0a0a0a 100%);
     background-attachment: fixed;
+    min-height: 100dvh;
 }
 
 .card-glow {
