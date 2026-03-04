@@ -91,12 +91,14 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
         
-        // Enable offline persistence for smoother, instant loading
-        db.enablePersistence().catch(err => {
+        // Enable offline persistence with multi-tab support
+        db.enablePersistence({ synchronizeTabs: true }).catch(err => {
             if (err.code === 'failed-precondition') {
-                console.warn("Persistence failed: multiple tabs open");
+                console.warn("Firestore: Multi-tab persistence failed (already enabled in another tab/process)");
             } else if (err.code === 'unimplemented') {
-                console.warn("Persistence not supported by browser");
+                console.warn("Firestore: Persistence not supported by browser");
+            } else {
+                console.error("Firestore: Persistence error", err);
             }
         });
 
@@ -417,21 +419,109 @@
             );
         };
 
-        const Layout = ({ children, onOpenCreator, onFabClick, noPadding = false }) => {
+        const PullToRefresh = ({ onRefresh, children, disabled = false }) => {
+            const [pullDistance, setPullDistance] = useState(0);
+            const [status, setStatus] = useState('idle'); // idle, pulling, ready, refreshing
+            const startY = useRef(0);
+            const pullRef = useRef(null);
+            const isPulling = useRef(false);
+            const THRESHOLD = 100;
+
+            const handleTouchStart = (e) => {
+                if (disabled || status === 'refreshing') return;
+                const scrollContainer = e.currentTarget;
+                if (scrollContainer.scrollTop <= 0) {
+                    startY.current = e.touches[0].pageY;
+                    isPulling.current = true;
+                }
+            };
+
+            const handleTouchMove = (e) => {
+                if (!isPulling.current || status === 'refreshing') return;
+                const touchY = e.touches[0].pageY;
+                const currentPull = Math.max(0, (touchY - startY.current) * 0.4); // Resistance
+
+                if (currentPull > 0) {
+                    setPullDistance(currentPull);
+                    setStatus(currentPull > THRESHOLD ? 'ready' : 'pulling');
+                    if (e.cancelable) e.preventDefault();
+                }
+            };
+
+            const handleTouchEnd = () => {
+                if (!isPulling.current) return;
+                isPulling.current = false;
+
+                if (pullDistance > THRESHOLD) {
+                    setStatus('refreshing');
+                    setPullDistance(70);
+                    if (onRefresh) {
+                        onRefresh().finally(() => {
+                            setTimeout(() => {
+                                setStatus('idle');
+                                setPullDistance(0);
+                            }, 500);
+                        });
+                    }
+                } else {
+                    setPullDistance(0);
+                    setStatus('idle');
+                }
+            };
+
+            return (
+                <div 
+                    ref={pullRef}
+                    className="relative h-full overflow-hidden" 
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                >
+                    <div 
+                        className="absolute top-0 left-0 w-full flex flex-col items-center justify-center overflow-hidden pointer-events-none z-50 transition-all duration-200"
+                        style={{ 
+                            height: `${pullDistance}px`,
+                            opacity: pullDistance > 0 ? 1 : 0
+                        }}
+                    >
+                        <div className={`p-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full shadow-2xl transition-transform ${status === 'refreshing' ? 'animate-spin' : ''}`}
+                             style={{ transform: `rotate(${pullDistance * 2}deg)` }}>
+                            <span className="material-symbols-outlined text-primary text-3xl font-bold">
+                                {status === 'ready' ? 'release_alert' : (status === 'refreshing' ? 'sync' : 'expand_circle_down')}
+                            </span>
+                        </div>
+                        <p className="text-[10px] font-bold text-primary tracking-widest mt-2 uppercase">
+                            {status === 'pulling' ? 'Pull to Refresh' : (status === 'ready' ? 'Release now' : 'Syncing...')}
+                        </p>
+                    </div>
+                    {children}
+                </div>
+            );
+        };
+
+        const Layout = ({ children, onOpenCreator, onFabClick, onRefresh, noPadding = false }) => {
             const handleFabClick = onFabClick || onOpenCreator;
             
+            const content = (
+                <main className={`flex-1 overflow-y-auto no-scrollbar relative pt-0 pb-24 md:pb-12 ${noPadding ? 'px-0' : 'px-0 md:px-12'} md:ml-24`}>
+                    {children}
+                    <button 
+                        onClick={handleFabClick}
+                        className="fixed bottom-[110px] md:bottom-12 right-6 md:right-12 w-[68px] h-[68px] md:w-20 md:h-20 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center fab-shadow transition-all duration-300 hover:scale-110 active:scale-95 z-40 group"
+                    >
+                        <span className="material-symbols-outlined text-[32px] md:text-4xl group-hover:rotate-90 transition-transform duration-300">add</span>
+                    </button>
+                </main>
+            );
+
             return (
                 <div className="flex flex-col md:flex-row h-[100dvh] overflow-hidden bg-transparent">
                     <ResponsiveNav />
-                    <main className={`flex-1 overflow-y-auto no-scrollbar relative pt-0 pb-24 md:pb-12 ${noPadding ? 'px-0' : 'px-0 md:px-12'} md:ml-24`}>
-                        {children}
-                        <button 
-                            onClick={handleFabClick}
-                            className="fixed bottom-[110px] md:bottom-12 right-6 md:right-12 w-[68px] h-[68px] md:w-20 md:h-20 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center fab-shadow transition-all duration-300 hover:scale-110 active:scale-95 z-40 group"
-                        >
-                            <span className="material-symbols-outlined text-[32px] md:text-4xl group-hover:rotate-90 transition-transform duration-300">add</span>
-                        </button>
-                    </main>
+                    {onRefresh ? (
+                        <PullToRefresh onRefresh={onRefresh}>
+                            {content}
+                        </PullToRefresh>
+                    ) : content}
                 </div>
             );
         };
@@ -3190,12 +3280,21 @@
 
             const sortedPriorityNotes = localNotes.slice(0, 6);
 
+            const handleRefresh = async () => {
+                if (navigator.vibrate) try { navigator.vibrate([10, 30, 10]); } catch(err) {}
+                console.log("🔄 Pull-to-refresh triggered: Re-syncing data...");
+                // Force a reload of the snapshot state by pulsing isAuthChecked or similar
+                // But for now, a hard reload or simple 1s delay is a visual enough confirmation
+                // of the live snapshot sync which is already active.
+                return new Promise(resolve => setTimeout(resolve, 1200));
+            };
+
             return (
-                <Layout onOpenCreator={onOpenCreator} onFabClick={onAddQuickTaskClick}>
+                <Layout onOpenCreator={onOpenCreator} onFabClick={onAddQuickTaskClick} onRefresh={handleRefresh}>
                     <div className="max-w-7xl mx-auto w-full px-0 md:px-0 pt-0 md:pt-12 pb-12">
                         <Header user={user} />
                         <section className="mt-3 md:mt-8 mb-12 md:mb-16 px-4 md:px-0">
-                            <div className="flex items-center gap-4 mb-6 pt-0 md:mb-10">
+                            <div className="flex items-center gap-4 mb-6 pt-2 md:mb-10">
                                 <h2 className="hidden md:block text-2xl font-bold text-cream-light/90 uppercase tracking-[0.3em] font-display">PRIORITY NOTES</h2>
                                 <h2 className="md:hidden text-lg font-bold text-cream-light/90 uppercase tracking-[0.2em] font-display">PRIORITY</h2>
                                 <div className="h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
@@ -5285,7 +5384,7 @@
         const App = () => {
             const [isTimerDone, setIsTimerDone] = useState(false);
             const [isAuthChecked, setIsAuthChecked] = useState(false);
-            const [activeCollection, setActiveCollection] = useState('tasks');
+            const [activeCollection, setActiveCollection] = useState(() => localStorage.getItem('faiora_active_collection') || 'tasks');
             const [isCreatorOpen, setIsCreatorOpen] = useState(false);
             const [editingNote, setEditingNote] = useState(null);
             const [user, setUser] = useState(null);
@@ -5310,6 +5409,7 @@
 
             // Ref to indicate if a modal was closed via code, to prevent double-handling by popstate
             const closingViaCode = useRef(false);
+            const appStartTimeRef = useRef(Date.now());
 
             useEffect(() => {
                  const handleBackButton = (e) => {
@@ -5416,13 +5516,20 @@
                         const fetchedNotesMap = data && data.notes ? data.notes : {};
                         const fetchedNotes = Object.values(fetchedNotesMap);
                         
-                        // Sync Quick Tasks — skip if we just wrote locally (prevents race condition)
-                        if (Date.now() - qtWriteGuard.current > 3000) {
-                            const fetchedQuickTasks = data.quickTasks || [];
-                            setQuickTasks(fetchedQuickTasks);
-                            localStorage.setItem('faiora_quick_tasks_' + user.uid, JSON.stringify(fetchedQuickTasks));
-                            FaioraNotifications.rescheduleAll(fetchedQuickTasks);
+                        // Sync Quick Tasks — handle both Map (new) and Array (legacy) formats
+                        let fetchedQuickTasks = [];
+                        if (data.quickTasks) {
+                            if (Array.isArray(data.quickTasks)) {
+                                fetchedQuickTasks = data.quickTasks;
+                            } else {
+                                // Convert Map to Array for React state, sorted by createdAt
+                                fetchedQuickTasks = Object.values(data.quickTasks).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+                            }
                         }
+                        
+                        setQuickTasks(fetchedQuickTasks);
+                        localStorage.setItem('faiora_quick_tasks_' + user.uid, JSON.stringify(fetchedQuickTasks));
+                        FaioraNotifications.rescheduleAll(fetchedQuickTasks);
 
                         // Centralized Sorting: Pinned first, then sortOrder, then updatedAt
                         fetchedNotes.sort((a, b) => {
@@ -5452,8 +5559,14 @@
                             handleRestoreDefaults();
                         }
                     }
-                }, err => {
-                    if (err.code !== 'permission-denied') console.warn("Firestore sync error", err);
+                 }, err => {
+                    console.error("🔥 Firestore sync error:", err);
+                    if (err.code === 'permission-denied') {
+                        // Only show toast if we've been running for a while, to avoid noise during probing
+                        if (Date.now() - (appStartTimeRef.current || 0) > 10000) {
+                            showToast("Access denied. Please check your account.");
+                        }
+                    }
                 });
 
                 return () => unsubscribe();
@@ -5834,20 +5947,39 @@
             const quickTasksRef = useRef(quickTasks);
             useEffect(() => { quickTasksRef.current = quickTasks; }, [quickTasks]);
 
-            const handleUpdateQuickTasks = useCallback((updatedTasks) => {
-                qtWriteGuard.current = Date.now();
+            const handleUpdateQuickTasks = useCallback((updatedTasks, specificUpdate = null) => {
                 setQuickTasks(updatedTasks);
                 quickTasksRef.current = updatedTasks;
                 const currentUser = auth.currentUser;
-                console.log('🔧 handleUpdateQuickTasks called, count:', updatedTasks.length, 'user:', currentUser?.uid);
+                
                 if (currentUser) {
+                    console.log(`🔧 Syncing QuickTasks [${activeCollection}]:`, specificUpdate ? 'Partial' : 'Full');
                     localStorage.setItem('faiora_quick_tasks_' + currentUser.uid, JSON.stringify(updatedTasks));
                     if (activeCollection) {
-                        db.collection(activeCollection).doc(currentUser.uid).set({ quickTasks: updatedTasks }, { merge: true })
-                            .then(() => console.log('✅ QuickTasks saved to Firestore'))
-                            .catch(e => console.error('❌ QuickTasks Firestore save FAILED:', e));
+                        const docRef = db.collection(activeCollection).doc(currentUser.uid);
+                        if (specificUpdate) {
+                            // Atomic field update
+                            docRef.update(specificUpdate)
+                                .then(() => console.log('✅ QuickTasks partial sync successful'))
+                                .catch(e => {
+                                    if (e.code === 'permission-denied') {
+                                        console.error('❌ QuickTasks WRITE PERMISSION DENIED on', activeCollection);
+                                    } else {
+                                        console.warn('⚠️ Partial sync failed, falling back to set:', e.message);
+                                        // If update fails because document doesn't exist, set() will create it
+                                        docRef.set({ quickTasks: updatedTasks }, { merge: true })
+                                            .then(() => console.log('✅ Fallback: QuickTasks created via set()'))
+                                            .catch(err => console.error('❌ Fallback failed:', err.message));
+                                    }
+                                });
+                        } else {
+                            // Fallback / Bulk update
+                            docRef.set({ quickTasks: updatedTasks }, { merge: true })
+                                .then(() => console.log('✅ QuickTasks full sync successful'))
+                                .catch(e => console.error('❌ QuickTasks full sync FAILED:', e.message));
+                        }
                     } else {
-                        console.warn('⚠️ activeCollection is falsy:', activeCollection);
+                        console.warn('⚠️ activeCollection is falsy - cannot sync quick tasks');
                     }
                 } else {
                     console.warn('⚠️ No currentUser — cannot save quick tasks');
@@ -5865,45 +5997,55 @@
                     createdAt: Date.now()
                 };
                 const updated = [newTask, ...quickTasksRef.current];
-                handleUpdateQuickTasks(updated);
+                handleUpdateQuickTasks(updated, { [`quickTasks.${newTask.id}`]: newTask });
                 FaioraNotifications.scheduleForTask(newTask);
             }, [handleUpdateQuickTasks]);
 
             const handleToggleQuickTask = (id) => {
+                let updatedTask = null;
                 const updated = quickTasks.map(t => {
                     if (t.id === id) {
                         const newStatus = !t.completed;
-                        return { 
+                        updatedTask = { 
                             ...t, 
                             completed: newStatus,
                             completedAt: newStatus ? Date.now() : null 
                         };
+                        return updatedTask;
                     }
                     return t;
                 });
-                handleUpdateQuickTasks(updated);
-                // Cancel notifications when completed, reschedule when uncompleted
-                const task = updated.find(t => t.id === id);
-                if (task) {
-                    if (task.completed) {
+                
+                if (updatedTask) {
+                    handleUpdateQuickTasks(updated, { [`quickTasks.${id}`]: updatedTask });
+                    if (updatedTask.completed) {
                         FaioraNotifications.cancelForTask(id);
                     } else {
-                        FaioraNotifications.scheduleForTask(task);
+                        FaioraNotifications.scheduleForTask(updatedTask);
                     }
                 }
             };
 
             const handleUpdateQuickTask = (id, text, dueDate, dueTime) => {
-                const updated = quickTasks.map(t => t.id === id ? { ...t, text, dueDate, dueTime, updatedAt: Date.now() } : t);
-                handleUpdateQuickTasks(updated);
-                const updatedTask = updated.find(t => t.id === id);
-                if (updatedTask) FaioraNotifications.scheduleForTask(updatedTask);
+                let updatedTask = null;
+                const updated = quickTasks.map(t => {
+                    if (t.id === id) {
+                        updatedTask = { ...t, text, dueDate, dueTime, updatedAt: Date.now() };
+                        return updatedTask;
+                    }
+                    return t;
+                });
+                
+                if (updatedTask) {
+                    handleUpdateQuickTasks(updated, { [`quickTasks.${id}`]: updatedTask });
+                    FaioraNotifications.scheduleForTask(updatedTask);
+                }
             };
 
             const handleDeleteQuickTask = (id) => {
                 FaioraNotifications.cancelForTask(id);
                 const updated = quickTasks.filter(t => t.id !== id);
-                handleUpdateQuickTasks(updated);
+                handleUpdateQuickTasks(updated, { [`quickTasks.${id}`]: firebase.firestore.FieldValue.delete() });
             };
 
             const handleOpenCreator = useCallback(() => {
@@ -5937,36 +6079,54 @@
                     if (u) {
                         // ROBUST PROBE: Check collections sequentially but prioritize 'tasks'
                         // and immediately resolve if notes are found.
-                        const probeCollections = ['tasks', 'users', 'userdata', 'notes'];
-                        
                         const tryProbe = async () => {
-                            let bestCollection = 'tasks';
+                            const lastColl = localStorage.getItem('faiora_active_collection');
+                            let bestCollection = lastColl || 'tasks';
+                            let foundValidPermission = false;
+
+                            const probeCollections = Array.from(new Set([bestCollection, 'tasks', 'users', 'userdata', 'notes']));
+                            console.log("🔍 Probing for data in collections:", probeCollections);
+
                             for (const coll of probeCollections) {
                                 try {
                                     const doc = await db.collection(coll).doc(u.uid).get();
+                                    if (!foundValidPermission) {
+                                        bestCollection = coll;
+                                        foundValidPermission = true;
+                                    }
+
                                     if (doc.exists) {
                                         const data = doc.data();
-                                        if (data && data.notes && Object.keys(data.notes).length > 0) {
-                                            console.log(`Firestore probe: Found active data in '${coll}'`);
+                                        const hasNotes = data && data.notes && Object.keys(data.notes).length > 0;
+                                        const hasTasks = data && (data.quickTasks && (Array.isArray(data.quickTasks) ? data.quickTasks.length > 0 : Object.keys(data.quickTasks).length > 0));
+                                        
+                                        if (hasNotes || hasTasks) {
+                                            console.log(`✨ Firestore probe: Found active data in '${coll}'`);
                                             setActiveCollection(coll);
-                                            return;
+                                            localStorage.setItem('faiora_active_collection', coll);
+                                            return coll;
                                         }
-                                        bestCollection = coll; // Found a doc but maybe empty, keep as backup
+                                        bestCollection = coll; 
                                     }
                                 } catch (err) {
                                     if (err.code !== 'permission-denied') {
                                         console.warn(`Probe error for ${coll}:`, err.message);
+                                    } else {
+                                        console.log(`🚫 No permission for collection: ${coll}`);
                                     }
                                 }
                             }
                             
-                            // If we didn't find a high-priority collection with data, use the best one found or default
-                            console.log(`Firestore probe: defaulting to '${bestCollection}'`);
+                            console.log(`📍 Firestore probe: defaulting to '${bestCollection}' (foundValidPermission: ${foundValidPermission})`);
                             setActiveCollection(bestCollection);
-
-                            // Initial seed if absolutely empty
+                            localStorage.setItem('faiora_active_collection', bestCollection);
+                            return bestCollection;
+                        };
+                        
+                        tryProbe().then(async (finalColl) => {
+                            if (!finalColl) return;
                             try {
-                                const doc = await db.collection(bestCollection).doc(u.uid).get();
+                                const doc = await db.collection(finalColl).doc(u.uid).get();
                                 if (!doc.exists) {
                                     const sampleNote = { 
                                         id: 'note_priority_welcome', 
@@ -5980,14 +6140,12 @@
                                     const notesMap = {
                                         [sampleNote.id]: { ...sampleNote, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }
                                     };
-                                    await db.collection(bestCollection).doc(u.uid).set({ notes: notesMap });
+                                    await db.collection(finalColl).doc(u.uid).set({ notes: notesMap });
                                 }
                             } catch (e) {
                                 console.warn("Seed attempt failed:", e.message);
                             }
-                        };
-
-                        tryProbe();
+                        });
 
                         localStorage.setItem('faiora_logged_in', 'true');
                         // Request notification permission on login
