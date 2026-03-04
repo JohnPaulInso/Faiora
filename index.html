@@ -92,13 +92,15 @@
         const db = firebase.firestore();
         
         // Enable offline persistence with multi-tab support
-        db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+        db.enablePersistence({ synchronizeTabs: true }).then(() => {
+            console.log("✨ [FIREBASE] Multi-tab persistence enabled successfully");
+        }).catch(err => {
             if (err.code === 'failed-precondition') {
-                console.warn("Firestore: Multi-tab persistence failed (already enabled in another tab/process)");
+                console.warn("⚠️ [FIREBASE] Multi-tab persistence already active in another tab/process. Sync should be consistent.");
             } else if (err.code === 'unimplemented') {
-                console.warn("Firestore: Persistence not supported by browser");
+                console.warn("⚠️ [FIREBASE] Persistence not supported by browser");
             } else {
-                console.error("Firestore: Persistence error", err);
+                console.error("❌ [FIREBASE] Persistence error:", err.message);
             }
         });
 
@@ -421,77 +423,126 @@
 
         const PullToRefresh = ({ onRefresh, children, disabled = false }) => {
             const [pullDistance, setPullDistance] = useState(0);
-            const [status, setStatus] = useState('idle'); // idle, pulling, ready, refreshing
+            const [status, setStatus] = useState('idle');
             const startY = useRef(0);
-            const pullRef = useRef(null);
+            const startX = useRef(0);
             const isPulling = useRef(false);
+            const gestureCancelled = useRef(false);
+            const contentRef = useRef(null);
             const THRESHOLD = 100;
 
-            const handleTouchStart = (e) => {
-                if (disabled || status === 'refreshing') return;
-                const scrollContainer = e.currentTarget;
-                if (scrollContainer.scrollTop <= 0) {
-                    startY.current = e.touches[0].pageY;
-                    isPulling.current = true;
-                }
-            };
+            const pullDistanceRef = useRef(0);
+            const statusRef = useRef('idle');
 
-            const handleTouchMove = (e) => {
-                if (!isPulling.current || status === 'refreshing') return;
-                const touchY = e.touches[0].pageY;
-                const currentPull = Math.max(0, (touchY - startY.current) * 0.4); // Resistance
+            useEffect(() => {
+                const el = contentRef.current;
+                if (!el) return;
 
-                if (currentPull > 0) {
-                    setPullDistance(currentPull);
-                    setStatus(currentPull > THRESHOLD ? 'ready' : 'pulling');
-                    if (e.cancelable) e.preventDefault();
-                }
-            };
-
-            const handleTouchEnd = () => {
-                if (!isPulling.current) return;
-                isPulling.current = false;
-
-                if (pullDistance > THRESHOLD) {
-                    setStatus('refreshing');
-                    setPullDistance(70);
-                    if (onRefresh) {
-                        onRefresh().finally(() => {
-                            setTimeout(() => {
-                                setStatus('idle');
-                                setPullDistance(0);
-                            }, 500);
-                        });
+                const handleTouchStart = (e) => {
+                    if (disabled || statusRef.current === 'refreshing') return;
+                    
+                    const scrollEl = el.querySelector('main') || el;
+                    if (scrollEl.scrollTop <= 0) {
+                        startY.current = e.touches[0].pageY;
+                        startX.current = e.touches[0].pageX;
+                        isPulling.current = true;
+                        gestureCancelled.current = false;
+                    } else {
+                        isPulling.current = false;
                     }
-                } else {
-                    setPullDistance(0);
-                    setStatus('idle');
-                }
-            };
+                };
+
+                const handleTouchMove = (e) => {
+                    if (!isPulling.current || statusRef.current === 'refreshing' || gestureCancelled.current) return;
+
+                    const touchY = e.touches[0].pageY;
+                    const touchX = e.touches[0].pageX;
+                    const diffY = touchY - startY.current;
+                    const diffX = touchX - startX.current;
+
+                    if (diffY < 0 || Math.abs(diffX) > Math.abs(diffY)) {
+                        gestureCancelled.current = true;
+                        if (pullDistanceRef.current > 0) {
+                            pullDistanceRef.current = 0;
+                            setPullDistance(0);
+                            statusRef.current = 'idle';
+                            setStatus('idle');
+                        }
+                        return;
+                    }
+
+                    if (diffY > 5) {
+                        const currentPull = Math.min(180, diffY * 0.4);
+                        pullDistanceRef.current = currentPull;
+                        setPullDistance(currentPull);
+                        
+                        const newStatus = currentPull > THRESHOLD ? 'ready' : 'pulling';
+                        statusRef.current = newStatus;
+                        setStatus(newStatus);
+
+                        if (currentPull > 5 && e.cancelable) {
+                             e.preventDefault();
+                        }
+                    }
+                };
+
+                const handleTouchEnd = () => {
+                    if (!isPulling.current) return;
+                    const currentDistance = pullDistanceRef.current;
+                    isPulling.current = false;
+
+                    if (currentDistance > THRESHOLD && !gestureCancelled.current) {
+                        statusRef.current = 'refreshing';
+                        setStatus('refreshing');
+                        pullDistanceRef.current = 100;
+                        setPullDistance(100);
+                        if (onRefresh) {
+                            onRefresh().finally(() => {
+                                setTimeout(() => {
+                                    statusRef.current = 'idle';
+                                    setStatus('idle');
+                                    pullDistanceRef.current = 0;
+                                    setPullDistance(0);
+                                }, 500);
+                            });
+                        }
+                    } else {
+                        pullDistanceRef.current = 0;
+                        setPullDistance(0);
+                        statusRef.current = 'idle';
+                        setStatus('idle');
+                    }
+                };
+
+                el.addEventListener('touchstart', handleTouchStart, { passive: true });
+                el.addEventListener('touchmove', handleTouchMove, { passive: false });
+                el.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+                return () => {
+                    el.removeEventListener('touchstart', handleTouchStart);
+                    el.removeEventListener('touchmove', handleTouchMove);
+                    el.removeEventListener('touchend', handleTouchEnd);
+                };
+            }, [disabled, onRefresh]);
 
             return (
-                <div 
-                    ref={pullRef}
-                    className="relative h-full overflow-hidden" 
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                >
+                <div ref={contentRef} className="flex-1 h-full flex flex-col relative touch-pan-x touch-pan-y">
                     <div 
-                        className="absolute top-0 left-0 w-full flex flex-col items-center justify-center overflow-hidden pointer-events-none z-50 transition-all duration-200"
+                        className="absolute left-0 w-full flex flex-col items-center justify-center pointer-events-none z-[150] transition-all duration-200"
                         style={{ 
                             height: `${pullDistance}px`,
-                            opacity: pullDistance > 0 ? 1 : 0
+                            top: '110px',
+                            opacity: pullDistance > 30 ? 1 : 0
                         }}
                     >
-                        <div className={`p-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full shadow-2xl transition-transform ${status === 'refreshing' ? 'animate-spin' : ''}`}
-                             style={{ transform: `rotate(${pullDistance * 2}deg)` }}>
+                        <div className={`p-2.5 bg-slate-950 border border-white/10 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.6)] transition-transform ${status === 'refreshing' ? 'animate-spin' : ''}`}
+                             style={{ transform: `rotate(${pullDistance * 2}deg) scale(${Math.min(1.1, pullDistance / 70)})` }}>
                             <span className="material-symbols-outlined text-primary text-3xl font-bold">
                                 {status === 'ready' ? 'release_alert' : (status === 'refreshing' ? 'sync' : 'expand_circle_down')}
                             </span>
                         </div>
-                        <p className="text-[10px] font-bold text-primary tracking-widest mt-2 uppercase">
-                            {status === 'pulling' ? 'Pull to Refresh' : (status === 'ready' ? 'Release now' : 'Syncing...')}
+                        <p className="text-[10px] font-black text-primary tracking-[0.3em] mt-3 uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                            {status === 'pulling' ? 'Pull' : (status === 'ready' ? 'Release' : 'Syncing')}
                         </p>
                     </div>
                     {children}
@@ -503,7 +554,7 @@
             const handleFabClick = onFabClick || onOpenCreator;
             
             const content = (
-                <main className={`flex-1 overflow-y-auto no-scrollbar relative pt-0 pb-24 md:pb-12 ${noPadding ? 'px-0' : 'px-0 md:px-12'} md:ml-24`}>
+                <main className={`flex-1 overflow-y-auto no-scrollbar relative pt-0 pb-24 md:pb-12 ${noPadding ? 'px-0' : 'px-0 md:px-48'} md:ml-24`}>
                     {children}
                     <button 
                         onClick={handleFabClick}
@@ -2342,9 +2393,9 @@
                                                        
                                                     </div>
                                                     
-                                                    <button onClick={() => { setReminderDate(new Date().toISOString().split('T')[0] + 'T18:00'); setHasChanges(true); hasChangesRef.current = true; handleSetActivePopup(null); }} className="px-5 py-3 hover:bg-black/5 flex items-center justify-between text-sm text-slate-600 transition-colors font-montserrat">
+                                                    <button onClick={() => { setReminderDate(new Date().toISOString().split('T')[0] + 'T13:00'); setHasChanges(true); hasChangesRef.current = true; handleSetActivePopup(null); }} className="px-5 py-3 hover:bg-black/5 flex items-center justify-between text-sm text-slate-600 transition-colors font-montserrat">
                                                         <span>Later today</span>
-                                                        <span className="text-xs text-slate-400 font-montserrat">6:00 PM</span>
+                                                        <span className="text-xs text-slate-400 font-montserrat">1:00 PM</span>
                                                     </button>
                                                     <button onClick={() => { 
                                                         const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -3072,35 +3123,37 @@
                      })
              );
             const [visibleTasksCount, setVisibleTasksCount] = useState(10);
+            const [showAllTasks, setShowAllTasks] = useState(false);
 
             const sortedQuickTasks = useMemo(() => {
                 const tasks = [...quickTasks];
                 tasks.sort((a, b) => {
                     // 1. Completion status (uncompleted first)
-                    if (a.completed && !b.completed) return 1;
-                    if (!a.completed && b.completed) return -1;
+                    if (a.completed !== b.completed) return a.completed ? 1 : -1;
                     
-                    // 2. For completed tasks, sort by completedAt descending (newest first)
-                    if (a.completed && b.completed) {
-                        return (b.completedAt || 0) - (a.completedAt || 0);
-                    }
-                    
-                    // 3. For uncompleted tasks, sort by deadline ascending (earliest first)
-                    // If one has a deadline and the other doesn't, deadline comes first
+                    // 2. Creation date (newest first)
+                    const dateA = a.createdAt || 0;
+                    const dateB = b.createdAt || 0;
+                    if (dateA !== dateB) return dateB - dateA;
+
+                    // 3. Fallback to dueDate
                     if (a.dueDate && !b.dueDate) return -1;
                     if (!a.dueDate && b.dueDate) return 1;
-                    
-                    if (a.dueDate && b.dueDate) {
-                        const dateA = new Date(`${a.dueDate}T${a.dueTime || '00:00'}`);
-                        const dateB = new Date(`${b.dueDate}T${b.dueTime || '00:00'}`);
-                        if (dateA < dateB) return -1;
-                        if (dateA > dateB) return 1;
-                    }
-                    
                     return 0;
                 });
                 return tasks;
             }, [quickTasks]);
+
+            const displayTasks = useMemo(() => {
+                const incompleteTasks = sortedQuickTasks.filter(t => !t.completed);
+                const completedTasks = sortedQuickTasks.filter(t => t.completed);
+                
+                if (incompleteTasks.length >= visibleTasksCount) {
+                    return incompleteTasks.slice(0, visibleTasksCount);
+                } else {
+                    return [...incompleteTasks, ...completedTasks.slice(0, visibleTasksCount - incompleteTasks.length)];
+                }
+            }, [sortedQuickTasks, visibleTasksCount]);
 
             // Sync localNotes with notes prop when not dragging
             useEffect(() => {
@@ -3380,163 +3433,127 @@
                                 ) : (
                                     <React.Fragment>
                                         {(() => {
-                                            const incompleteTasks = sortedQuickTasks.filter(t => !t.completed);
-                                            const completedTasks = sortedQuickTasks.filter(t => t.completed);
-                                            
-                                            // Always show at least 'visibleTasksCount' total, 
-                                            // but prioritize incomplete ones.
-                                            let displayTasks = [];
-                                            if (incompleteTasks.length >= visibleTasksCount) {
-                                                displayTasks = incompleteTasks.slice(0, visibleTasksCount);
-                                            } else {
-                                                displayTasks = [...incompleteTasks, ...completedTasks.slice(0, visibleTasksCount - incompleteTasks.length)];
-                                            }
-
                                             // Ensure a recently completed or toggled task stays in view
-                                            // by checking if it's in the displayTasks. If not, we might need a different approach,
-                                            // but for now, showing 6 and prioritizing incomplete is much better.
-                                            
-                                            return displayTasks.map(task => {
-                                                const formatDueDate = (date, time) => {
-                                                    if (!date) return { label: '', isOverdue: false };
-                                                    const d = new Date(date);
-                                                    const now = new Date();
-                                                    const today = now.toISOString().split('T')[0];
-                                                    const tomorrow = new Date();
-                                                    tomorrow.setDate(tomorrow.getDate() + 1);
-                                                    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-                                                    
-                                                    // Check for Overdue
-                                                    let isOverdue = false;
-                                                    const target = new Date(date);
+                                            // by checking if it's in the displayTasks.
+                                            const formatDueDate = (date, time) => {
+                                                if (!date) return { label: '', isOverdue: false };
+                                                const d = new Date(date);
+                                                const now = new Date();
+                                                const today = now.toISOString().split('T')[0];
+                                                const tomorrow = new Date();
+                                                tomorrow.setDate(tomorrow.getDate() + 1);
+                                                const tomorrowStr = tomorrow.toISOString().split('T')[0];
+                                                
+                                                // Check for Overdue
+                                                let isOverdue = false;
+                                                const target = new Date(date);
+                                                if (time) {
+                                                    const [h, m] = time.split(':');
+                                                    target.setHours(parseInt(h), parseInt(m), 0, 0);
+                                                } else {
+                                                    target.setHours(23, 59, 59, 999);
+                                                }
+                                                
+                                                if (now > target) {
+                                                    isOverdue = true;
+                                                }
+
+                                                if (date === today) {
                                                     if (time) {
                                                         const [h, m] = time.split(':');
-                                                        target.setHours(parseInt(h), parseInt(m), 0, 0);
-                                                    } else {
-                                                        target.setHours(23, 59, 59, 999);
-                                                    }
-                                                    
-                                                    if (now > target) {
-                                                        isOverdue = true;
-                                                    }
-
-                                                    if (date === today) {
-                                                        if (time) {
-                                                            const [h, m] = time.split(':');
-                                                            const diffMs = target - now;
-                                                            const diffHours = diffMs / (1000 * 60 * 60);
-                                                            
-                                                            if (diffHours > 0 && diffHours <= 8) {
-                                                                return { label: `Due in ${Math.ceil(diffHours)} ${Math.ceil(diffHours) === 1 ? 'hour' : 'hours'}`, isOverdue };
-                                                            }
+                                                        const diffMs = target - now;
+                                                        const diffHours = diffMs / (1000 * 60 * 60);
+                                                        
+                                                        if (diffHours > 0 && diffHours <= 8) {
+                                                            return { label: `Due in ${Math.ceil(diffHours)} ${Math.ceil(diffHours) === 1 ? 'hour' : 'hours'}`, isOverdue };
                                                         }
-                                                        let label = isOverdue ? 'Past due' : 'Due Today';
-                                                        if (time) {
-                                                            const [h, m] = time.split(':');
-                                                            const hours = parseInt(h);
-                                                            const ampm = hours >= 12 ? 'PM' : 'AM';
-                                                            const h12 = hours % 12 || 12;
-                                                            label += ` • ${h12}:${m} ${ampm}`;
-                                                        }
-                                                        return { label, isOverdue };
                                                     }
-                                                    
-                                                    if (date === tomorrowStr) {
-                                                        let label = isOverdue ? 'Past due' : 'Due Tomorrow';
-                                                        if (time) {
-                                                            const [h, m] = time.split(':');
-                                                            const hours = parseInt(h);
-                                                            const ampm = hours >= 12 ? 'PM' : 'AM';
-                                                            const h12 = hours % 12 || 12;
-                                                            label += ` • ${h12}:${m} ${ampm}`;
-                                                        }
-                                                        return { label, isOverdue };
-                                                    }
-
-                                                    const options = { month: 'short', day: 'numeric' };
-                                                    let str = d.toLocaleDateString('en-US', options);
+                                                    let label = isOverdue ? 'Past due' : 'Due Today';
                                                     if (time) {
                                                         const [h, m] = time.split(':');
                                                         const hours = parseInt(h);
                                                         const ampm = hours >= 12 ? 'PM' : 'AM';
                                                         const h12 = hours % 12 || 12;
-                                                        str += ` • ${h12}:${m} ${ampm}`;
+                                                        label += ` • ${h12}:${m} ${ampm}`;
                                                     }
-                                                    return { label: isOverdue ? `Past due • ${str}` : str, isOverdue };
-                                                };
+                                                    return { label, isOverdue };
+                                                }
                                                 
-                                                const { label: dueDateStr, isOverdue } = formatDueDate(task.dueDate, task.dueTime);
+                                                if (date === tomorrowStr) {
+                                                    let label = isOverdue ? 'Past due' : 'Due Tomorrow';
+                                                    if (time) {
+                                                        const [h, m] = time.split(':');
+                                                        const hours = parseInt(h);
+                                                        const ampm = hours >= 12 ? 'PM' : 'AM';
+                                                        const h12 = hours % 12 || 12;
+                                                        label += ` • ${h12}:${m} ${ampm}`;
+                                                    }
+                                                    return { label, isOverdue };
+                                                }
 
-                                                return (
-                                                    <div 
-                                                        key={task.id}
-                                                        className={`glass-panel rounded-[2rem] p-4 md:p-5 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 transition-all duration-200 cursor-pointer border border-white/5 shadow-lg hover:shadow-primary/5 ${task.completed ? 'opacity-40 grayscale-[0.5]' : ''} ${isOverdue && !task.completed ? 'border-red-500/30' : ''}`}
-                                                        style={{ minHeight: window.innerWidth < 768 ? '64px' : 'auto', touchAction: 'pan-y' }}
-                                                        onClick={() => {
-                                                            onToggleQuickTask(task.id);
-                                                            // Play sound
-                                                            try {
-                                                                const audio = new Audio('https://www.soundjay.com/buttons/sounds/button-37a.mp3');
-                                                                audio.volume = 0.3;
-                                                                audio.play().catch(() => {});
-                                                            } catch(e) {}
-                                                        }}
-                                                        onContextMenu={(e) => {
-                                                            e.preventDefault();
-                                                            onEditQuickTask(task);
-                                                        }}
-                                                         onTouchStart={(e) => {
-                                                             const { clientX, clientY } = e.touches[0];
-                                                             e.currentTarget._startX = clientX;
-                                                             e.currentTarget._startY = clientY;
-                                                             const timer = setTimeout(() => onEditQuickTask(task), 600);
-                                                             e.currentTarget._touchTimer = timer;
-                                                         }}
-                                                         onTouchEnd={(e) => {
-                                                             clearTimeout(e.currentTarget._touchTimer);
-                                                         }}
-                                                         onTouchMove={(e) => {
-                                                             const { clientX, clientY } = e.touches[0];
-                                                             const dx = Math.abs(clientX - (e.currentTarget._startX || clientX));
-                                                             const dy = Math.abs(clientY - (e.currentTarget._startY || clientY));
-                                                             if (dx > 10 || dy > 10) {
-                                                                 clearTimeout(e.currentTarget._touchTimer);
-                                                             }
-                                                         }}
-                                                    >
-                                                        <div className="flex items-center gap-5 pointer-events-none">
-                                                            <div className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${task.completed ? 'bg-primary border-primary text-white scale-110 shadow-lg shadow-primary/20' : 'border-white/10 text-transparent group-hover:border-primary/40'}`}>
-                                                                <span className="material-symbols-outlined text-[1rem] font-bold">check</span>
+                                                const options = { month: 'short', day: 'numeric' };
+                                                let str = d.toLocaleDateString('en-US', options);
+                                                if (time) {
+                                                    const [h, m] = time.split(':');
+                                                    const hours = parseInt(h);
+                                                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                                                    const h12 = hours % 12 || 12;
+                                                    str += ` • ${h12}:${m} ${ampm}`;
+                                                }
+                                                return { label: isOverdue ? `Past due • ${str}` : str, isOverdue };
+                                            };
+
+                                            return (
+                                                <div className="space-y-4">
+                                                           {displayTasks.map(task => {
+                                                        const { label: dueDateStr, isOverdue } = formatDueDate(task.dueDate, task.dueTime);
+
+                                                        return (
+                                                            <div 
+                                                                key={task.id}
+                                                                className={`glass-panel rounded-[2rem] p-4 md:p-5 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 transition-all duration-200 cursor-pointer border border-white/5 shadow-lg hover:shadow-primary/5 ${task.completed ? 'opacity-40 grayscale-[0.5]' : ''} ${isOverdue && !task.completed ? 'border-red-500/30' : ''}`}
+                                                                style={{ minHeight: window.innerWidth < 768 ? '64px' : 'auto', touchAction: 'pan-y' }}
+                                                                onClick={() => onToggleQuickTask(task.id)}
+                                                                onContextMenu={(e) => {
+                                                                    e.preventDefault();
+                                                                    onEditQuickTask(task);
+                                                                }}
+                                                            >
+                                                                <div className="flex items-center gap-5 pointer-events-none">
+                                                                    <div className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${task.completed ? 'bg-primary border-primary text-white scale-110 shadow-lg shadow-primary/20' : 'border-white/10 text-transparent group-hover:border-primary/40'}`}>
+                                                                        <span className="material-symbols-outlined text-[1rem] font-bold">check</span>
+                                                                    </div>
+                                                                    <div className="flex flex-col gap-0.5">
+                                                                        <h4 className={`text-sm md:text-base text-cream-light font-montserrat font-bold tracking-wide transition-all duration-300 ${task.completed ? 'line-through decoration-primary/50 opacity-60' : 'group-hover:text-primary'} ${isOverdue && !task.completed ? 'text-red-400' : ''}`}>
+                                                                            {task.text}
+                                                                        </h4>
+                                                                        {dueDateStr && (
+                                                                            <p className={`text-[9px] md:text-[10px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-opacity ${isOverdue && !task.completed ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
+                                                                                <span className="material-symbols-outlined text-[10px] md:text-xs">event</span>
+                                                                                {dueDateStr}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                <button 
+                                                                    onClick={(e) => { e.stopPropagation(); onDeleteQuickTask(task.id); }}
+                                                                    className="opacity-0 group-hover:opacity-100 p-2 text-white/10 hover:text-red-400 transition-all duration-200 pointer-events-auto transform hover:scale-110"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-xl">delete</span>
+                                                                </button>
                                                             </div>
-                                                            <div className="flex flex-col gap-0.5">
-                                                                <h4 className={`text-sm md:text-base text-cream-light font-montserrat font-bold tracking-wide transition-all duration-300 ${task.completed ? 'line-through decoration-primary/50 opacity-60' : 'group-hover:text-primary'} ${isOverdue && !task.completed ? 'text-red-400' : ''}`}>
-                                                                    {task.text}
-                                                                </h4>
-                                                                {dueDateStr && (
-                                                                    <p className={`text-[9px] md:text-[10px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-opacity ${isOverdue && !task.completed ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
-                                                                        <span className="material-symbols-outlined text-[10px] md:text-xs">event</span>
-                                                                        {dueDateStr}
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); onDeleteQuickTask(task.id); }}
-                                                            className="opacity-0 group-hover:opacity-100 p-2 text-white/10 hover:text-red-400 transition-all duration-200 pointer-events-auto transform hover:scale-110"
-                                                        >
-                                                            <span className="material-symbols-outlined text-xl">delete</span>
-                                                        </button>
-                                                    </div>
-                                                );
-                                            });
+                                                        );
+                                                    })}
+                                                </div>
+                                            );
                                         })()}
 
-                                        {quickTasks.length > visibleTasksCount && (
+                                        {sortedQuickTasks.length > displayTasks.length && (
                                             <button 
-                                                onClick={() => setVisibleTasksCount(prev => prev + 5)}
-                                                className="w-full py-4 glass-panel rounded-2xl text-[10px] font-bold text-primary/60 uppercase tracking-widest hover:bg-white/5 transition-all"
+                                                onClick={() => setVisibleTasksCount(prev => prev + 10)}
+                                                className="w-full py-4 glass-panel rounded-2xl text-[10px] font-bold text-primary/60 uppercase tracking-widest hover:bg-white/5 transition-all mt-4 mb-20"
                                             >
-                                                Load More Tasks
+                                                Load More Tasks ({sortedQuickTasks.length - displayTasks.length} remaining)
                                             </button>
                                         )}
                                     </React.Fragment>
@@ -5148,21 +5165,23 @@
              const getLaterTiming = () => {
                 const now = new Date();
                 const hour = now.getHours();
-                // If it's 6PM or later (nighttime), default to 9AM tomorrow
-                if (hour >= 18) {
-                    const tomorrow = new Date(now);
-                    tomorrow.setDate(tomorrow.getDate() + 1);
+                
+                // If it's 6PM-6AM (nighttime/evening/early morning)
+                if (hour >= 18 || hour < 6) {
+                    const target = new Date(now);
+                    // If it's already evening (>= 18), move to tomorrow 10am
+                    // If it's early morning (< 6), move to today 10am
+                    if (hour >= 18) target.setDate(target.getDate() + 1);
                     return {
-                        date: tomorrow.toISOString().split('T')[0],
-                        time: '09:00'
+                        date: target.toISOString().split('T')[0],
+                        time: '10:00'
                     };
                 }
-                // Otherwise, default to 6 hours from now
-                const d = new Date(Date.now() + 6 * 3600 * 1000);
-                d.setMinutes(0);
+                
+                // Otherwise (6AM-6PM), default to 6PM "Later today"
                 return {
-                    date: d.toISOString().split('T')[0],
-                    time: d.getHours().toString().padStart(2, '0') + ':00'
+                    date: now.toISOString().split('T')[0],
+                    time: '18:00'
                 };
             };
 
@@ -5383,8 +5402,9 @@
 
         const App = () => {
             const [isTimerDone, setIsTimerDone] = useState(false);
-            const [isAuthChecked, setIsAuthChecked] = useState(false);
             const [activeCollection, setActiveCollection] = useState(() => localStorage.getItem('faiora_active_collection') || 'tasks');
+            const [isProbing, setIsProbing] = useState(true);
+            const [isAuthChecked, setIsAuthChecked] = useState(false);
             const [isCreatorOpen, setIsCreatorOpen] = useState(false);
             const [editingNote, setEditingNote] = useState(null);
             const [user, setUser] = useState(null);
@@ -5527,6 +5547,8 @@
                             }
                         }
                         
+                        console.log(`☁️ [SYNC] Remote update received via ${activeCollection}. Tasks: ${fetchedQuickTasks.length}, Notes: ${fetchedNotes.length}`);
+                        
                         setQuickTasks(fetchedQuickTasks);
                         localStorage.setItem('faiora_quick_tasks_' + user.uid, JSON.stringify(fetchedQuickTasks));
                         FaioraNotifications.rescheduleAll(fetchedQuickTasks);
@@ -5550,14 +5572,8 @@
                         const fetchedSections = data.noteSections || [];
                         setNoteSections(fetchedSections);
                         localStorage.setItem('faiora_sections', JSON.stringify(fetchedSections));
-
-                        console.log("App synced with cloud:", fetchedNotes.length, "notes");
-
-                        // Ensure at least one Priority note exists
-                        const hasPriority = fetchedNotes.some(n => (n.labels || []).includes('PRIORITY'));
-                        if (!hasPriority && fetchedNotes.length > 0) {
-                            handleRestoreDefaults();
-                        }
+                    } else {
+                        console.warn(`⚠️ [SYNC] Document does not exist in '${activeCollection}'`);
                     }
                  }, err => {
                     console.error("🔥 Firestore sync error:", err);
@@ -5698,6 +5714,10 @@
 
             // Bulk update: partially update a note by id (or create if isNew)
             const handleBulkUpdate = useCallback((noteId, updates, isNew = false) => {
+                if (isProbing) {
+                    console.warn('⚠️ [SYNC] Note update paused while discovering writable collection...');
+                    return;
+                }
                 setNotes(prev => {
                     let newNotes;
                     if (isNew) {
@@ -5723,20 +5743,24 @@
                         db.collection(activeCollection).doc(user.uid).update(fsUpdates).catch(e => console.warn('Bulk update sync fail', e));
                     }
                 }
-            }, [user, activeCollection]);
+            }, [user, activeCollection, isProbing]);
 
             // Bulk delete: delete note and sync to Firestore
             const handleBulkDelete = useCallback((noteId) => {
+                if (isProbing) {
+                    console.warn('⚠️ [SYNC] Note delete paused while discovering writable collection...');
+                    return;
+                }
                 handleDeleteNoteLocal(noteId);
                 if (user && activeCollection) {
                     db.collection(activeCollection).doc(user.uid).update({
                         [`notes.${noteId}`]: firebase.firestore.FieldValue.delete()
                     }).catch(e => console.warn('Bulk delete sync fail', e));
                 }
-            }, [user, activeCollection, handleDeleteNoteLocal]);
+            }, [user, activeCollection, handleDeleteNoteLocal, isProbing]);
 
             const handleRestoreDefaults = useCallback(() => {
-                if (!user || !activeCollection) return;
+                if (!user || !activeCollection || isProbing) return;
                 const sampleNote = { 
                     id: 'note_priority_welcome', 
                     title: 'Your First Priority Note', 
@@ -5751,9 +5775,10 @@
                 };
                 db.collection(activeCollection).doc(user.uid).set({ notes: notesMap }, { merge: true })
                     .catch(e => console.error("Error restoring defaults:", e));
-            }, [user, activeCollection]);
+            }, [user, activeCollection, isProbing]);
 
             const handleRemoveReminder = useCallback((noteId) => {
+                if (isProbing) return;
                 setNotes(prev => {
                     const newNotes = prev.map(n => n.id === noteId ? { ...n, reminderDate: '', reminderTime: '' } : n);
                     if (user) localStorage.setItem('faiora_notes_' + user.uid, JSON.stringify(newNotes));
@@ -5766,7 +5791,7 @@
                     }).catch(e => console.warn('Reminder remove sync fail', e));
                 }
                 showToast('Reminder removed');
-            }, [user, activeCollection, showToast]);
+            }, [user, activeCollection, showToast, isProbing]);
 
             const handleReorderNote = useCallback((noteId, targetNoteId) => {
                 setNotes(prev => {
@@ -5953,6 +5978,10 @@
                 const currentUser = auth.currentUser;
                 
                 if (currentUser) {
+                    if (isProbing) {
+                        console.warn('⚠️ [SYNC] Modifications paused while discovering writable collection...');
+                        return;
+                    }
                     console.log(`🔧 Syncing QuickTasks [${activeCollection}]:`, specificUpdate ? 'Partial' : 'Full');
                     localStorage.setItem('faiora_quick_tasks_' + currentUser.uid, JSON.stringify(updatedTasks));
                     if (activeCollection) {
@@ -5962,15 +5991,14 @@
                             docRef.update(specificUpdate)
                                 .then(() => console.log('✅ QuickTasks partial sync successful'))
                                 .catch(e => {
-                                    if (e.code === 'permission-denied') {
-                                        console.error('❌ QuickTasks WRITE PERMISSION DENIED on', activeCollection);
-                                    } else {
-                                        console.warn('⚠️ Partial sync failed, falling back to set:', e.message);
-                                        // If update fails because document doesn't exist, set() will create it
-                                        docRef.set({ quickTasks: updatedTasks }, { merge: true })
-                                            .then(() => console.log('✅ Fallback: QuickTasks created via set()'))
-                                            .catch(err => console.error('❌ Fallback failed:', err.message));
-                                    }
+                                    console.warn('⚠️ Partial sync failed, executing aggressive set(merge:true) fallback:', e.message);
+                                    // Bypasses PERMISSION DENIED if it was caused by structural mismatch (Array vs Map)
+                                    docRef.set({ quickTasks: updatedTasks }, { merge: true })
+                                        .then(() => console.log('✅ Aggressive fallback: QuickTasks sync successful'))
+                                        .catch(err => {
+                                            console.error('❌ QuickTasks WRITE PERMISSION DENIED on', activeCollection, ':', err.message);
+                                            showToast("Database error. Please refresh or try again.");
+                                        });
                                 });
                         } else {
                             // Fallback / Bulk update
@@ -5984,13 +6012,14 @@
                 } else {
                     console.warn('⚠️ No currentUser — cannot save quick tasks');
                 }
-            }, [activeCollection]);
+            }, [activeCollection, isProbing]);
 
             const handleAddQuickTask = useCallback((text, dueDate = '', dueTime = '') => {
-                console.log('🆕 handleAddQuickTask called:', { text, dueDate, dueTime });
+                const truncatedText = text.length > 40 ? text.substring(0, 37) + '...' : text;
+                console.log('🆕 handleAddQuickTask called:', { text: truncatedText, dueDate, dueTime });
                 const newTask = {
                     id: 'qt_' + Date.now(),
-                    text,
+                    text: truncatedText,
                     dueDate,
                     dueTime,
                     completed: false,
@@ -6028,9 +6057,10 @@
 
             const handleUpdateQuickTask = (id, text, dueDate, dueTime) => {
                 let updatedTask = null;
+                const truncatedText = text.length > 40 ? text.substring(0, 37) + '...' : text;
                 const updated = quickTasks.map(t => {
                     if (t.id === id) {
-                        updatedTask = { ...t, text, dueDate, dueTime, updatedAt: Date.now() };
+                        updatedTask = { ...t, text: truncatedText, dueDate, dueTime, updatedAt: Date.now() };
                         return updatedTask;
                     }
                     return t;
@@ -6077,50 +6107,134 @@
                     setIsAuthChecked(true);
 
                     if (u) {
-                        // ROBUST PROBE: Check collections sequentially but prioritize 'tasks'
+                        setIsProbing(true);
+                        console.log("👤 [AUTH] User logged in, starting writable collection discovery...");
                         // and immediately resolve if notes are found.
                         const tryProbe = async () => {
                             const lastColl = localStorage.getItem('faiora_active_collection');
                             let bestCollection = lastColl || 'tasks';
-                            let foundValidPermission = false;
+                            
+                            const probeCollections = Array.from(new Set([bestCollection, 'tasks', 'users', 'userdata', 'notes', 'faiora_data', 'user_metadata']));
+                            console.log("🔍 [PROBE] Initializing ultra-robust discovery on collections:", probeCollections);
 
-                            const probeCollections = Array.from(new Set([bestCollection, 'tasks', 'users', 'userdata', 'notes']));
-                            console.log("🔍 Probing for data in collections:", probeCollections);
-
-                            for (const coll of probeCollections) {
-                                try {
-                                    const doc = await db.collection(coll).doc(u.uid).get();
-                                    if (!foundValidPermission) {
-                                        bestCollection = coll;
-                                        foundValidPermission = true;
-                                    }
-
-                                    if (doc.exists) {
-                                        const data = doc.data();
-                                        const hasNotes = data && data.notes && Object.keys(data.notes).length > 0;
-                                        const hasTasks = data && (data.quickTasks && (Array.isArray(data.quickTasks) ? data.quickTasks.length > 0 : Object.keys(data.quickTasks).length > 0));
+                            const runProbe = async (isRetry = false) => {
+                                let discoverySummary = [];
+                                let dataCandidates = [];
+                                
+                                for (const coll of probeCollections) {
+                                    try {
+                                        const doc = await db.collection(coll).doc(u.uid).get();
+                                        const info = { collection: coll, exists: doc.exists, hasNotes: false, hasTasks: false, writable: 'unknown' };
                                         
-                                        if (hasNotes || hasTasks) {
-                                            console.log(`✨ Firestore probe: Found active data in '${coll}'`);
-                                            setActiveCollection(coll);
-                                            localStorage.setItem('faiora_active_collection', coll);
-                                            return coll;
+                                        if (doc.exists) {
+                                            const data = doc.data();
+                                            info.hasNotes = data && data.notes && Object.keys(data.notes).length > 0;
+                                            info.hasTasks = data && (data.quickTasks && (Array.isArray(data.quickTasks) ? data.quickTasks.length > 0 : Object.keys(data.quickTasks).length > 0));
+                                            
+                                            if (info.hasNotes || info.hasTasks) {
+                                                dataCandidates.push(coll);
+                                            } else {
+                                                // Check if this empty collection is writable - if so, it's a great candidate for a new home
+                                                try {
+                                                    await db.collection(coll).doc(u.uid).set({ _lastProbe: Date.now() }, { merge: true });
+                                                    bestCollection = coll;
+                                                    info.writable = true;
+                                                } catch(e) { info.writable = false; }
+                                            }
                                         }
-                                        bestCollection = coll; 
-                                    }
-                                } catch (err) {
-                                    if (err.code !== 'permission-denied') {
-                                        console.warn(`Probe error for ${coll}:`, err.message);
-                                    } else {
-                                        console.log(`🚫 No permission for collection: ${coll}`);
+                                        discoverySummary.push(info);
+                                    } catch (err) {
+                                        if (err.code !== 'permission-denied') {
+                                            console.warn(`[PROBE] Error reading ${coll}:`, err.message);
+                                        }
                                     }
                                 }
+
+                                // PREVENT DATA LOSS & FIX PERMISSIONS: Data Migration Bridge
+                                if (dataCandidates.length > 0) {
+                                    // 1. Find the richest source of data
+                                    let richest = dataCandidates[0];
+                                    let maxData = 0;
+                                    dataCandidates.forEach(cand => {
+                                        const s = discoverySummary.find(info => info.collection === cand);
+                                        const count = (s.hasNotes ? 10 : 0) + (s.hasTasks ? 5 : 0);
+                                        if (count > maxData) { maxData = count; richest = cand; }
+                                    });
+
+                                    // 2. Check if the richest source is writable
+                                    let isRichestWritable = false;
+                                    try {
+                                        await db.collection(richest).doc(u.uid).set({ _lastSync: Date.now() }, { merge: true });
+                                        isRichestWritable = true;
+                                    } catch (e) {
+                                        console.warn(`🚑 [PROBE] Source '${richest}' is Read-Only. Searching for a writable home for your data...`);
+                                    }
+
+                                    if (isRichestWritable) {
+                                        console.log(`✨ [PROBE] Source '${richest}' is verified and writable.`);
+                                        return richest;
+                                    }
+
+                                    // 3. Migration: If richest is read-only, find the first writable collection to migrate TO
+                                    // First try collections we already know are writable from the discovery phase
+                                    const writableHomes = discoverySummary.filter(s => s.writable === true).map(s => s.collection);
+                                    const migrationTargets = Array.from(new Set([...writableHomes, ...probeCollections]));
+
+                                    for (const targetColl of migrationTargets) {
+                                        if (targetColl === richest) continue;
+                                        try {
+                                            // Test writability again just to be safe
+                                            await db.collection(targetColl).doc(u.uid).set({ _lastSync: Date.now() }, { merge: true });
+                                            
+                                            // Perform the Migration
+                                            console.log(`🚚 [MIGRATION] Cloning data from '${richest}' to '${targetColl}'...`);
+                                            const sourceDoc = await db.collection(richest).doc(u.uid).get();
+                                            if (sourceDoc.exists) {
+                                                const sourceData = sourceDoc.data();
+                                                // Ensure we don't overwrite with older data if target somehow has newer (unlikely here)
+                                                await db.collection(targetColl).doc(u.uid).set(sourceData, { merge: true });
+                                                console.log(`✅ [MIGRATION] Success! Your data now lives in '${targetColl}'.`);
+                                                showToast("Data secured & permissions fixed!");
+                                                return targetColl;
+                                            }
+                                        } catch (e) {
+                                            // Target not writable, keep looking
+                                        }
+                                    }
+
+                                    console.error("❌ [PROBE] Emergency! Found your data, but couldn't find ANYWHERE writable to save it.");
+                                    return richest; // Fallback to richest even if read-only, so user at least sees data
+                                }
+
+                                // Diagnostic Log
+                                console.log("📍 [PROBE] Discovery Summary:", discoverySummary);
+
+                                // If no data found anywhere, find any writable home.
+                                for (const coll of probeCollections) {
+                                    try {
+                                        await db.collection(coll).doc(u.uid).set({ _lastSync: Date.now() }, { merge: true });
+                                        console.log(`🏠 [PROBE] No data found. Settling on writable home: '${coll}'`);
+                                        bestCollection = coll;
+                                        return null; 
+                                    } catch (e) {}
+                                }
+
+                                return null;
+                            };
+
+                            let found = await runProbe();
+                            if (!found) {
+                                console.log("⏳ [PROBE] No data found, waiting 1.5s for cloud propagation...");
+                                await new Promise(r => setTimeout(r, 1500));
+                                found = await runProbe(true);
                             }
-                            
-                            console.log(`📍 Firestore probe: defaulting to '${bestCollection}' (foundValidPermission: ${foundValidPermission})`);
-                            setActiveCollection(bestCollection);
-                            localStorage.setItem('faiora_active_collection', bestCollection);
-                            return bestCollection;
+
+                            const result = found || bestCollection;
+                            console.log(`📍 [PROBE] Resolved active collection to: '${result}'`);
+                            setActiveCollection(result);
+                            localStorage.setItem('faiora_active_collection', result);
+                            setIsProbing(false);
+                            return result;
                         };
                         
                         tryProbe().then(async (finalColl) => {
@@ -6148,8 +6262,15 @@
                         });
 
                         localStorage.setItem('faiora_logged_in', 'true');
-                        // Request notification permission on login
-                        FaioraNotifications.requestPermission();
+                        // Manual Override Command for User Support
+                        window.faiora_switch_coll = (name) => {
+                            setActiveCollection(name);
+                            localStorage.setItem('faiora_active_collection', name);
+                            console.log(`🚀 Switched active collection to: ${name}. Re-syncing...`);
+                        };
+                    } else {
+                        setIsProbing(false);
+                        console.log("👤 [AUTH] No user, skipping collection discovery.");
                     }
                 });
 
