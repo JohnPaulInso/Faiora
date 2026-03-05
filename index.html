@@ -149,20 +149,21 @@
             // LABEL: NOTIF-PERMISSION — Request notification permission + FCM token
             // ------------------------------------------------------------------
             const requestPermission = async () => {
-                if (!('Notification' in window)) return false;
-                if (Notification.permission === 'denied') return false;
-
-                let granted = Notification.permission === 'granted';
-                if (!granted) {
-                    const result = await Notification.requestPermission();
-                    granted = result === 'granted';
+                if (!('Notification' in window)) return 'unsupported';
+                
+                try {
+                    const status = await Notification.requestPermission();
+                    if (status === 'granted') {
+                        console.log('🔔 Notification permission granted.');
+                        registerFCMToken();
+                    } else if (status === 'denied') {
+                        console.warn('❌ Notification permission denied.');
+                    }
+                    return status;
+                } catch (err) {
+                    console.error('Error requesting notification permission:', err);
+                    return Notification.permission;
                 }
-
-                // If permission granted, register FCM token
-                if (granted) {
-                    registerFCMToken();
-                }
-                return granted;
             };
 
             // ------------------------------------------------------------------
@@ -610,7 +611,13 @@
 
         const UserMenu = ({ user }) => {
             const [isOpen, setIsOpen] = useState(false);
+            const [notifStatus, setNotifStatus] = useState(Notification.permission);
             const menuRef = useRef();
+
+            const handleRequestNotif = async () => {
+                const result = await FaioraNotifications.requestPermission();
+                setNotifStatus(result);
+            };
 
              useEffect(() => {
                  const handleClickOutside = (event) => {
@@ -632,6 +639,8 @@
                  const next = !isOpen;
                  if (next) {
                      window.history.pushState({ modal: 'usermenu', popup: true }, '');
+                     // Refresh notification status whenever menu opens
+                     setNotifStatus(Notification.permission);
                  }
                  setIsOpen(next);
              };
@@ -676,6 +685,51 @@
                                 <p className="text-white font-bold truncate">{user.displayName}</p>
                                 <p className="text-white/40 text-xs truncate">{user.email}</p>
                             </div>
+                            
+                            {/* Notification Control Section */}
+                            <div className="px-3 py-2">
+                                <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em] mb-2 px-1">Notifications</p>
+                                <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[11px] font-bold text-cream-light/60 uppercase tracking-widest">Status</span>
+                                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                            notifStatus === 'granted' ? 'bg-green-500/20 text-green-400' :
+                                            notifStatus === 'denied' ? 'bg-red-500/20 text-red-400' :
+                                            notifStatus === 'unsupported' ? 'bg-orange-500/20 text-orange-400' :
+                                            'bg-primary/20 text-primary'
+                                        }`}>
+                                            {notifStatus === 'granted' ? 'Enabled' : 
+                                             notifStatus === 'denied' ? 'Blocked' : 
+                                             notifStatus === 'unsupported' ? 'No Support' : 'Not Set'}
+                                        </span>
+                                    </div>
+                                    {notifStatus !== 'granted' && notifStatus !== 'unsupported' ? (
+                                        <button 
+                                            onClick={handleRequestNotif}
+                                            className="w-full py-2 bg-primary hover:bg-primary-dark text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-lg shadow-primary/20"
+                                        >
+                                            {notifStatus === 'denied' ? 'Try Enable' : 'Enable Now'}
+                                        </button>
+                                    ) : notifStatus === 'granted' ? (
+                                        <p className="text-[9px] text-white/30 text-center font-medium italic">You're all set for reminders!</p>
+                                    ) : (
+                                        <p className="text-[9px] text-orange-400/80 text-center font-medium">Add to Home Screen for Alerts</p>
+                                    )}
+                                    {notifStatus === 'denied' && (
+                                        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mt-2">
+                                            <p className="text-[10px] text-red-400 text-center font-bold mb-1 uppercase tracking-wider">Action Required</p>
+                                            <p className="text-[9px] text-white/60 text-center leading-relaxed">
+                                                Your browser has blocked notifications for this site. 
+                                                <br/>
+                                                <span className="text-white font-bold italic">Click the "Reset permission" button</span> in your browser settings (Lock icon) to see the prompt again.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-white/5 my-2"></div>
+                            
                             <button className="flex items-center gap-3 w-full p-3 hover:bg-white/10 rounded-2xl text-white/70 hover:text-primary transition-all text-sm group">
                                 <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">person</span>
                                 Profile
@@ -3068,6 +3122,40 @@
             ).join(' ');
         };
 
+        const SkeletonNoteCard = ({ variant = 'full', index }) => {
+            const isPriority = variant === 'priority';
+            const isCompact = variant === 'compact';
+            
+            return (
+                <div className={`animate-pulse rounded-[2.2rem] border-b-4 border-white/5 bg-white/5 relative overflow-hidden flex flex-col ${isPriority ? 'h-[150px] md:h-[160px] p-5' : isCompact ? 'h-[140px] p-5' : 'h-[220px] p-6'}`}>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
+                    <div className={`w-8 h-8 rounded-full bg-white/5 ${isPriority ? 'mb-auto' : 'absolute top-4 right-4'}`}></div>
+                    <div className={`${isPriority ? '' : 'pr-8 mb-4'}`}>
+                        <div className={`h-6 bg-white/10 rounded-lg w-3/4 mb-3 ${isPriority ? 'mt-2' : ''}`}></div>
+                        {!isPriority && <div className="space-y-2">
+                            <div className="h-3 bg-white/5 rounded w-full"></div>
+                            <div className="h-3 bg-white/5 rounded w-5/6"></div>
+                        </div>}
+                    </div>
+                    <div className="mt-auto flex flex-wrap gap-2">
+                        <div className="h-4 bg-white/10 rounded-lg w-16"></div>
+                        <div className="h-4 bg-white/5 rounded-lg w-12"></div>
+                    </div>
+                </div>
+            );
+        };
+
+        const SkeletonQuickTask = () => (
+            <div className="animate-pulse flex items-center gap-4 p-4 glass-panel rounded-2xl border border-white/5 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
+                <div className="w-6 h-6 rounded-lg bg-white/10"></div>
+                <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-white/10 rounded w-2/3"></div>
+                    <div className="h-2 bg-white/5 rounded w-1/4"></div>
+                </div>
+            </div>
+        );
+
         const NoteCard = React.memo(({ note, onClick, index, variant = 'full', onRemoveReminder, isSelected = false }) => {
             const theme = getThemeClasses(note.noteTheme);
             const preview = stripHtml(note.content);
@@ -3143,7 +3231,7 @@
 
         // --- Page Components ---
 
-        const DashboardPage = ({ user, notes, quickTasks, onOpenCreator, onEditNote, onRestoreDefaults, onReorderPriorityNote, onToggleQuickTask, onAddQuickTaskClick, onDeleteQuickTask, onUpdateQuickTask, onEditQuickTask, editingQuickTask, setEditingQuickTask, isQuickTaskModalOpen, setIsQuickTaskModalOpen, onRemoveReminder }) => {
+        const DashboardPage = ({ user, notes, quickTasks, onOpenCreator, onEditNote, onRestoreDefaults, onReorderPriorityNote, onToggleQuickTask, onAddQuickTaskClick, onDeleteQuickTask, onUpdateQuickTask, onEditQuickTask, editingQuickTask, setEditingQuickTask, isQuickTaskModalOpen, setIsQuickTaskModalOpen, onRemoveReminder, isProbing }) => {
             const navigate = useNavigate();
             const { search } = useLocation();
             const queryParams = new URLSearchParams(search);
@@ -3424,7 +3512,11 @@
                                 </Link>
                             </div>
                             
-                            {sortedPriorityNotes.length === 0 ? (
+                            {(isProbing && sortedPriorityNotes.length === 0) ? (
+                                <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 md:gap-6 px-0 md:px-2 mb-16 md:mb-20">
+                                    {[...Array(6)].map((_, i) => <SkeletonNoteCard key={i} index={i} variant="priority" />) }
+                                </div>
+                            ) : sortedPriorityNotes.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center p-20 glass-panel rounded-3xl border-dashed border-white/10 text-center">
                                     <span className="material-symbols-outlined text-6xl text-white/5 mb-4">star</span>
                                     <p className="text-white/40 font-medium mb-4 font-montserrat">No priority notes found</p>
@@ -3494,7 +3586,11 @@
 
                         <section className="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-32">
                             <div className="lg:col-span-2 space-y-4">
-                                {quickTasks.length === 0 ? (
+                                {(isProbing && quickTasks.length === 0) ? (
+                                    <div className="space-y-4">
+                                        {[...Array(5)].map((_, i) => <SkeletonQuickTask key={i} />)}
+                                    </div>
+                                ) : quickTasks.length === 0 ? (
                                     <div className="glass-panel p-10 rounded-3xl text-center border-dashed border-white/5">
                                         <p className="text-white/20 text-sm font-bold uppercase tracking-widest">No quick tasks yet</p>
                                     </div>
@@ -3662,7 +3758,7 @@
             );
         };
 
-        const NotesPage = React.memo(({ user, notes, onOpenCreator, onEditNote, noteSections, onAddSection, onDeleteSection, onMoveNote, onReorderNote, onRemoveReminder, onBulkUpdate, onBulkDelete }) => {
+        const NotesPage = React.memo(({ user, notes, onOpenCreator, onEditNote, noteSections, onAddSection, onDeleteSection, onMoveNote, onReorderNote, onRemoveReminder, onBulkUpdate, onBulkDelete, isProbing }) => {
             const navigate = useNavigate();
             const pinnedNotes = notes.filter(n => n.isPinned);
             const [labelFilter, setLabelFilter] = useState('');
@@ -4513,7 +4609,13 @@
                                                 <div className="h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
                                                 {(() => { labelFilterShown = true; return <LabelFilterDropdown />; })()}
                                             </div>
-                                            {renderNoteGrid(pinnedFiltered, null, "__pinned")}
+                                            {(isProbing && notes.length === 0) ? (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                                                    {[...Array(3)].map((_, i) => <SkeletonNoteCard key={i} index={i} variant="compact" />)}
+                                                </div>
+                                            ) : (
+                                                renderNoteGrid(pinnedFiltered, null, "__pinned")
+                                            )}
                                         </section>
                                     );
 
@@ -4613,7 +4715,11 @@
                                                 <div className="h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
                                                 {showDropdownOnAll && <LabelFilterDropdown />}
                                             </div>
-                                            {allNotesFiltered.length > 0 ? (
+                                            {(isProbing && notes.length === 0) ? (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-32">
+                                                    {[...Array(6)].map((_, i) => <SkeletonNoteCard key={i} index={i} />)}
+                                                </div>
+                                            ) : allNotesFiltered.length > 0 ? (
                                                 <div className="pb-32">
                                                     {renderNoteGrid(allNotesFiltered, null, "")}
                                                 </div>
@@ -5057,9 +5163,9 @@
             }, [user]);
 
             const handleEnable = async () => {
-                const granted = await FaioraNotifications.requestPermission();
+                const result = await FaioraNotifications.requestPermission();
                 setVisible(false);
-                if (!granted) {
+                if (result !== 'granted') {
                     localStorage.setItem('faiora_notif_banner_dismissed', String(Date.now()));
                 }
             };
@@ -6291,6 +6397,9 @@
 
             useEffect(() => {
                 const unsubscribe = auth.onAuthStateChanged((u) => {
+                    // Clear stale data immediately upon auth change to trigger skeletons correctly
+                    setNotes([]);
+                    setQuickTasks([]);
                     setUser(u);
                     setIsAuthChecked(true);
 
@@ -6304,125 +6413,80 @@
                             const lastColl = localStorage.getItem('faiora_active_collection');
                             let bestCollection = lastColl || 'tasks';
                             
-                            const probeCollections = Array.from(new Set([bestCollection, 'tasks', 'users', 'userdata', 'notes', 'faiora_data', 'user_metadata']));
-                            console.log("🔍 [PROBE] Initializing ultra-robust discovery on collections:", probeCollections);
+                            // 1. INSTANT LOAD: Set cached collection immediately so UI starts loading data
+                            setActiveCollection(bestCollection);
+                            console.log("⚡ [PROBE] Instant load from cache:", bestCollection);
 
-                            const runProbe = async (isRetry = false) => {
-                                let discoverySummary = [];
-                                let dataCandidates = [];
+                            const probeCollections = Array.from(new Set([bestCollection, 'tasks', 'users', 'userdata', 'notes', 'faiora_data', 'user_metadata']));
+                            
+                            const runProbe = async () => {
+                                console.log("🔍 [PROBE] Parallel discovery on:", probeCollections);
                                 
-                                for (const coll of probeCollections) {
+                                // Check all collections simultaneously
+                                const results = await Promise.all(probeCollections.map(async (coll) => {
                                     try {
                                         const doc = await db.collection(coll).doc(u.uid).get();
-                                        const info = { collection: coll, exists: doc.exists, hasNotes: false, hasTasks: false, writable: 'unknown' };
-                                        
                                         if (doc.exists) {
                                             const data = doc.data();
-                                            info.hasNotes = data && data.notes && Object.keys(data.notes).length > 0;
-                                            info.hasTasks = data && (data.quickTasks && (Array.isArray(data.quickTasks) ? data.quickTasks.length > 0 : Object.keys(data.quickTasks).length > 0));
+                                            const hasNotes = data && data.notes && Object.keys(data.notes).length > 0;
+                                            const hasTasks = data && (data.quickTasks && (Array.isArray(data.quickTasks) ? data.quickTasks.length > 0 : Object.keys(data.quickTasks).length > 0));
                                             
-                                            if (info.hasNotes || info.hasTasks) {
-                                                dataCandidates.push(coll);
-                                            } else {
-                                                // Check if this empty collection is writable - if so, it's a great candidate for a new home
-                                                try {
-                                                    await db.collection(coll).doc(u.uid).set({ _lastProbe: Date.now() }, { merge: true });
-                                                    bestCollection = coll;
-                                                    info.writable = true;
-                                                } catch(e) { info.writable = false; }
-                                            }
+                                            // Score the collection
+                                            let score = (hasNotes ? 10 : 0) + (hasTasks ? 5 : 0);
+                                            return { coll, exists: true, score, data };
                                         }
-                                        discoverySummary.push(info);
-                                    } catch (err) {
-                                        if (err.code !== 'permission-denied') {
-                                            console.warn(`[PROBE] Error reading ${coll}:`, err.message);
-                                        }
-                                    }
-                                }
-
-                                // PREVENT DATA LOSS & FIX PERMISSIONS: Data Migration Bridge
-                                if (dataCandidates.length > 0) {
-                                    // 1. Find the richest source of data
-                                    let richest = dataCandidates[0];
-                                    let maxData = 0;
-                                    dataCandidates.forEach(cand => {
-                                        const s = discoverySummary.find(info => info.collection === cand);
-                                        const count = (s.hasNotes ? 10 : 0) + (s.hasTasks ? 5 : 0);
-                                        if (count > maxData) { maxData = count; richest = cand; }
-                                    });
-
-                                    // 2. Check if the richest source is writable
-                                    let isRichestWritable = false;
-                                    try {
-                                        await db.collection(richest).doc(u.uid).set({ _lastSync: Date.now() }, { merge: true });
-                                        isRichestWritable = true;
-                                    } catch (e) {
-                                        console.warn(`🚑 [PROBE] Source '${richest}' is Read-Only. Searching for a writable home for your data...`);
-                                    }
-
-                                    if (isRichestWritable) {
-                                        console.log(`✨ [PROBE] Source '${richest}' is verified and writable.`);
-                                        return richest;
-                                    }
-
-                                    // 3. Migration: If richest is read-only, find the first writable collection to migrate TO
-                                    // First try collections we already know are writable from the discovery phase
-                                    const writableHomes = discoverySummary.filter(s => s.writable === true).map(s => s.collection);
-                                    const migrationTargets = Array.from(new Set([...writableHomes, ...probeCollections]));
-
-                                    for (const targetColl of migrationTargets) {
-                                        if (targetColl === richest) continue;
+                                        
+                                        // If empty but writable, it's a fallback home
                                         try {
-                                            // Test writability again just to be safe
-                                            await db.collection(targetColl).doc(u.uid).set({ _lastSync: Date.now() }, { merge: true });
-                                            
-                                            // Perform the Migration
-                                            console.log(`🚚 [MIGRATION] Cloning data from '${richest}' to '${targetColl}'...`);
-                                            const sourceDoc = await db.collection(richest).doc(u.uid).get();
-                                            if (sourceDoc.exists) {
-                                                const sourceData = sourceDoc.data();
-                                                // Ensure we don't overwrite with older data if target somehow has newer (unlikely here)
-                                                await db.collection(targetColl).doc(u.uid).set(sourceData, { merge: true });
-                                                console.log(`✅ [MIGRATION] Success! Your data now lives in '${targetColl}'.`);
-                                                showToast("Data secured & permissions fixed!");
-                                                return targetColl;
-                                            }
-                                        } catch (e) {
-                                            // Target not writable, keep looking
+                                            await db.collection(coll).doc(u.uid).set({ _lastProbe: Date.now() }, { merge: true });
+                                            return { coll, exists: false, score: 0, writable: true };
+                                        } catch(e) {
+                                            return { coll, exists: false, score: 0, writable: false };
                                         }
+                                    } catch (err) {
+                                        return { coll, exists: false, score: -1 };
                                     }
+                                }));
 
-                                    console.error("❌ [PROBE] Emergency! Found your data, but couldn't find ANYWHERE writable to save it.");
-                                    return richest; // Fallback to richest even if read-only, so user at least sees data
-                                }
-
-                                // Diagnostic Log
-                                console.log("📍 [PROBE] Discovery Summary:", discoverySummary);
-
-                                // If no data found anywhere, find any writable home.
-                                for (const coll of probeCollections) {
+                                const candidates = results.filter(r => r.score > 0).sort((a, b) => b.score - a.score);
+                                
+                                if (candidates.length > 0) {
+                                    const richest = candidates[0];
+                                    
+                                    // Verify writability of richest
                                     try {
-                                        await db.collection(coll).doc(u.uid).set({ _lastSync: Date.now() }, { merge: true });
-                                        console.log(`🏠 [PROBE] No data found. Settling on writable home: '${coll}'`);
-                                        bestCollection = coll;
-                                        return null; 
-                                    } catch (e) {}
+                                        await db.collection(richest.coll).doc(u.uid).set({ _lastSync: Date.now() }, { merge: true });
+                                        return richest.coll;
+                                    } catch (e) {
+                                        console.warn(`🚑 [PROBE] Source '${richest.coll}' is Read-Only. Searching for writable home...`);
+                                        const writableHome = results.find(r => r.writable === true);
+                                        if (writableHome) {
+                                            console.log(`🚚 [MIGRATION] Migrating from read-only '${richest.coll}' to '${writableHome.coll}'`);
+                                            await db.collection(writableHome.coll).doc(u.uid).set(richest.data, { merge: true });
+                                            showToast("Data secured & permissions fixed!");
+                                            return writableHome.coll;
+                                        }
+                                        return richest.coll;
+                                    }
                                 }
 
-                                return null;
+                                // If no data, find first writable home
+                                const firstWritable = results.find(r => r.writable === true);
+                                return firstWritable ? firstWritable.coll : bestCollection;
                             };
 
-                            let found = await runProbe();
-                            if (!found) {
-                                console.log("⏳ [PROBE] No data found, waiting 1.5s for cloud propagation...");
-                                await new Promise(r => setTimeout(r, 1500));
-                                found = await runProbe(true);
-                            }
-
+                            const found = await runProbe();
                             const result = found || bestCollection;
-                            console.log(`📍 [PROBE] Resolved active collection to: '${result}'`);
-                            setActiveCollection(result);
-                            localStorage.setItem('faiora_active_collection', result);
+                            
+                            if (result !== activeCollection) {
+                                console.log(`📍 [PROBE] Redirecting to found collection: '${result}'`);
+                                setActiveCollection(result);
+                                localStorage.setItem('faiora_active_collection', result);
+                            }
+                            
+                            // Ensure skeletons are visible for a minimum duration during discovery
+                            await new Promise(r => setTimeout(r, 600));
+
                             setIsProbing(false);
                             return result;
                         };
@@ -6540,8 +6604,8 @@
                             onTransitionStart={() => setIsTransitioning(true)}
                             onTransitionEnd={() => setIsTransitioning(false)}
                         >
-                         <Route path="/" element={<DashboardPage user={user} notes={notes} quickTasks={quickTasks} onOpenCreator={handleOpenCreator} onEditNote={handleEditNote} onRestoreDefaults={handleRestoreDefaults} onReorderPriorityNote={handleReorderPriorityNote} onToggleQuickTask={handleToggleQuickTask} onAddQuickTaskClick={() => { setIsQuickTaskModalOpen(true); }} onDeleteQuickTask={handleDeleteQuickTask} onUpdateQuickTask={handleUpdateQuickTask} onEditQuickTask={(task) => { setEditingQuickTask(task); }} editingQuickTask={editingQuickTask} setEditingQuickTask={setEditingQuickTask} isQuickTaskModalOpen={isQuickTaskModalOpen} setIsQuickTaskModalOpen={setIsQuickTaskModalOpen} onRemoveReminder={handleRemoveReminder} />} />
-                        <Route path="/notes" element={<NotesPage user={user} notes={notes} onOpenCreator={handleOpenCreator} onEditNote={handleEditNote} noteSections={noteSections} onAddSection={handleAddSection} onDeleteSection={handleDeleteSection} onMoveNote={handleMoveNoteToSection} onReorderNote={handleReorderNote} onRemoveReminder={handleRemoveReminder} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} />} />
+                         <Route path="/" element={<DashboardPage user={user} notes={notes} quickTasks={quickTasks} onOpenCreator={handleOpenCreator} onEditNote={handleEditNote} onRestoreDefaults={handleRestoreDefaults} onReorderPriorityNote={handleReorderPriorityNote} onToggleQuickTask={handleToggleQuickTask} onAddQuickTaskClick={() => { setIsQuickTaskModalOpen(true); }} onDeleteQuickTask={handleDeleteQuickTask} onUpdateQuickTask={handleUpdateQuickTask} onEditQuickTask={(task) => { setEditingQuickTask(task); }} editingQuickTask={editingQuickTask} setEditingQuickTask={setEditingQuickTask} isQuickTaskModalOpen={isQuickTaskModalOpen} setIsQuickTaskModalOpen={setIsQuickTaskModalOpen} onRemoveReminder={handleRemoveReminder} isProbing={isProbing} />} />
+                        <Route path="/notes" element={<NotesPage user={user} notes={notes} onOpenCreator={handleOpenCreator} onEditNote={handleEditNote} noteSections={noteSections} onAddSection={handleAddSection} onDeleteSection={handleDeleteSection} onMoveNote={handleMoveNoteToSection} onReorderNote={handleReorderNote} onRemoveReminder={handleRemoveReminder} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} isProbing={isProbing} />} />
                         <Route path="/calendar" element={
                             <CalendarPage 
                                 user={user} 
