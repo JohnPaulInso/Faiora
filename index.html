@@ -419,24 +419,27 @@
 
             const checkCloudHealth = async () => {
                 try {
-                    const status = { connected: false, syncSecs: 0, hasToken: false };
+                    const userId = auth.currentUser ? auth.currentUser.uid : null;
+                    if (!userId) return { connected: false, hasToken: false };
+
+                    // Use the actual collection the app is currently using for sync
+                    const activeColl = localStorage.getItem('faiora_active_collection') || 'tasks';
+                    const status = { connected: false, hasToken: false };
                     
-                    // 1. Connection check
-                    const start = Date.now();
-                    const testRef = db.collection('_health').doc('ping');
-                    await testRef.set({ time: firebase.firestore.FieldValue.serverTimestamp() });
+                    // 1. Connection check - Test write/read on the actual user document
+                    const testRef = db.collection(activeColl).doc(userId);
+                    await testRef.set({ _lastHealthCheck: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
                     const doc = await testRef.get();
                     if (doc.exists) status.connected = true;
 
                     // 2. Token check
-                    if (auth.currentUser) {
-                        const tokenDoc = await db.collection('fcmTokens').doc(auth.currentUser.uid).get();
-                        status.hasToken = tokenDoc.exists && (tokenDoc.data().tokens || []).length > 0;
-                    }
+                    const tokenDoc = await db.collection('fcmTokens').doc(userId).get();
+                    status.hasToken = tokenDoc.exists && (tokenDoc.data().tokens || []).length > 0;
 
                     return status;
                 } catch (e) {
                     console.warn("Cloud health check failed:", e);
+                    // If we get a permission error on write, but doc read works, maybe it's partially connected
                     return { connected: false, hasToken: false };
                 }
             };
