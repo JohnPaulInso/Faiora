@@ -166,6 +166,33 @@
                 }
             };
 
+            const testNotification = async () => {
+                if (Notification.permission !== 'granted') {
+                    const res = await requestPermission();
+                    if (res !== 'granted') return;
+                }
+                
+                playNotifSFX();
+                const title = "🔥 Faiora Test Alert";
+                const body = "Your notification system is working! This is a local test.";
+                
+                if (swRegistration) {
+                    swRegistration.showNotification(title, {
+                        body,
+                        icon: 'logo.png',
+                        badge: 'logo.png',
+                        tag: 'faiora-test',
+                        renotify: true,
+                        requireInteraction: true
+                    });
+                } else {
+                    new Notification(title, { body, icon: 'logo.png' });
+                }
+                
+                // Also trigger a token refresh to be sure
+                registerFCMToken();
+            };
+
             // ------------------------------------------------------------------
             // LABEL: NOTIF-FCM-TOKEN — Get FCM token and store in Firestore
             // ------------------------------------------------------------------
@@ -175,7 +202,6 @@
                 try {
                     if (VAPID_KEY === 'YOUR_VAPID_KEY_HERE') {
                         console.warn('⚠️ FCM VAPID key not set! Background notifications won\'t work.');
-                        console.warn('   Go to Firebase Console → Project Settings → Cloud Messaging → Generate key pair');
                         return;
                     }
 
@@ -200,21 +226,19 @@
                         if (doc.exists) {
                             const existing = doc.data().tokens || [];
                             if (!existing.includes(token)) {
-                                // Add new token (user might have multiple devices)
                                 await tokenRef.update({
                                     tokens: firebase.firestore.FieldValue.arrayUnion(token),
                                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                                 });
                             }
                         } else {
-                            // First time — create token document
                             await tokenRef.set({
                                 tokens: [token],
                                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
                         }
-                        console.log('🔔 FCM token registered for push notifications');
+                        console.log('🔔 FCM token verified/registered');
                     }
                 } catch (err) {
                     console.warn('FCM token registration failed:', err);
@@ -383,7 +407,7 @@
                 tasks.filter(t => t.dueDate && !t.completed).forEach(t => scheduleForTask(t));
             };
 
-            return { requestPermission, scheduleForTask, cancelForTask, rescheduleAll, playCheckSFX };
+            return { requestPermission, testNotification, registerFCMToken, scheduleForTask, cancelForTask, rescheduleAll, playCheckSFX };
         })();
         
         // --- Shared Components ---
@@ -711,9 +735,20 @@
                                             {notifStatus === 'denied' ? 'Try Enable' : 'Enable Now'}
                                         </button>
                                     ) : notifStatus === 'granted' ? (
-                                        <p className="text-[9px] text-white/30 text-center font-medium italic">You're all set for reminders!</p>
+                                        <div className="space-y-2">
+                                            <p className="text-[9px] text-white/30 text-center font-medium italic">You're all set for reminders!</p>
+                                            <button 
+                                                onClick={() => FaioraNotifications.testNotification()}
+                                                className="w-full py-2 bg-white/10 hover:bg-white/20 text-cream-light text-[9px] font-bold uppercase tracking-widest rounded-xl transition-all active:scale-95 border border-white/5"
+                                            >
+                                                Send Test Alert
+                                            </button>
+                                        </div>
                                     ) : (
-                                        <p className="text-[9px] text-orange-400/80 text-center font-medium">Add to Home Screen for Alerts</p>
+                                        <div className="space-y-2">
+                                            <p className="text-[9px] text-orange-400/80 text-center font-bold uppercase tracking-wider">PWA Required</p>
+                                            <p className="text-[8px] text-white/40 text-center leading-relaxed">To get alerts on iOS, tap the <span className="text-white font-bold">Share</span> icon and select <span className="text-white font-bold">"Add to Home Screen"</span>.</p>
+                                        </div>
                                     )}
                                     {notifStatus === 'denied' && (
                                         <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mt-2">
@@ -6319,11 +6354,20 @@
             const handleAddQuickTask = useCallback((text, dueDate = '', dueTime = '') => {
                 const truncatedText = text.length > 40 ? text.substring(0, 37) + '...' : text;
                 console.log('🆕 handleAddQuickTask called:', { text: truncatedText, dueDate, dueTime });
+                
+                // Calculate timezone-agnostic timestamp for reliable notifications
+                let dueTimestamp = null;
+                if (dueDate) {
+                    const dt = new Date(`${dueDate}T${dueTime || '23:59'}`);
+                    if (!isNaN(dt.getTime())) dueTimestamp = dt.getTime();
+                }
+
                 const newTask = {
                     id: 'qt_' + Date.now(),
                     text: truncatedText,
                     dueDate,
                     dueTime,
+                    dueTimestamp,
                     completed: false,
                     createdAt: Date.now()
                 };
@@ -6361,9 +6405,16 @@
             const handleUpdateQuickTask = (id, text, dueDate, dueTime) => {
                 let updatedTask = null;
                 const truncatedText = text.length > 40 ? text.substring(0, 37) + '...' : text;
+                
+                let dueTimestamp = null;
+                if (dueDate) {
+                    const dt = new Date(`${dueDate}T${dueTime || '23:59'}`);
+                    if (!isNaN(dt.getTime())) dueTimestamp = dt.getTime();
+                }
+
                 const updated = quickTasks.map(t => {
                     if (t.id === id) {
-                        updatedTask = { ...t, text: truncatedText, dueDate, dueTime, updatedAt: Date.now() };
+                        updatedTask = { ...t, text: truncatedText, dueDate, dueTime, dueTimestamp, updatedAt: Date.now() };
                         return updatedTask;
                     }
                     return t;
@@ -6414,8 +6465,12 @@
 
                     if (u) {
                         setIsProbing(true);
-                        // Request notification permission on login
-                        FaioraNotifications.requestPermission();
+                        // Ensure FCM token is refreshed/verified if permission already granted
+                        if (Notification.permission === 'granted') {
+                            FaioraNotifications.registerFCMToken();
+                        } else {
+                            FaioraNotifications.requestPermission();
+                        }
                         console.log("👤 [AUTH] User logged in, starting writable collection discovery...");
                         // and immediately resolve if notes are found.
                         const tryProbe = async () => {
