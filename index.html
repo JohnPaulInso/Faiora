@@ -342,7 +342,7 @@
                 const now = Date.now();
                 const dueMs = dueDateTime.getTime();
                 const taskTimers = [];
-                const taskName = task.text || task.title || 'Task';
+                const taskName = formatTaskText(task.text || task.title || 'Task');
                 const timeStr = formatNotifTime(dueDateTime);
 
                 // Timer 1: At exact due time
