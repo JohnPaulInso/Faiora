@@ -323,7 +323,7 @@
                 // Timer 1: At exact due time
                 if (dueMs > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`Due Now!`, `📌 Task: "${taskName}"\n(Time: ${timeStr})`, `faiora-due-${task.id}`);
+                        sendNotification(`🔥 Task Reminder!`, `📌 Due Now!: ${taskName}\n`, `faiora-due-${task.id}`);
                     }, dueMs - now);
                     taskTimers.push(id);
                 }
@@ -332,7 +332,7 @@
                 const twoHoursBefore = dueMs - (2 * 60 * 60 * 1000);
                 if (twoHoursBefore > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`Due in 2h`, `⏳ Task: "${taskName}"\n(Due at ${timeStr})`, `faiora-2h-${task.id}`);
+                        sendNotification(`🔥 Task Reminder!`, `⏳ Due in 2 hours!: ${taskName}\n`, `faiora-2h-${task.id}`);
                     }, twoHoursBefore - now);
                     taskTimers.push(id);
                 }
@@ -344,7 +344,7 @@
                 const dayBeforeMs = dayBefore.getTime();
                 if (dayBeforeMs > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`Due Tomorrow`, `🔥 Task: "${taskName}"\n(Due at ${timeStr})`, `faiora-1d-${task.id}`);
+                        sendNotification(`🔥 Task Reminder!`, `⚡ Due Tomorrow!: ${taskName}\n`, `faiora-1d-${task.id}`);
                     }, dayBeforeMs - now);
                     taskTimers.push(id);
                 }
@@ -3534,11 +3534,15 @@
                                                         const diffMs = target - now;
                                                         const diffHours = diffMs / (1000 * 60 * 60);
                                                         
-                                                        if (diffHours > 0 && diffHours <= 4) {
+                                                        if (diffHours > 0 && diffHours < 1) {
+                                                            const mins = Math.max(1, Math.ceil(diffHours * 60));
                                                             isNearDeadline = true;
-                                                            label = `Due in ${Math.ceil(diffHours)} ${Math.ceil(diffHours) === 1 ? 'hour' : 'hours'}`;
+                                                            label = `Due in ${mins} MINS`;
+                                                        } else if (diffHours > 0 && diffHours <= 4) {
+                                                            isNearDeadline = true;
+                                                            label = `Due in ${Math.ceil(diffHours)}${Math.ceil(diffHours) === 1 ? ' HR' : ' HRS'}`;
                                                         } else if (diffHours > 0 && diffHours <= 8) {
-                                                            label = `Due in ${Math.ceil(diffHours)} ${Math.ceil(diffHours) === 1 ? 'hour' : 'hours'}`;
+                                                            label = `Due in ${Math.ceil(diffHours)}${Math.ceil(diffHours) === 1 ? ' HR' : ' HRS'}`;
                                                         }
                                                         
                                                         const hours = parseInt(h);
@@ -3558,9 +3562,13 @@
                                                         tgt.setHours(parseInt(h), parseInt(m), 0, 0);
                                                         const diffMs = tgt - now;
                                                         const diffHours = diffMs / (1000 * 60 * 60);
-                                                        if (diffHours > 0 && diffHours <= 4) {
+                                                        if (diffHours > 0 && diffHours < 1) {
+                                                            const mins = Math.max(1, Math.ceil(diffHours * 60));
                                                             isNearDeadline = true;
-                                                            label = `Due in ${Math.ceil(diffHours)} ${Math.ceil(diffHours) === 1 ? 'hour' : 'hours'}`;
+                                                            label = `Due in ${mins} MINS`;
+                                                        } else if (diffHours > 0 && diffHours <= 4) {
+                                                            isNearDeadline = true;
+                                                            label = `Due in ${Math.ceil(diffHours)}${Math.ceil(diffHours) === 1 ? ' HR' : ' HRS'}`;
                                                         }
                                                         const hours = parseInt(h);
                                                         const ampm = hours >= 12 ? 'PM' : 'AM';
