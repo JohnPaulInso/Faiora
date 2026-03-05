@@ -133,6 +133,9 @@
                     swReady = true;
                     console.log('🔥 Faiora SW registered');
                     
+                    // FORCE UPDATE: Ensure the phone gets the newest code (v1.0.4+) immediately
+                    reg.update();
+
                     // Request persistent storage to help SW stay alive (best effort)
                     if (navigator.storage && navigator.storage.persist) {
                         navigator.storage.persist().then(granted => {
@@ -414,7 +417,31 @@
                 tasks.filter(t => t.dueDate && !t.completed).forEach(t => scheduleForTask(t));
             };
 
-            return { requestPermission, testNotification, registerFCMToken, scheduleForTask, cancelForTask, rescheduleAll, playCheckSFX };
+            const checkCloudHealth = async () => {
+                try {
+                    const status = { connected: false, syncSecs: 0, hasToken: false };
+                    
+                    // 1. Connection check
+                    const start = Date.now();
+                    const testRef = db.collection('_health').doc('ping');
+                    await testRef.set({ time: firebase.firestore.FieldValue.serverTimestamp() });
+                    const doc = await testRef.get();
+                    if (doc.exists) status.connected = true;
+
+                    // 2. Token check
+                    if (auth.currentUser) {
+                        const tokenDoc = await db.collection('fcmTokens').doc(auth.currentUser.uid).get();
+                        status.hasToken = tokenDoc.exists && (tokenDoc.data().tokens || []).length > 0;
+                    }
+
+                    return status;
+                } catch (e) {
+                    console.warn("Cloud health check failed:", e);
+                    return { connected: false, hasToken: false };
+                }
+            };
+
+            return { requestPermission, testNotification, registerFCMToken, scheduleForTask, cancelForTask, rescheduleAll, playCheckSFX, checkCloudHealth };
         })();
         
         // --- Shared Components ---
@@ -643,7 +670,16 @@
         const UserMenu = ({ user }) => {
             const [isOpen, setIsOpen] = useState(false);
             const [notifStatus, setNotifStatus] = useState(Notification.permission);
+            const [cloudStatus, setCloudStatus] = useState('checking');
             const menuRef = useRef();
+
+            useEffect(() => {
+                if (isOpen && user) {
+                    FaioraNotifications.checkCloudHealth().then(res => {
+                        setCloudStatus(res.connected ? 'ok' : 'error');
+                    });
+                }
+            }, [isOpen, user]);
 
             const handleRequestNotif = async () => {
                 const result = await FaioraNotifications.requestPermission();
@@ -721,8 +757,8 @@
                             <div className="px-3 py-2">
                                 <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em] mb-2 px-1">Notifications</p>
                                 <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-[11px] font-bold text-cream-light/60 uppercase tracking-widest">Status</span>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[11px] font-bold text-cream-light/60 uppercase tracking-widest">App Engine</span>
                                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
                                             notifStatus === 'granted' ? 'bg-green-500/20 text-green-400' :
                                             notifStatus === 'denied' ? 'bg-red-500/20 text-red-400' :
@@ -733,6 +769,18 @@
                                              notifStatus === 'denied' ? 'Blocked' : 
                                              notifStatus === 'unsupported' ? 'No Support' : 'Not Set'}
                                         </span>
+                                    </div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[11px] font-bold text-cream-light/60 uppercase tracking-widest">Cloud Sync</span>
+                                        {cloudStatus === 'checking' ? (
+                                            <div className="w-3 h-3 border-2 border-primary/40 border-t-primary rounded-full animate-spin"></div>
+                                        ) : (
+                                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                                cloudStatus === 'ok' ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'
+                                            }`}>
+                                                {cloudStatus === 'ok' ? 'Connected' : 'Offline'}
+                                            </span>
+                                        )}
                                     </div>
                                     {notifStatus !== 'granted' && notifStatus !== 'unsupported' ? (
                                         <button 

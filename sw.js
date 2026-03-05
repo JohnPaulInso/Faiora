@@ -1,6 +1,10 @@
 // ==========================================================================
 // FAIORA SERVICE WORKER — FCM Background Push + Local Notifications
 // ==========================================================================
+/*
+ * Faiora Service Worker (sw.js)
+ * v1.0.4 - Added Data-only payload support for reliable background notifications
+ */
 // This service worker handles:
 //   1. FCM background push messages (when app is closed)
 //   2. Local notification display (when app is open)
@@ -42,16 +46,17 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
     console.log('🔥 [SW] Background message received:', payload);
 
-    // If there's no notification payload, build one from data
-    if (payload.data && !payload.notification) {
+    // Handle Data-only messages from Cloud Functions
+    if (payload.data) {
         const title = payload.data.title || '🔥 Faiora Reminder';
         const body = payload.data.body || 'You have a task due!';
+        const taskId = payload.data.taskId || Date.now();
 
         return self.registration.showNotification(title, {
             body: body,
             icon: 'logo.png',
             badge: 'logo.png',
-            tag: 'faiora-' + (payload.data.taskId || Date.now()),
+            tag: 'faiora-' + taskId,
             renotify: true,
             vibrate: [200, 100, 200],
             requireInteraction: true,
@@ -61,7 +66,7 @@ messaging.onBackgroundMessage((payload) => {
             ],
             data: {
                 url: self.location.origin,
-                taskId: payload.data.taskId
+                taskId: taskId
             }
         });
     }
