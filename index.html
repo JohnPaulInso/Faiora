@@ -324,7 +324,7 @@
                 // Timer 1: At exact due time
                 if (dueMs > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`🔥 Task Reminder!`, `📌 Due Now!: ${taskName}\n`, `faiora-due-${task.id}`);
+                        sendNotification(`Task Reminder! 🔥`, `📌 Due Now: ${taskName}\n`, `faiora-due-${task.id}`);
                     }, dueMs - now);
                     taskTimers.push(id);
                 }
@@ -333,7 +333,7 @@
                 const twoHoursBefore = dueMs - (2 * 60 * 60 * 1000);
                 if (twoHoursBefore > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`🔥 Task Reminder!`, `⏳ Due in 2 hours!: ${taskName}\n`, `faiora-2h-${task.id}`);
+                        sendNotification(`Task Reminder!  🔥`, `⏳ Due in 2hr: ${taskName}\n`, `faiora-2h-${task.id}`);
                     }, twoHoursBefore - now);
                     taskTimers.push(id);
                 }
@@ -345,7 +345,7 @@
                 const dayBeforeMs = dayBefore.getTime();
                 if (dayBeforeMs > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`🔥 Task Reminder!`, `⚡ Due Tomorrow!: ${taskName}\n`, `faiora-1d-${task.id}`);
+                        sendNotification(`Task Reminder! 🔥`, `⚡ Due Tomorrow: ${taskName}\n`, `faiora-1d-${task.id}`);
                     }, dayBeforeMs - now);
                     taskTimers.push(id);
                 }
@@ -3122,6 +3122,15 @@
             ).join(' ');
         };
 
+        const formatTaskText = (text) => {
+            if (!text) return '';
+            const t = text.trim();
+            if (t.length === 0) return '';
+            return t.split(' ').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+            ).join(' ');
+        };
+
         const SkeletonNoteCard = ({ variant = 'full', index }) => {
             const isPriority = variant === 'priority';
             const isCompact = variant === 'compact';
@@ -3708,7 +3717,7 @@
                                                                     </div>
                                                                     <div className="flex flex-col gap-0.5">
                                                                         <h4 className={`text-sm md:text-base text-cream-light font-montserrat font-bold tracking-wide transition-all duration-300 ${task.completed ? 'line-through decoration-primary/50 opacity-60' : 'group-hover:text-primary'} ${isOverdue && !task.completed ? 'text-red-400' : ''}`}>
-                                                                            {task.text}
+                                                                            {formatTaskText(task.text)}
                                                                         </h4>
                                                                         {dueDateStr && (
                                                                             <p className={`text-[9px] md:text-[10px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-opacity ${isOverdue && !task.completed ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
@@ -4898,7 +4907,7 @@
                                                         {reminders.slice(0, 3).map((r, ri) => (
                                                             <div key={ri} className={`w-full truncate text-[9px] md:text-[10px] font-bold rounded-lg px-1.5 py-1 flex items-center gap-1.5 ${r.type === 'quickTask' ? 'bg-white/10 text-cream-light/80' : 'bg-primary/15 text-primary/90'} border border-white/5`}>
                                                                 <span className="material-symbols-outlined text-[10px] md:text-[11px] leading-none">{r.type === 'quickTask' ? 'task_alt' : 'event'}</span>
-                                                                {r.type === 'quickTask' ? r.text : (r.title || 'Note')}
+                                                                {r.type === 'quickTask' ? formatTaskText(r.text) : (r.title || 'Note')}
                                                             </div>
                                                         ))}
                                                         {reminders.length > 3 && <span className="text-[9px] font-bold text-primary/50 ml-1">+{reminders.length - 3} more</span>}
@@ -4951,7 +4960,7 @@
                                                             {item.completed && <span className="material-symbols-outlined text-sm font-bold">check</span>}
                                                         </div>
                                                         <div className="flex-1">
-                                                            <h4 className={`text-sm font-bold transition-all ${item.completed ? 'text-cream-light/40 line-through' : 'text-cream-light'}`}>{item.text}</h4>
+                                                            <h4 className={`text-sm font-bold transition-all ${item.completed ? 'text-cream-light/40 line-through' : 'text-cream-light'}`}>{formatTaskText(item.text)}</h4>
                                                             <div className="flex items-center gap-2 mt-1">
                                                                 <span className="material-symbols-outlined text-[10px] text-primary/60">schedule</span>
                                                                                                                                 <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest leading-none">
@@ -4983,7 +4992,7 @@
                                                                                         <div key={idx} onClick={() => item.type === 'note' ? onEditNote(item) : onEditQuickTask(item)} className="flex items-start gap-3 p-3 rounded-2xl hover:bg-white/5 transition-colors cursor-pointer group">
                                                 <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${item.type === 'quickTask' ? 'bg-cream-light/40' : 'bg-primary'}`}></div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-semibold text-cream-light/80 truncate">{item.type === 'quickTask' ? item.text : (item.title || 'Untitled')}</p>
+                                                    <p className="text-xs font-semibold text-cream-light/80 truncate">{item.type === 'quickTask' ? formatTaskText(item.text) : (item.title || 'Untitled')}</p>
                                                     <p className="text-[9px] text-cream-light/30 font-sans mt-0.5">{item.type === 'note' ? formatReminderDate(item.reminderDate) : item.dueDate}</p>
                                                 </div>
                                             </div>
