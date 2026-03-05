@@ -132,6 +132,13 @@
                     swRegistration = reg;
                     swReady = true;
                     console.log('🔥 Faiora SW registered');
+                    
+                    // Request persistent storage to help SW stay alive (best effort)
+                    if (navigator.storage && navigator.storage.persist) {
+                        navigator.storage.persist().then(granted => {
+                            if (granted) console.log("💾 [Faiora] Persistent storage granted (Higher SW priority)");
+                        });
+                    }
                 }).catch(err => console.warn('SW registration failed:', err));
             }
 
