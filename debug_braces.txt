@@ -1,0 +1,207 @@
+Line 378: };
+Line 380: firebase.initializeApp(firebaseConfig);
+Line 381: const db = firebase.firestore();
+Line 382: const auth = firebase.auth();
+Line 778: };
+Line 801: }, [saveState]);
+Line 830: };
+Line 872: }, [note, selectedImage, canEdit]);
+Line 878: };
+Line 884: };
+Line 897: };
+Line 908: };
+Line 914: };
+Line 926: };
+Line 928: if (loading) return (
+Line 929: <div className="flex flex-col items-center gap-4">
+Line 930: <div className="w-10 h-10 border-4 border-white/20 border-t-primary rounded-full animate-spin"></div>
+Line 931: <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest font-montserrat">Igniting Note...</p>
+Line 932: </div>
+Line 933: );
+Line 935: if (error || !note) return (
+Line 936: <div className="fixed inset-0 flex flex-col items-center justify-center p-6 z-[200]">
+Line 937: {/* Background gradient for error state */}
+Line 938: <div className="fixed inset-0 z-[-1]" style={{ background: 'linear-gradient(180deg, #7c2d12 0%, #111827 40%, #0a0a0a 100%)' }}></div>
+Line 940: <div className="bg-black/40 backdrop-blur-2xl w-full max-w-lg rounded-[2.5rem] p-12 text-center border border-white/10 shadow-2xl animate-in zoom-in-95 duration-500">
+Line 941: <span className="material-symbols-outlined text-6xl text-primary mb-6">lock</span>
+Line 942: <h2 className="text-2xl font-display font-bold text-white italic mb-2">Note not found</h2>
+Line 943: <p className="text-white/40 text-sm mb-8 font-montserrat">It may have been made private or deleted by the owner.</p>
+Line 944: <a href="index.html" className="px-8 py-3 bg-primary hover:bg-primary-dark text-white rounded-full text-xs font-bold uppercase tracking-widest transition-all font-montserrat shadow-lg hover:shadow-primary/20">Dashboard</a>
+Line 945: </div>
+Line 946: </div>
+Line 947: );
+Line 949: const activeTheme = themes.find(t => t.id === note.noteTheme) || themes[0];
+Line 950: const canEdit = note.allowPublicEdit;
+Line 951: const title = note.title || '';
+Line 952: const labels = note.labels || [];
+Line 953: const isPinned = note.isPinned || false;
+Line 954: const progress = note.progress || 0;
+Line 955: const noteIcon = note.noteIcon || '';
+Line 956: const reminderDate = note.reminderDate || '';
+Line 957: const currentThemeClass = activeTheme.themeClass;
+Line 958: const initialContent = note.content || '';
+Line 960: return (
+Line 961: <div className="fixed inset-0 z-[110] flex items-center justify-center p-0 md:p-8 transition-all duration-300 animate-in fade-in duration-500">
+Line 962: <div className="absolute inset-0 bg-black/70 backdrop-blur-2xl transition-opacity duration-300 hidden md:block" onClick={() => window.location.href = 'index.html'}></div>
+Line 964: <div className={"task-creator-modal w-full max-w-full md:max-w-4xl h-full md:h-[85vh] rounded-none md:rounded-[2rem] overflow-hidden flex flex-col relative z-10 shadow-2xl transition-all duration-250 animate-in zoom-in-95 duration-500 ease-out transition-colors duration-500 " + currentThemeClass}>
+Line 966: <div
+Line 967: className="modal-top-progress cursor-pointer group h-4 bg-black/5 hover:bg-black/10 transition-all relative overflow-hidden"
+Line 968: onClick={handleProgressClick}
+Line 969: onMouseMove={handleProgressDrag}
+Line 970: onTouchMove={handleProgressDrag}
+Line 971: >
+Line 972: <div
+Line 973: className="modal-progress-fill h-full transition-all duration-300 relative flex items-center justify-end"
+Line 974: style={{ width: progress + "%" }}
+Line 975: >
+Line 976: <span className={`text-[9px] font-bold text-slate-800 px-2 mb-0.5 select-none transition-opacity ${progress < 15 ? 'opacity-0' : 'opacity-100'}`}>
+Line 977: {progress}%
+Line 978: </span>
+Line 979: <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow-lg scale-0 group-hover:scale-100 transition-transform ring-4 ring-primary/20"></div>
+Line 980: </div>
+Line 985: )}
+Line 986: </div>
+Line 988: <div
+Line 989: className="flex-1 overflow-y-auto p-4 md:p-10 no-scrollbar relative flex flex-col"
+Line 990: >
+Line 995: )}
+Line 996: <div className="flex justify-between items-start mb-4 relative z-10">
+Line 997: <div className="flex-1 flex flex-col gap-2">
+Line 998: <div className="flex items-center gap-2">
+Line 999: <button
+Line 1000: onClick={() => window.location.href='index.html'}
+Line 1001: className="md:hidden flex items-center justify-center flex-shrink-0 text-slate-500 hover:text-slate-800 transition-colors p-1 -ml-1"
+Line 1002: >
+Line 1003: <span className="material-symbols-outlined text-[22px]">arrow_back</span>
+Line 1004: </button>
+Line 1005: <input
+Line 1006: type="text"
+Line 1007: placeholder="Main title"
+Line 1008: maxLength={24}
+Line 1009: readOnly={!canEdit}
+Line 1010: className="bg-transparent border-none text-2xl md:text-4xl font-bold text-slate-800 placeholder:text-slate-600 focus:ring-0 w-full tracking-tight px-0 md:px-4 font-display"
+Line 1011: value={title}
+Line 1018: }}
+Line 1022: }}
+Line 1023: />
+Line 1024: </div>
+Line 1025: <div className="flex flex-wrap items-center gap-2 px-0 md:px-4">
+Line 1041: ))}
+Line 1047: )}
+Line 1048: </div>
+Line 1049: </div>
+Line 1051: </div>
+Line 1052: <div className="flex-1">
+Line 1053: <div
+Line 1054: ref={editorRef}
+Line 1055: contentEditable={canEdit ? "true" : "false"}
+Line 1056: className="note-editor-area"
+Line 1057: data-placeholder="Start typing your notes..."
+Line 1058: onInput={(e) => { if(!canEdit) return; setHasChanges(true); hasChangesRef.current = true; }}
+Line 1059: onBlur={saveState}
+Line 1060: onClick={handleEditorClick}
+Line 1061: onPaste={handlePaste}
+Line 1062: onKeyDown={handleEditorKeyDown}
+Line 1063: />
+Line 1064: </div>
+Line 1065: </div>
+Line 1066: <div className="task-creator-footer mt-auto flex items-center justify-between p-1.5 md:p-3 bg-white/50 backdrop-blur-xl border-t border-black/5 relative z-[100] gap-1 md:gap-2 overflow-visible">
+Line 1067: <div className="flex items-center gap-0 md:gap-1 flex-nowrap overflow-visible">
+Line 1068: <div className="relative flex-shrink-0">
+Line 1069: <button
+Line 1070: onClick={() => { if(!canEdit) return; setActivePopup(activePopup === 'format' ? null : 'format'); }}
+Line 1071: className={"footer-action-btn h-[32px] w-[32px] flex items-center justify-center transition-all rounded-xl " + (activePopup === 'format' ? "bg-black/5 text-secondary" : "text-secondary hover:bg-black/5") + (!canEdit ? " opacity-30 grayscale pointer-events-none" : "")}
+Line 1072: title="Formatting"
+Line 1073: disabled={!canEdit}
+Line 1074: >
+Line 1075: <span className="material-symbols-outlined text-[22px]">format_color_text</span>
+Line 1076: </button>
+Line 1194: )}
+Line 1195: </div>
+Line 1196: <div className="relative flex-shrink-0">
+Line 1197: <button
+Line 1198: onClick={() => { if(!canEdit) return; setActivePopup(activePopup === 'tools' ? null : 'tools'); }}
+Line 1199: className={"footer-action-btn flex items-center justify-center transition-all rounded-xl " + (activePopup === 'tools' ? "bg-black/5 text-secondary" : "text-secondary hover:bg-black/5") + (!canEdit ? " opacity-30 grayscale pointer-events-none" : "")}
+Line 1200: title="More Tools"
+Line 1201: disabled={!canEdit}
+Line 1202: >
+Line 1203: <span className="material-symbols-outlined text-[26px]">menu</span>
+Line 1204: </button>
+Line 1223: )}
+Line 1224: </div>
+Line 1226: <div className="footer-divider flex-shrink-0 hidden md:block"></div>
+Line 1228: <div className="relative flex-shrink-0">
+Line 1229: <button
+Line 1230: onClick={() => { if(!canEdit) return; setActivePopup(activePopup === 'reminder' ? null : 'reminder'); }}
+Line 1231: className={"footer-action-btn relative " + (activePopup === 'reminder' ? "bg-black/5 text-primary" : "") + (!canEdit ? " opacity-30 grayscale pointer-events-none" : "")}
+Line 1232: title="Reminders"
+Line 1233: disabled={!canEdit}
+Line 1234: >
+Line 1235: <span className="material-symbols-outlined text-[24px]">notifications</span>
+Line 1236: {reminderDate && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-white"></span>}
+Line 1237: </button>
+Line 1314: )}
+Line 1315: </div>
+Line 1316: <div className="relative flex-shrink-0">
+Line 1317: <button
+Line 1318: onClick={() => { if(!canEdit) return; setActivePopup(activePopup === 'palette' ? null : 'palette'); }}
+Line 1319: className={"footer-action-btn " + (activePopup === 'palette' ? "bg-black/5 text-black" : "") + (!canEdit ? " opacity-30 grayscale pointer-events-none" : "")}
+Line 1320: title="Theme"
+Line 1321: disabled={!canEdit}
+Line 1322: >
+Line 1323: <span className="material-symbols-outlined text-[24px]">palette</span>
+Line 1324: </button>
+Line 1336: )}
+Line 1337: </div>
+Line 1338: <input
+Line 1339: type="file"
+Line 1340: ref={fileInputRef}
+Line 1341: className="hidden"
+Line 1342: accept="image/*"
+Line 1343: onChange={handleImageUpload}
+Line 1344: />
+Line 1345: <div className="relative flex-shrink-0">
+Line 1346: <button
+Line 1347: onClick={() => { if(!canEdit) return; setActivePopup(activePopup === 'icon' ? null : 'icon'); }}
+Line 1348: className={"footer-action-btn " + (activePopup === 'icon' ? "bg-black/5 text-primary" : "") + (!canEdit ? " opacity-30 grayscale pointer-events-none" : "")}
+Line 1349: title="Choose Icon"
+Line 1350: disabled={!canEdit}
+Line 1351: >
+Line 1352: <span className="material-symbols-outlined text-[24px]">add_reaction</span>
+Line 1353: </button>
+Line 1388: )}
+Line 1389: </div>
+Line 1390: </div>
+Line 1392: {/* Save Status Indicator */}
+Line 1393: <div className="flex items-center gap-2 px-3">
+Line 1409: )}
+Line 1410: </div>
+Line 1412: <div className="flex items-center gap-1 md:gap-2">
+Line 1413: <button
+Line 1414: onClick={undo}
+Line 1415: disabled={historyIndex <= 0 || !canEdit}
+Line 1416: className={"footer-action-btn flex-shrink-0 disabled:opacity-20" + (!canEdit ? " opacity-30 grayscale pointer-events-none" : "")}
+Line 1417: title="Undo"
+Line 1418: >
+Line 1419: <span className="material-symbols-outlined text-[24px]">undo</span>
+Line 1420: </button>
+Line 1421: <button
+Line 1422: onClick={redo}
+Line 1423: disabled={historyIndex >= history.length - 1 || !canEdit}
+Line 1424: className={"footer-action-btn flex-shrink-0 disabled:opacity-20" + (!canEdit ? " opacity-30 grayscale pointer-events-none" : "")}
+Line 1425: title="Redo"
+Line 1426: >
+Line 1427: <span className="material-symbols-outlined text-[24px]">redo</span>
+Line 1428: </button>
+Line 1429: <div className="relative flex-shrink-0">
+Line 1430: <button onClick={() => setActivePopup(activePopup === 'more' ? null : 'more')} className={"footer-action-btn " + (activePopup === 'more' ? "bg-black/5 text-primary" : "")} title="More Options">
+Line 1431: <span className="material-symbols-outlined text-[24px]">more_vert</span>
+Line 1432: </button>
+Line 1451: )}
+Line 1490: )}
+Line 1491: </div>
+Line 1492: </div>
+Line 1493: </div>
+Line 1494: </div>
+Line 1495: </div>
+Line 1496: );

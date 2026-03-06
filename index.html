@@ -68,7 +68,7 @@
 
     <link rel="stylesheet" href="style.css">
   </head>
-<body class="dark-gradient-bg font-montserrat text-slate-100 min-h-screen selection:bg-primary/30 overflow-hidden">
+<body class="dark-gradient-bg font-montserrat text-slate-100 min-h-screen selection:bg-primary/30 overflow-hidden" style="overscroll-behavior-y: contain;">
     <div id="root"></div>
 
     <script type="text/babel" data-presets="env,react">
@@ -338,6 +338,32 @@
             //   1. At exact due time
             //   2. 2 hours before
             //   3. 1 day before (at 9 AM)
+            
+            const checkMissedNotifications = () => {
+                const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
+                const now = Date.now();
+                let hasMissed = false;
+
+                Object.keys(scheduled).forEach(tag => {
+                    const item = scheduled[tag];
+                    if (item.timestamp < now) {
+                        // missed!
+                        sendNotification(item.title, item.body, tag);
+                        // Sync to localStorage for offline catch-up
+                        const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
+                        scheduled[tag] = { title: item.title, body: item.body, timestamp: dueMs };
+                        localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
+                        delete scheduled[tag];
+                        hasMissed = true;
+                    }
+                });
+
+                if (hasMissed) {
+                    localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
+                }
+            };
+
+
             const scheduleForTask = (task) => {
                 if (!task || !task.dueDate || task.completed) return;
                 cancelForTask(task.id);
@@ -359,6 +385,10 @@
                 if (dueMs > now) {
                     const id = setTimeout(() => {
                         sendNotification(`Task Reminder! 🔥`, `📌 Due Now: ${taskName}\n`, `faiora-due-${task.id}`);
+                        // Sync to localStorage for offline catch-up
+                        const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
+                        scheduled[`faiora-due-${task.id}`] = { title: `Task Reminder! 🔥`, body: `📌 Due Now: ${taskName}\n`, timestamp: dueMs };
+                        localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                     }, dueMs - now);
                     taskTimers.push(id);
                 }
@@ -368,6 +398,10 @@
                 if (twoHoursBefore > now) {
                     const id = setTimeout(() => {
                         sendNotification(`Task Reminder!  🔥`, `⏳ Due in 2hr: ${taskName}\n`, `faiora-2h-${task.id}`);
+                        // Sync to localStorage for offline catch-up
+                        const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
+                        scheduled[`faiora-2h-${task.id}`] = { title: `Task Reminder!  🔥`, body: `⏳ Due in 2hr: ${taskName}\n`, timestamp: dueMs };
+                        localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                     }, twoHoursBefore - now);
                     taskTimers.push(id);
                 }
@@ -380,6 +414,10 @@
                 if (dayBeforeMs > now) {
                     const id = setTimeout(() => {
                         sendNotification(`Task Reminder! 🔥`, `⚡ Due Tomorrow: ${taskName}\n`, `faiora-1d-${task.id}`);
+                        // Sync to localStorage for offline catch-up
+                        const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
+                        scheduled[`faiora-1d-${task.id}`] = { title: `Task Reminder! 🔥`, body: `⚡ Due Tomorrow: ${taskName}\n`, timestamp: dueMs };
+                        localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                     }, dayBeforeMs - now);
                     taskTimers.push(id);
                 }
@@ -401,14 +439,18 @@
                 if (swRegistration) {
                     ['due', '2h', '1d'].forEach(prefix => {
                         swRegistration.getNotifications({ tag: `faiora-${prefix}-${taskId}` })
-                            .then(notifs => notifs.forEach(n => n.close()))
+                            .then(notifs => {
+                                notifs.forEach(n => n.close());
+                            })
                             .catch(() => {});
+
+                        const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
+                        delete scheduled[`faiora-${prefix}-${taskId}`];
+                        localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                     });
                 }
             };
 
-            // ------------------------------------------------------------------
-            // LABEL: NOTIF-LOCAL-RESCHEDULE — Reschedule all tasks on app load
             // ------------------------------------------------------------------
             const rescheduleAll = (tasks) => {
                 timers.forEach((timerIds) => timerIds.forEach(id => clearTimeout(id)));
@@ -444,7 +486,7 @@
                 }
             };
 
-            return { requestPermission, testNotification, registerFCMToken, scheduleForTask, cancelForTask, rescheduleAll, playCheckSFX, checkCloudHealth };
+            return { isSwReady: () => swReady, checkMissedNotifications, requestPermission, testNotification, registerFCMToken, scheduleForTask, cancelForTask, rescheduleAll, playCheckSFX, checkCloudHealth };
         })();
         
         // --- Shared Components ---
@@ -966,7 +1008,7 @@
             );
         };
 
-        const TaskCreator = ({ onClose, user, editingNote, activeCollection, onUpdateNote, onDeleteNote, onSaveVersion, showToast }) => {
+        const TaskCreator = ({ onClose, user, editingNote, activeCollection, onUpdateNote, onDeleteNote, onSaveVersion, showToast, notes = [] }) => {
             const noteId = useMemo(() => editingNote ? editingNote.id : 'note_' + Date.now(), [editingNote]);
             const [title, setTitle] = useState(editingNote ? editingNote.title || '' : '');
             const [content, setContent] = useState(editingNote ? editingNote.content || '' : '');
@@ -1018,7 +1060,7 @@
                  }
                  setActiveSubPopup(sub);
              };
-            const [noteIcon, setNoteIcon] = useState(editingNote ? editingNote.noteIcon || '' : '');
+            const [noteIcon, setNoteIcon] = useState(editingNote ? editingNote.noteIcon || '' : 'notes');
             const [searchTerm, setSearchTerm] = useState('');
             const [labels, setLabels] = useState(editingNote ? editingNote.labels || [] : []);
             const [newLabelText, setNewLabelText] = useState('');
@@ -1038,6 +1080,48 @@
             const editingNoteRef = useRef(editingNote);
             useEffect(() => { editingNoteRef.current = editingNote; }, [editingNote]);
             const debouncedSaveTimer = useRef(null);
+
+            // Responsive Toolbar Logic
+            React.useEffect(() => {
+                if (!window.visualViewport) return;
+                const handleViewportChange = () => {
+                    const footer = document.querySelector('.task-creator-footer');
+                    if (!footer) return;
+                    const viewport = window.visualViewport;
+                    const offset = window.innerHeight - viewport.height - viewport.offsetTop;
+                    if (offset > 50) {
+                        footer.style.bottom = offset + 'px';
+                        footer.style.position = 'fixed';
+                        footer.style.left = '0';
+                        footer.style.right = '0';
+                        footer.style.zIndex = '1000';
+                    } else {
+                        footer.style.bottom = '';
+                        footer.style.position = '';
+                    }
+                };
+                window.visualViewport.addEventListener('resize', handleViewportChange);
+                window.visualViewport.addEventListener('scroll', handleViewportChange);
+                return () => {
+                    window.visualViewport.removeEventListener('resize', handleViewportChange);
+                    window.visualViewport.removeEventListener('scroll', handleViewportChange);
+                };
+            }, []);
+
+            // Get all unique labels from existing notes
+            const allUsedLabels = React.useMemo(() => {
+                const labelSet = new Set(["PRIORITY", "PERSONAL", "WORK", "URGENT", "STRATEGY"]);
+                if (notes && notes.length > 0) {
+                    notes.forEach(n => {
+                        if (n.labels) n.labels.forEach(l => labelSet.add(l.toUpperCase()));
+                    });
+                }
+                return Array.from(labelSet).sort();
+            }, [notes]);
+
+            
+
+            
 
             const icons = [
                 'star', 'favorite', 'home', 'work', 'rocket', 'lightbulb', 'eco', 'auto_stories', 
@@ -1700,22 +1784,22 @@
                 const startOffset = range.startOffset;
 
                 // --- Enter Key Logic ---
-                if (e.key === 'Enter') {
+                 if (e.key === 'Enter' || e.key === ' ') { // Added ' ' for space key
                     const item = startNode.nodeType === 3 ? startNode.parentElement.closest('.checklist-item') : startNode.closest('.checklist-item');
                     
                     if (!item && startNode.nodeType === 3) {
                         const lineText = startNode.textContent;
                         
-                        // Shortcut Detective: Divider
-                        if (lineText.slice(0, startOffset).endsWith('---')) {
-                            e.preventDefault();
-                            startNode.textContent = lineText.slice(0, startOffset - 3) + lineText.slice(startOffset);
-                            document.execCommand('insertHTML', false, '<hr style="border:none; border-top: 0px solid #ea580c; margin: 1.5rem 0; width: 100%;" />');
-                            setHasChanges(true);
-                            hasChangesRef.current = true;
-                            saveState();
-                            return;
-                        }
+                         // Shortcut Detective: Divider
+                         if (lineText.slice(0, startOffset).endsWith('---')) {
+                             e.preventDefault();
+                             startNode.textContent = lineText.slice(0, startOffset - 3) + lineText.slice(startOffset);
+                             document.execCommand('insertHTML', false, '<hr style="border:none; border-top: 1px solid rgba(0,0,0,0.1); margin: 1.5rem 0; width: 100%;" />');
+                             setHasChanges(true);
+                             hasChangesRef.current = true;
+                             saveState();
+                             return;
+                         }
 
                         // Mid-sentence line break
                         const isMidSentence = startOffset > 0 && startOffset < lineText.length;
@@ -2821,7 +2905,7 @@
                                                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Add Label</span>
                                              </div>
                                              <div className="flex flex-col gap-1 mb-2 max-h-40 overflow-y-auto no-scrollbar">
-                                                 {["PRIORITY", "PERSONAL", "WORK", "URGENT", "STRATEGY"].map(l => (
+                                                 {allUsedLabels.map(l => (
                                                      <button key={l} onClick={() => { 
                                                          const newLabels = labels.includes(l) ? labels.filter(x => x !== l) : [...labels, l];
                                                          setLabels(newLabels); 
@@ -3317,14 +3401,12 @@
                             note.labels.map(l => (
                                 <span key={l} className={`text-[10px] font-bold uppercase tracking-widest font-montserrat ${theme.labelBg} ${theme.label} px-2.5 py-1 rounded-lg`}>{l}</span>
                             ))
-                        ) : (
-                            <span className={`text-[10px] font-bold uppercase tracking-widest font-montserrat ${theme.labelBg} ${theme.label} px-2.5 py-1 rounded-lg opacity-60`}>LABEL</span>
-                        )}
+                         ) : null}
                         </div>
                     </div>
                     {isSelected && (
                         <div className="absolute top-2.5 left-2.5 w-7 h-7 bg-primary rounded-full flex items-center justify-center shadow-lg z-10 animate-in zoom-in-50 duration-200 border-2 border-white">
-                            <span className="material-symbols-outlined text-white text-base font-bold">check</span>
+                            <span className="material-symbols-outlined text-base font-bold">check</span>
                         </div>
                     )}
                 </div>
@@ -3967,12 +4049,20 @@
                 return () => document.removeEventListener('mousedown', handler);
             }, []);
 
-            // Disable right-click on the notes page
-            useEffect(() => {
-                const handler = (e) => e.preventDefault();
-                document.addEventListener('contextmenu', handler);
-                return () => document.removeEventListener('contextmenu', handler);
-            }, []);
+             // Disable right-click on the notes page (but ALLOW on editable areas for mobile context menu)
+             useEffect(() => {
+                 const handler = (e) => {
+                     // Allow context menu if target is an input, textarea or contenteditable
+                     if (e.target.tagName === 'INPUT' || 
+                         e.target.tagName === 'TEXTAREA' || 
+                         e.target.closest('[contenteditable="true"]')) {
+                         return;
+                     }
+                     e.preventDefault();
+                 };
+                 document.addEventListener('contextmenu', handler);
+                 return () => document.removeEventListener('contextmenu', handler);
+             }, []);
 
             // Gesture state ref — shared between pointer event handlers
             const gestureRef = useRef({ active: false, activated: false, scrolling: false });
@@ -4338,7 +4428,13 @@
 
             // Toggle note selection
             const toggleNoteSelection = (noteId) => {
-                setSelectedNotes(prev => prev.includes(noteId) ? prev.filter(id => id !== noteId) : [...prev, noteId]);
+                setSelectedNotes(prev => {
+                    const next = prev.includes(noteId) ? prev.filter(id => id !== noteId) : [...prev, noteId];
+                    if (next.length > 0) {
+                        window.dispatchEvent(new CustomEvent('faiora-close-popups'));
+                    }
+                    return next;
+                });
             };
 
             // Bulk action handlers
@@ -4378,6 +4474,29 @@
                 });
                 handleSetSelectionPopup(null);
                 setSelectedNotes([]);
+            };
+
+            
+            const bulkShare = () => {
+                if (selectedNotes.length !== 1) {
+                    if (showToast) showToast("Select exactly one note to share.");
+                    return;
+                }
+                const noteId = selectedNotes[0];
+                const note = (notes || []).find(n => n.id === noteId);
+                if (note) {
+                    window.dispatchEvent(new CustomEvent('faiora-close-popups'));
+                    const updates = { publicView: true };
+                    if (!(note.publicView && note.allowPublicEdit)) {
+                        updates.allowPublicEdit = false;
+                    }
+                    onBulkUpdate(noteId, updates);
+                    const shareLink = window.location.origin + window.location.pathname.replace('index.html', '') + 'share_note.html?id=' + noteId;
+                    navigator.clipboard.writeText(shareLink).then(() => {
+                        if (showToast) showToast("Public link copied to clipboard!");
+                        setSelectedNotes([]);
+                    });
+                }
             };
 
             const bulkApplyLabel = (label) => {
@@ -4624,6 +4743,11 @@
                                                  </div>
                                              )}
                                          </div>
+                                          {selectedNotes.length === 1 && (
+                                             <button onClick={bulkShare} className="p-2.5 rounded-xl transition-colors hover:bg-white/10" title="Share">
+                                                 <span className="material-symbols-outlined text-cream-light/70 text-xl">share</span>
+                                             </button>
+                                          )}
                                          <div className="relative">
                                              <button onClick={() => handleSetSelectionPopup(selectionPopup === 'label' ? null : 'label')} className={"p-2.5 rounded-xl transition-colors " + (selectionPopup === 'label' ? "bg-white/10" : "hover:bg-white/10")} title="Label">
                                                  <span className="material-symbols-outlined text-cream-light/70 text-xl">label</span>
@@ -5044,6 +5168,7 @@
                                                 const [h, m] = time.split(':');
                                                 const hours = parseInt(h);
                                                 const ampm = hours >= 12 ? 'PM' : 'AM';
+                                                const h12 = hours % 12 || 12;
                                                 return `${h12}:${m} ${ampm}`;
                                             };
                                             return (
@@ -5698,7 +5823,7 @@
                                     type="text" 
                                     value={text}
                                     onChange={(e) => handleTextChange(e.target.value)}
-                                    placeholder="What needs to be done?" 
+                                    maxLength={100} placeholder="What needs to be done?" 
                                     className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-cream-light placeholder:text-white/10 focus:ring-2 focus:ring-primary/20 transition-all font-montserrat quick-task-input"
                                 />
                             </div>
@@ -5819,6 +5944,26 @@
 
             const [toasts, setToasts] = useState([]);
             const [isTransitioning, setIsTransitioning] = useState(true);
+            // Notification Catch-up Logic
+            useEffect(() => {
+                const triggerCheck = () => {
+                    if (FaioraNotifications.isSwReady()) {
+                        FaioraNotifications.checkMissedNotifications();
+                    }
+                };
+
+                // Check on mount (delay a bit for SW)
+                const timer = setTimeout(triggerCheck, 2000);
+                
+                // Check when online
+                window.addEventListener('online', triggerCheck);
+                
+                return () => {
+                    clearTimeout(timer);
+                    window.removeEventListener('online', triggerCheck);
+                };
+            }, []);
+
             const videoRef = useRef();
             const prevPopState = useRef(0);
 
@@ -6752,7 +6897,7 @@
                         <Route path="/clock" element={<ClockPage user={user} onOpenCreator={handleOpenCreator} />} />
                         </TransitionManager>
                     </div>
-                    {isCreatorOpen && <TaskCreator onClose={handleCloseCreator} user={user} editingNote={editingNote} activeCollection={activeCollection} onUpdateNote={handleUpdateNoteLocal} onDeleteNote={handleDeleteNoteLocal} onSaveVersion={handleSaveVersion} showToast={showToast} />}
+                    {isCreatorOpen && <TaskCreator onClose={handleCloseCreator} user={user} editingNote={editingNote} activeCollection={activeCollection} onUpdateNote={handleUpdateNoteLocal} onDeleteNote={handleDeleteNoteLocal} onSaveVersion={handleSaveVersion} showToast={showToast} notes={notes} />}
                     {isQuickTaskModalOpen && (
                         <QuickTaskModal 
                             prefillDate={prefillDate}

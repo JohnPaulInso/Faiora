@@ -22,6 +22,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+    
+    <link rel="stylesheet" href="style.css">
+    
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -106,16 +109,11 @@
             cursor: pointer;
             position: relative;
         }
-
-        .modal-progress-fill {
-            height: 100%;
-            background: #f97316 !important;
-            transition: width 0.3s ease;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: end;
-        }
+.modal-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #f97316 0%, #fbbf24 100%);
+    transition: width 0.5s ease;
+}
 
         .no-scrollbar::-webkit-scrollbar {
             display: none;
@@ -402,6 +400,37 @@
             const noteRef = useRef(note);
             useEffect(() => { noteRef.current = note; }, [note]);
 
+            // Responsive Toolbar Logic
+            useEffect(() => {
+                if (!window.visualViewport) return;
+                const handleViewportChange = () => {
+                    const footer = document.querySelector('.task-creator-footer');
+                    if (!footer) return;
+                    const viewport = window.visualViewport;
+                    const offset = window.innerHeight - viewport.height - viewport.offsetTop;
+                    if (offset > 50) {
+                        footer.style.bottom = offset + 'px';
+                        footer.style.position = 'fixed';
+                        footer.style.left = '0';
+                        footer.style.right = '0';
+                        footer.style.zIndex = '1000';
+                    } else {
+                        footer.style.bottom = '';
+                        footer.style.position = '';
+                    }
+                };
+                window.visualViewport.addEventListener('resize', handleViewportChange);
+                window.visualViewport.addEventListener('scroll', handleViewportChange);
+                return () => {
+                    window.visualViewport.removeEventListener('resize', handleViewportChange);
+                    window.visualViewport.removeEventListener('scroll', handleViewportChange);
+                };
+            }, []);
+
+            
+
+            
+
             const themes = [
                 { id: 'glass', color: 'rgba(0,0,0,0.05)', themeClass: '' },
                 { id: 'peach', color: '#ffedd5', themeClass: 'theme-peach' },
@@ -630,10 +659,13 @@
 
             const handlePaste = (e) => {
                 if (!note.allowPublicEdit) return;
+                const text = (e.clipboardData || window.clipboardData).getData('text/plain');
                 const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                let hasImage = false;
                 for (let index in items) {
                     const item = items[index];
                     if (item.kind === 'file' && item.type.startsWith('image/')) {
+                        hasImage = true;
                         e.preventDefault();
                         const blob = item.getAsFile();
                         const reader = new FileReader();
@@ -655,6 +687,14 @@
                         reader.readAsDataURL(blob);
                     }
                 }
+                
+                if (!hasImage && text) {
+                    e.preventDefault();
+                    document.execCommand('insertText', false, text);
+                    setHasChanges(true);
+                    hasChangesRef.current = true;
+                    saveState();
+                }
             };
 
             const handleEditorKeyDown = (e) => {
@@ -665,7 +705,7 @@
                 const startNode = range.startContainer;
                 const startOffset = range.startOffset;
 
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' || e.key === ' ') {
                     const item = startNode.nodeType === 3 ? startNode.parentElement.closest('.checklist-item') : startNode.closest('.checklist-item');
                     
                     if (!item && startNode.nodeType === 3) {
@@ -676,6 +716,7 @@
                             document.execCommand('insertHTML', false, '<hr style="border:none; border-top: 1px solid rgba(0,0,0,0.1); margin: 1.5rem 0; width: 100%;" />');
                             setHasChanges(true);
                             hasChangesRef.current = true;
+                            saveState();
                             return;
                         }
                     }
@@ -683,7 +724,7 @@
                     if (item) {
                         e.preventDefault();
                         const text = item.textContent.trim();
-                        if (text === "") {
+                        if (text === '') {
                             const div = document.createElement('div');
                             div.innerHTML = '&nbsp;';
                             item.parentNode.replaceChild(div, item);
