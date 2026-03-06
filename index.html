@@ -1008,7 +1008,7 @@
             );
         };
 
-        const TaskCreator = ({ onClose, user, editingNote, activeCollection, onUpdateNote, onDeleteNote, onSaveVersion, showToast, notes = [] }) => {
+        const TaskCreator = ({ onClose, user, editingNote, activeCollection, onUpdateNote, onDeleteNote, onSaveVersion, showToast, notes = [], onToggleLock, onOpenLockSet }) => {
             const noteId = useMemo(() => editingNote ? editingNote.id : 'note_' + Date.now(), [editingNote]);
             const [title, setTitle] = useState(editingNote ? editingNote.title || '' : '');
             const [content, setContent] = useState(editingNote ? editingNote.content || '' : '');
@@ -1029,6 +1029,7 @@
             const [isPinned, setIsPinned] = useState(editingNote ? !!editingNote.isPinned : false);
             const [noteTheme, setNoteTheme] = useState(editingNote ? editingNote.noteTheme || 'peach' : getRandomWarmTheme());
             const [activePopup, setActivePopup] = useState(null);
+            const isLocked = editingNote ? !!editingNote.isLocked : false;
             const [hasChanges, setHasChanges] = useState(false);
             const [reminderDate, setReminderDate] = useState(editingNote ? editingNote.reminderDate || '' : '');
             const [showCustomReminder, setShowCustomReminder] = useState(false);
@@ -1095,6 +1096,19 @@
                         footer.style.left = '0';
                         footer.style.right = '0';
                         footer.style.zIndex = '1000';
+                        
+                        // Center cursor in viewport
+                        const selection = window.getSelection();
+                        if (selection.rangeCount > 0) {
+                            const range = selection.getRangeAt(0);
+                            let node = range.startContainer;
+                            if (node.nodeType === 3) node = node.parentElement;
+                            if (node && node.closest('.note-editor-area')) {
+                                setTimeout(() => {
+                                    node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                                }, 100);
+                            }
+                        }
                     } else {
                         footer.style.bottom = '';
                         footer.style.position = '';
@@ -1222,7 +1236,10 @@
                     isPublic: updatedNote.isPublic !== undefined ? updatedNote.isPublic : isPublic,
                     allowPublicEdit: updatedNote.allowPublicEdit !== undefined ? updatedNote.allowPublicEdit : allowPublicEdit,
                     publicShareToken: updatedNote.publicShareToken !== undefined ? updatedNote.publicShareToken : publicShareToken,
-                    section: updatedNote.section !== undefined ? updatedNote.section : (editingNote && editingNote.section ? editingNote.section : '')
+                    section: updatedNote.section !== undefined ? updatedNote.section : (editingNote && editingNote.section ? editingNote.section : ''),
+                    isLocked: updatedNote.isLocked !== undefined ? updatedNote.isLocked : (editingNote?.isLocked ?? false),
+                    pinHash: updatedNote.pinHash !== undefined ? updatedNote.pinHash : (editingNote?.pinHash ?? null),
+                    pinHint: updatedNote.pinHint !== undefined ? updatedNote.pinHint : (editingNote?.pinHint ?? null)
                 };
                 
                 if (onUpdateNote) {
@@ -2886,6 +2903,20 @@
                                                  <span className="material-symbols-outlined text-lg">history</span>
                                                  Version History
                                              </button>
+                                             <button 
+                                                onClick={() => {
+                                                    handleSetActivePopup(null);
+                                                    if (isLocked) {
+                                                        onToggleLock(); // This will trigger the unlock flow
+                                                    } else {
+                                                        onOpenLockSet(); // This will open the set lock modal
+                                                    }
+                                                }} 
+                                                className="menu-item font-montserrat"
+                                             >
+                                                 <span className="material-symbols-outlined text-lg">{isLocked ? 'lock_open' : 'lock'}</span>
+                                                 {isLocked ? 'Remove Lock' : 'Lock Note'}
+                                             </button>
                                              <div className="h-px bg-slate-100 my-1"></div>
                                              <button 
                                                  onClick={handleDeleteNote}
@@ -3303,9 +3334,16 @@
             if (!text) return '';
             const t = text.trim();
             if (t.length === 0) return '';
-            return t.split(' ').map(word => 
+            return t.split(/\s+/).map(word => 
                 word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
             ).join(' ');
+        };
+
+        const hashPIN = async (pin) => {
+            const utf8 = new TextEncoder().encode(pin);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map((bytes) => bytes.toString(16).padStart(2, '0')).join('');
         };
 
         const SkeletonNoteCard = ({ variant = 'full', index }) => {
@@ -3344,7 +3382,8 @@
 
         const NoteCard = React.memo(({ note, onClick, index, variant = 'full', onRemoveReminder, isSelected = false }) => {
             const theme = getThemeClasses(note.noteTheme);
-            const preview = stripHtml(note.content);
+            const isLocked = !!note.isLocked;
+            const preview = isLocked ? "" : stripHtml(note.content);
 
             if (variant === 'priority') {
                 return (
@@ -3378,7 +3417,12 @@
                     
                     <div className="pr-8 mb-2">
                         <h3 className={`${isCompact ? 'text-lg' : 'text-xl'} font-bold tracking-tight font-display leading-tight mb-1.5 ${theme.text}`}>{formatTitle(note.title) || "Untitled"}</h3>
-                        {preview && (
+                        {isLocked ? (
+                            <div className="flex items-center gap-2 mt-2 text-slate-400/50">
+                                <span className="material-symbols-outlined text-sm">lock</span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest">Protected Note</span>
+                            </div>
+                        ) : preview && (
                             <p className={`${isCompact ? 'text-xs line-clamp-2 mt-1.5' : 'text-sm line-clamp-3 mt-2'} leading-relaxed font-sans ${theme.sub}`}>{preview}</p>
                         )}
                     </div>
@@ -5157,8 +5201,11 @@
                                     {dayReminders.map((item, idx) => {
                                         if (item.type === 'note') {
                                             return (
-                                                <div key={idx} onClick={() => onEditNote && onEditNote(item)} className="card-glow bg-orange-100/95 rounded-[2rem] p-5 border-b-4 border-orange-300/50 cursor-pointer hover:scale-[1.02] transition-transform">
-                                                    <h4 className="text-base font-bold text-orange-950/90 leading-tight">{item.title || 'Untitled'}</h4>
+                                                <div key={idx} onClick={() => onEditNote && onEditNote(item)} className="card-glow bg-orange-100/95 rounded-[2rem] p-5 border-b-4 border-orange-300/50 cursor-pointer hover:scale-[1.02] transition-transform relative overflow-hidden">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h4 className="text-base font-bold text-orange-950/90 leading-tight truncate flex-1">{item.title || 'Untitled'}</h4>
+                                                        {item.isLocked && <span className="material-symbols-outlined text-orange-950/40 text-sm">lock</span>}
+                                                    </div>
                                                     <p className="text-xs text-orange-900/60 mt-1.5 font-sans font-medium capitalize">{formatReminderDate(item.reminderDate)}{item.labels && item.labels[0] ? ` • ${item.labels[0]}` : ''}</p>
                                                 </div>
                                             );
@@ -5825,6 +5872,7 @@
                                     onChange={(e) => handleTextChange(e.target.value)}
                                     maxLength={100} placeholder="What needs to be done?" 
                                     className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-cream-light placeholder:text-white/10 focus:ring-2 focus:ring-primary/20 transition-all font-montserrat quick-task-input"
+                                    style={{ textTransform: 'capitalize' }}
                                 />
                             </div>
                             <div className="space-y-3 relative" ref={dropdownRef}>
@@ -5920,6 +5968,255 @@
             );
         };
 
+        const SetLockModal = ({ onSet, onClose, showToast }) => {
+            const [pin, setPin] = useState("");
+            const [confirmPin, setConfirmPin] = useState("");
+            const [step, setStep] = useState(1); // 1: set, 2: confirm, 3: hint
+            const [hint, setHint] = useState("");
+            const [isClosing, setIsClosing] = useState(false);
+
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (step === 3) return; // Let the input field handle its own events
+                    
+                    if (e.key >= '0' && e.key <= '9') {
+                        const key = parseInt(e.key);
+                        if (step === 1 && pin.length < 6) {
+                            const newVal = pin + key;
+                            setPin(newVal);
+                            if (newVal.length === 6) {
+                                setTimeout(() => handleSubmit(null, newVal), 200);
+                            }
+                        } else if (step === 2 && confirmPin.length < 6) {
+                            const newVal = confirmPin + key;
+                            setConfirmPin(newVal);
+                            if (newVal.length === 6) {
+                                setTimeout(() => handleSubmit(null, newVal), 200);
+                            }
+                        }
+                    } else if (e.key === 'Backspace') {
+                        if (step === 1) setPin(prev => prev.slice(0, -1));
+                        else setConfirmPin(prev => prev.slice(0, -1));
+                    } else if (e.key === 'Escape') {
+                        handleClose();
+                    }
+                };
+
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [pin, confirmPin, step]);
+
+            const handleClose = () => {
+                setIsClosing(true);
+                setTimeout(onClose, 200);
+            };
+
+            const handleSubmit = async (e, finalPin) => {
+                if (e && e.preventDefault) e.preventDefault();
+                const currentPin = finalPin || (step === 1 ? pin : confirmPin);
+
+                if (step === 1) {
+                    if (currentPin.length !== 6) return;
+                    setStep(2);
+                } else if (step === 2) {
+                    if (pin !== currentPin) {
+                        showToast("PINs do not match");
+                        setConfirmPin("");
+                        return;
+                    }
+                    setStep(3);
+                } else {
+                    const hash = await hashPIN(pin);
+                    onSet(hash, hint);
+                    handleClose();
+                }
+            };
+
+            return (
+                <div className={"fixed inset-0 z-[250] flex items-center justify-center p-4 transition-all duration-200 " + (isClosing ? 'opacity-0 scale-95' : 'animate-in fade-in zoom-in-95 duration-300')}>
+                    <style>{`
+                        @keyframes shake {
+                            0%, 100% { transform: translateX(0); }
+                            25% { transform: translateX(-10px); }
+                            75% { transform: translateX(10px); }
+                        }
+                    `}</style>
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={handleClose}></div>
+                    <div className="bg-[#0f172a] w-full max-w-sm rounded-[2.5rem] p-8 relative z-[210] shadow-2xl border border-white/5">
+                        <div className="text-center mb-8">
+                            <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                <span className="material-symbols-outlined text-primary text-3xl">lock</span>
+                            </div>
+                            <h3 className="text-xl font-bold text-cream-light font-montserrat tracking-tight">
+                                {step === 1 ? 'Set Note PIN' : step === 2 ? 'Confirm PIN' : 'Security Hint'}
+                            </h3>
+                            <p className="text-slate-400 text-sm mt-2">
+                                {step === 1 ? 'Choose a 6-digit PIN for this note.' : step === 2 ? 'Re-enter your PIN to confirm.' : 'Add a hint to help you remember.'}
+                            </p>
+                        </div>
+
+                        {step < 3 ? (
+                            <div className="flex justify-center gap-2 mb-8">
+                                {[...Array(6)].map((_, i) => {
+                                    const val = step === 1 ? pin[i] : confirmPin[i];
+                                    return (
+                                        <div key={i} className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all ${val ? 'border-primary bg-primary/10' : 'border-white/10 bg-white/5'}`}>
+                                            {val && <div className="w-2 h-2 bg-primary rounded-full"></div>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="mb-8">
+                                <input 
+                                    autoFocus
+                                    type="text"
+                                    placeholder="e.g. My birthday, Favorite year..."
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-cream-light placeholder:text-white/10 focus:ring-2 focus:ring-primary/20 transition-all font-montserrat text-sm"
+                                    value={hint}
+                                    onChange={e => setHint(e.target.value)}
+                                />
+                            </div>
+                        )}
+
+                        {step < 3 ? (
+                            <div className="grid grid-cols-3 gap-3 mb-8">
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, 'back'].map((key, i) => (
+                                    <button 
+                                        key={i}
+                                        disabled={key === ''}
+                                        onClick={() => {
+                                            if (key === 'back') {
+                                                if (step === 1) setPin(prev => prev.slice(0, -1));
+                                                else setConfirmPin(prev => prev.slice(0, -1));
+                                            } else if (typeof key === 'number') {
+                                                if (step === 1 && pin.length < 6) {
+                                                    const newVal = pin + key;
+                                                    setPin(newVal);
+                                                    if (newVal.length === 6) {
+                                                        setTimeout(() => handleSubmit(null, newVal), 200);
+                                                    }
+                                                } else if (step === 2 && confirmPin.length < 6) {
+                                                    const newVal = confirmPin + key;
+                                                    setConfirmPin(newVal);
+                                                    if (newVal.length === 6) {
+                                                        setTimeout(() => handleSubmit(null, newVal), 200);
+                                                    }
+                                                }
+                                            }
+                                        }}
+                                        className={`h-14 rounded-2xl flex items-center justify-center text-xl font-bold font-montserrat transition-all ${typeof key === 'number' ? 'bg-white/5 text-cream-light hover:bg-white/10 active:scale-90' : 'text-slate-500'}`}
+                                    >
+                                        {key === 'back' ? <span className="material-symbols-outlined text-[24px]">backspace</span> : key}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-3">
+                                <button onClick={handleSubmit} className="w-full bg-primary text-white py-4 rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-primary-dark transition-all">
+                                    Set Lock
+                                </button>
+                                <button onClick={() => { setHint(""); setStep(3); handleSubmit(); }} className="w-full bg-white/5 text-slate-400 py-4 rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-white/10 transition-all">
+                                    Skip Hint
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const UnlockModal = ({ hint, onUnlock, onClose, showToast }) => {
+            const [pin, setPin] = useState("");
+            const [isClosing, setIsClosing] = useState(false);
+            const [isError, setIsError] = useState(false);
+
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (e.key >= '0' && e.key <= '9') {
+                        const key = parseInt(e.key);
+                        if (pin.length < 6) {
+                            const newVal = pin + key;
+                            setPin(newVal);
+                            if (newVal.length === 6) {
+                                handlePinSubmit(newVal);
+                            }
+                        }
+                    } else if (e.key === 'Backspace') {
+                        setPin(prev => prev.slice(0, -1));
+                    } else if (e.key === 'Escape') {
+                        handleClose();
+                    }
+                };
+
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [pin]);
+
+            const handleClose = () => {
+                setIsClosing(true);
+                setTimeout(onClose, 200);
+            };
+
+            const handlePinSubmit = async (p) => {
+                const isValid = await onUnlock(p);
+                if (isValid) {
+                    handleClose();
+                } else {
+                    setIsError(true);
+                    setPin("");
+                    showToast("Incorrect PIN");
+                    setTimeout(() => setIsError(false), 500);
+                }
+            };
+
+            return (
+                <div className={"fixed inset-0 z-[300] flex items-center justify-center p-4 transition-all duration-200 " + (isClosing ? 'opacity-0 scale-95' : 'animate-in fade-in zoom-in-95 duration-300')}>
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={handleClose}></div>
+                    <div className={`bg-[#0f172a] w-full max-w-sm rounded-[2.5rem] p-8 relative z-[210] shadow-2xl border border-white/5 ${isError ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
+                        <div className="text-center mb-8">
+                            <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                <span className="material-symbols-outlined text-primary text-3xl">lock_open</span>
+                            </div>
+                            <h3 className="text-xl font-bold text-cream-light font-montserrat tracking-tight">Enter PIN</h3>
+                            <p className="text-slate-400 text-sm mt-2">This note is protected.</p>
+                            {hint && <p className="text-primary/60 text-[10px] font-bold uppercase tracking-widest mt-4">Hint: {hint}</p>}
+                        </div>
+
+                        <div className="flex justify-center gap-2 mb-8">
+                            {[...Array(6)].map((_, i) => (
+                                <div key={i} className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all ${pin[i] ? 'border-primary bg-primary/10' : 'border-white/10 bg-white/5'}`}>
+                                    {pin[i] && <div className="w-2 h-2 bg-primary rounded-full"></div>}
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, 'back'].map((key, i) => (
+                                <button 
+                                    key={i}
+                                    disabled={key === ''}
+                                    onClick={() => {
+                                        if (key === 'back') setPin(prev => prev.slice(0, -1));
+                                        else if (typeof key === 'number' && pin.length < 6) {
+                                            const newVal = pin + key;
+                                            setPin(newVal);
+                                            if (newVal.length === 6) {
+                                                handlePinSubmit(newVal);
+                                            }
+                                        }
+                                    }}
+                                    className={`h-14 rounded-2xl flex items-center justify-center text-xl font-bold font-montserrat transition-all ${typeof key === 'number' ? 'bg-white/5 text-cream-light hover:bg-white/10 active:scale-90' : 'text-slate-500'}`}
+                                >
+                                    {key === 'back' ? <span className="material-symbols-outlined text-[24px]">backspace</span> : key}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const App = () => {
             const [isTimerDone, setIsTimerDone] = useState(false);
             const [activeCollection, setActiveCollection] = useState(() => localStorage.getItem('faiora_active_collection') || 'tasks');
@@ -5933,6 +6230,8 @@
                 try { return JSON.parse(localStorage.getItem('faiora_sections') || '[]'); } catch(e) { return []; }
             });
             const [quickTasks, setQuickTasks] = useState([]);
+            const migrationDoneRef = useRef(false);
+
             const qtWriteGuard = useRef(0); // Timestamp of last local quick task write
             const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
             const [editingQuickTask, setEditingQuickTask] = useState(null);
@@ -5941,6 +6240,39 @@
             const [sharedNotes, setSharedNotes] = useState([]);
             const [publicNote, setPublicNote] = useState(null);
             const [isPublicLoading, setIsPublicLoading] = useState(false);
+
+            // Note Locking State
+            const [lockedNoteId, setLockedNoteId] = useState(null);
+            const [unlockCallback, setUnlockCallback] = useState(null);
+            const [isSetLockModalOpen, setIsSetLockModalOpen] = useState(false);
+            const [noteToLock, setNoteToLock] = useState(null);
+            const [unlockingNote, setUnlockingNote] = useState(null);
+
+            const handleRequestEditNote = useCallback((note) => {
+                if (note.isLocked) {
+                    setUnlockingNote(note);
+                } else {
+                    setEditingNote(note);
+                    setIsCreatorOpen(true);
+                }
+            }, []);
+
+            const handleSetLock = async (hash, hint) => {
+                if (!editingNote || !user) return;
+                const updates = { isLocked: true, pinHash: hash, pinHint: hint };
+                handleBulkUpdate(editingNote.id, updates);
+                setEditingNote(prev => ({ ...prev, ...updates }));
+                // Note will always require a PIN prompt when opened.
+                showToast("Note Locked");
+            };
+
+            const handleRemoveLock = async () => {
+                if (!editingNote || !user) return;
+                const updates = { isLocked: false, pinHash: null, pinHint: null };
+                handleBulkUpdate(editingNote.id, updates);
+                setEditingNote(prev => ({ ...prev, ...updates }));
+                showToast("Lock Removed");
+            };
 
             const [toasts, setToasts] = useState([]);
             const [isTransitioning, setIsTransitioning] = useState(true);
@@ -6555,7 +6887,8 @@
             }, [activeCollection, isProbing]);
 
             const handleAddQuickTask = useCallback((text, dueDate = '', dueTime = '') => {
-                const truncatedText = text.length > 40 ? text.substring(0, 37) + '...' : text;
+                const formattedText = formatTaskText(text);
+                const truncatedText = formattedText.length > 40 ? formattedText.substring(0, 37) + '...' : formattedText;
                 console.log('🆕 handleAddQuickTask called:', { text: truncatedText, dueDate, dueTime });
                 
                 // Calculate timezone-agnostic timestamp for reliable notifications
@@ -6607,7 +6940,8 @@
 
             const handleUpdateQuickTask = (id, text, dueDate, dueTime) => {
                 let updatedTask = null;
-                const truncatedText = text.length > 40 ? text.substring(0, 37) + '...' : text;
+                const formattedText = formatTaskText(text);
+                const truncatedText = formattedText.length > 40 ? formattedText.substring(0, 37) + '...' : formattedText;
                 
                 let dueTimestamp = null;
                 if (dueDate) {
@@ -6871,15 +7205,15 @@
                             onTransitionStart={() => setIsTransitioning(true)}
                             onTransitionEnd={() => setIsTransitioning(false)}
                         >
-                         <Route path="/" element={<DashboardPage user={user} notes={notes} quickTasks={quickTasks} onOpenCreator={handleOpenCreator} onEditNote={handleEditNote} onRestoreDefaults={handleRestoreDefaults} onReorderPriorityNote={handleReorderPriorityNote} onToggleQuickTask={handleToggleQuickTask} onAddQuickTaskClick={() => { setIsQuickTaskModalOpen(true); }} onDeleteQuickTask={handleDeleteQuickTask} onUpdateQuickTask={handleUpdateQuickTask} onEditQuickTask={(task) => { setEditingQuickTask(task); }} editingQuickTask={editingQuickTask} setEditingQuickTask={setEditingQuickTask} isQuickTaskModalOpen={isQuickTaskModalOpen} setIsQuickTaskModalOpen={setIsQuickTaskModalOpen} onRemoveReminder={handleRemoveReminder} isProbing={isProbing} />} />
-                        <Route path="/notes" element={<NotesPage user={user} notes={notes} onOpenCreator={handleOpenCreator} onEditNote={handleEditNote} noteSections={noteSections} onAddSection={handleAddSection} onDeleteSection={handleDeleteSection} onMoveNote={handleMoveNoteToSection} onReorderNote={handleReorderNote} onRemoveReminder={handleRemoveReminder} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} isProbing={isProbing} />} />
+                         <Route path="/" element={<DashboardPage user={user} notes={notes} quickTasks={quickTasks} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} onRestoreDefaults={handleRestoreDefaults} onReorderPriorityNote={handleReorderPriorityNote} onToggleQuickTask={handleToggleQuickTask} onAddQuickTaskClick={() => { setIsQuickTaskModalOpen(true); }} onDeleteQuickTask={handleDeleteQuickTask} onUpdateQuickTask={handleUpdateQuickTask} onEditQuickTask={(task) => { setEditingQuickTask(task); }} editingQuickTask={editingQuickTask} setEditingQuickTask={setEditingQuickTask} isQuickTaskModalOpen={isQuickTaskModalOpen} setIsQuickTaskModalOpen={setIsQuickTaskModalOpen} onRemoveReminder={handleRemoveReminder} isProbing={isProbing} />} />
+                        <Route path="/notes" element={<NotesPage user={user} notes={notes} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} noteSections={noteSections} onAddSection={handleAddSection} onDeleteSection={handleDeleteSection} onMoveNote={handleMoveNoteToSection} onReorderNote={handleReorderNote} onRemoveReminder={handleRemoveReminder} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} isProbing={isProbing} />} />
                         <Route path="/calendar" element={
                             <CalendarPage 
                                 user={user} 
                                 notes={notes} 
                                 quickTasks={quickTasks}
                                 onOpenCreator={handleOpenCreator} 
-                                onEditNote={handleEditNote} 
+                                onEditNote={handleRequestEditNote} 
                                 onToggleQuickTask={handleToggleQuickTask}
                                  onEditQuickTask={(task) => {
                                      setEditingQuickTask(task);
@@ -6897,7 +7231,25 @@
                         <Route path="/clock" element={<ClockPage user={user} onOpenCreator={handleOpenCreator} />} />
                         </TransitionManager>
                     </div>
-                    {isCreatorOpen && <TaskCreator onClose={handleCloseCreator} user={user} editingNote={editingNote} activeCollection={activeCollection} onUpdateNote={handleUpdateNoteLocal} onDeleteNote={handleDeleteNoteLocal} onSaveVersion={handleSaveVersion} showToast={showToast} notes={notes} />}
+                     {isCreatorOpen && <TaskCreator onClose={handleCloseCreator} user={user} editingNote={editingNote} activeCollection={activeCollection} onUpdateNote={handleUpdateNoteLocal} onDeleteNote={handleDeleteNoteLocal} onSaveVersion={handleSaveVersion} showToast={showToast} notes={notes} onToggleLock={handleRemoveLock} onOpenLockSet={() => setIsSetLockModalOpen(true)} />}
+                     {isSetLockModalOpen && <SetLockModal onClose={() => setIsSetLockModalOpen(false)} showToast={showToast} onSet={handleSetLock} />}
+                     {unlockingNote && (
+                         <UnlockModal 
+                            hint={unlockingNote.pinHint} 
+                            showToast={showToast}
+                            onClose={() => setUnlockingNote(null)}
+                            onUnlock={async (p) => {
+                                const hash = await hashPIN(p);
+                                if (hash === unlockingNote.pinHash) {
+                                    const note = unlockingNote;
+                                    setUnlockingNote(null);
+                                    handleEditNote(note); // Use the original handleEditNote which opens the creator
+                                    return true;
+                                }
+                                return false;
+                            }}
+                         />
+                     )}
                     {isQuickTaskModalOpen && (
                         <QuickTaskModal 
                             prefillDate={prefillDate}
