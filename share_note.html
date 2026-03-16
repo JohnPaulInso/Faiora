@@ -393,12 +393,19 @@
             const [lastSaved, setLastSaved] = useState(null);
             const editorRef = useRef(null);
             const hasChangesRef = useRef(false);
+            const debouncedHistoryTimer = useRef(null);
             const saveTimeoutRef = useRef(null);
             const fileInputRef = useRef(null);
             const [showCustomReminder, setShowCustomReminder] = useState(false);
             const [selectedImage, setSelectedImage] = useState(null);
             const noteRef = useRef(note);
             useEffect(() => { noteRef.current = note; }, [note]);
+            const [isFullscreen, setIsFullscreen] = useState(false);
+            const [isSearchOpen, setIsSearchOpen] = useState(false);
+            const [searchQuery, setSearchQuery] = useState('');
+            const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+            const [totalMatches, setTotalMatches] = useState(0);
+            const [matchRanges, setMatchRanges] = useState([]);
 
             // Responsive Toolbar Logic
             useEffect(() => {
@@ -440,9 +447,69 @@
                 };
             }, []);
 
-            
+            // Handle Global Key Down (Ctrl+F for find)
+            useEffect(() => {
+                const handleGlobalKeyDown = (e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+                        e.preventDefault();
+                        setIsSearchOpen(prev => !prev);
+                        if (!isSearchOpen) setSearchQuery(''); // Clear on open
+                        return;
+                    }
+                    if (e.key === 'Escape' && isSearchOpen) {
+                        e.preventDefault();
+                        setIsSearchOpen(false);
+                        return;
+                    }
+                };
+                window.addEventListener('keydown', handleGlobalKeyDown);
+                return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+            }, [isSearchOpen]);
 
-            
+            // Visual Highlight Logic
+            useEffect(() => {
+                if (!window.CSS || !CSS.highlights) return;
+                
+                try {
+                    if (!isSearchOpen || !searchQuery.trim() || !editorRef.current) {
+                        CSS.highlights.clear();
+                        setTotalMatches(0);
+                        return;
+                    }
+                    
+                    const root = editorRef.current;
+                    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+                    const ranges = [];
+                    const query = searchQuery.toLowerCase();
+                    
+                    let node;
+                    while(node = walker.nextNode()) {
+                        const text = node.textContent.toLowerCase();
+                        let startIndex = 0;
+                        let index;
+                        while((index = text.indexOf(query, startIndex)) !== -1) {
+                            const range = new Range();
+                            range.setStart(node, index);
+                            range.setEnd(node, index + query.length);
+                            ranges.push(range);
+                            startIndex = index + query.length;
+                        }
+                    }
+                    
+                    setTotalMatches(ranges.length);
+                    setMatchRanges(ranges);
+
+                    const highlight = new Highlight(...ranges);
+                    CSS.highlights.set('search-match', highlight);
+                    
+                    if (ranges.length > 0) {
+                        const targetRange = ranges[(currentMatchIndex + ranges.length) % ranges.length];
+                        if (targetRange && targetRange.startContainer.parentElement) {
+                            targetRange.startContainer.parentElement.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }
+                    }
+                } catch(e) { console.error("Highlight error:", e); }
+            }, [searchQuery, isSearchOpen, currentMatchIndex, note]);
 
             const themes = [
                 { id: 'glass', color: 'rgba(0,0,0,0.05)', themeClass: '' },
@@ -718,7 +785,33 @@
                 const startNode = range.startContainer;
                 const startOffset = range.startOffset;
 
-                if (e.key === 'Enter' || e.key === ' ') {
+                // --- Space Key Logic (for list auto-formatting) ---
+                if (e.key === ' ') {
+                    const item = startNode.nodeType === 3 ? startNode.parentElement.closest('.checklist-item') : startNode.closest('.checklist-item');
+                    if (!item) {
+                        const currentBlock = startNode.nodeType === 3 ? startNode.parentElement.closest('div') : startNode.closest('div');
+                        if (currentBlock && !currentBlock.classList.contains('note-editor-area')) {
+                            const text = currentBlock.textContent;
+                            if (startOffset === 1 && (text === '-' || text === '*')) {
+                                e.preventDefault();
+                                currentBlock.innerHTML = '-&nbsp;';
+                                currentBlock.className = 'bullet-item';
+                                const newRange = document.createRange();
+                                newRange.setStart(currentBlock.childNodes[0], 2);
+                                newRange.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                                setHasChanges(true);
+                                hasChangesRef.current = true;
+                                saveState();
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                // --- Enter Key Logic ---
+                if (e.key === 'Enter') {
                     const item = startNode.nodeType === 3 ? startNode.parentElement.closest('.checklist-item') : startNode.closest('.checklist-item');
                     
                     if (!item && startNode.nodeType === 3) {
@@ -738,6 +831,7 @@
                         e.preventDefault();
                         const text = item.textContent.trim();
                         if (text === '') {
+                            // Smart Exit: Convert to plain DIV
                             const div = document.createElement('div');
                             div.innerHTML = '&nbsp;';
                             item.parentNode.replaceChild(div, item);
@@ -747,6 +841,7 @@
                             selection.removeAllRanges();
                             selection.addRange(newRange);
                         } else {
+                            // Smart Continuation: Insert new checklist item
                             const newItem = document.createElement('div');
                             newItem.className = 'checklist-item';
                             newItem.innerHTML = '<span class="checklist-checkbox" contenteditable="false"></span><span>&nbsp;</span>';
@@ -763,25 +858,117 @@
                         saveState();
                         return;
                     }
+
+                    // --- Auto-Indentation & Custom Bullets ---
+                    if (!item) {
+                        const currentBlock = startNode.nodeType === 3 ? startNode.parentElement.closest('div') : startNode.closest('div');
+                        if (currentBlock && !currentBlock.classList.contains('note-editor-area')) {
+                            const text = currentBlock.textContent;
+                            const hasIndentation = currentBlock.style.marginLeft && currentBlock.style.marginLeft !== '0px';
+                            const isBulletItem = currentBlock.classList.contains('bullet-item');
+
+                            // Smart Exit: If user presses Enter on an empty bullet line or an empty indented line
+                            const isDashOnly = text.replace(/\s|\u00a0/g, '') === "-" || text.replace(/\s|\u00a0/g, '') === "";
+                            if (isDashOnly && (isBulletItem || hasIndentation)) {
+                                e.preventDefault();
+                                currentBlock.style.marginLeft = '0px';
+                                currentBlock.className = '';
+                                currentBlock.innerHTML = '&nbsp;';
+                                
+                                const newRange = document.createRange();
+                                newRange.setStart(currentBlock.childNodes[0] || currentBlock, 0);
+                                newRange.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                                
+                                setHasChanges(true);
+                                hasChangesRef.current = true;
+                                saveState();
+                                return;
+                            }
+
+                            // Bullet Continuation: Only if we are at the end of the line
+                            const isAtEnd = startNode.nodeType === 3 ? startOffset === startNode.length : startOffset === startNode.childNodes.length;
+                            
+                            if (isBulletItem && isAtEnd) {
+                                e.preventDefault();
+                                const nextDiv = document.createElement('div');
+                                nextDiv.className = 'bullet-item';
+                                nextDiv.innerHTML = '-&nbsp;';
+                                currentBlock.insertAdjacentElement('afterend', nextDiv);
+                                
+                                const newRange = document.createRange();
+                                newRange.setStart(nextDiv.childNodes[0], 2);
+                                newRange.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                                setHasChanges(true);
+                                hasChangesRef.current = true;
+                                saveState();
+                                return;
+                            } else if (hasIndentation) {
+                                e.preventDefault();
+                                const nextDiv = document.createElement('div');
+                                nextDiv.style.marginLeft = currentBlock.style.marginLeft;
+                                nextDiv.innerHTML = '&nbsp;';
+                                currentBlock.insertAdjacentElement('afterend', nextDiv);
+                                
+                                const newRange = document.createRange();
+                                newRange.setStart(nextDiv, 0);
+                                newRange.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                                setHasChanges(true);
+                                hasChangesRef.current = true;
+                                saveState();
+                                return;
+                            }
+                        }
+                    }
                 }
 
                 if (e.key === 'Backspace' && range.collapsed) {
-                    const item = startNode.nodeType === 3 ? startNode.parentElement.closest('.checklist-item') : startNode.closest('.checklist-item');
-                    if (item && startOffset === 0) {
-                        e.preventDefault();
-                        const div = document.createElement('div');
-                        const contentSpan = item.querySelector('span:not(.checklist-checkbox)');
-                        div.innerHTML = contentSpan ? contentSpan.innerHTML : '&nbsp;';
-                        item.parentNode.replaceChild(div, item);
-                        const newRange = document.createRange();
-                        newRange.setStart(div, 0);
-                        newRange.collapse(true);
-                        selection.removeAllRanges();
-                        selection.addRange(newRange);
-                        setHasChanges(true);
-                        hasChangesRef.current = true;
-                        saveState();
-                        return;
+                    const currentBlock = startNode.nodeType === 3 ? startNode.parentElement.closest('div, li, .checklist-item') : startNode.closest('div, li, .checklist-item');
+                    
+                    if (currentBlock && startOffset === 0) {
+                        // Check for indentation or special class
+                        const hasIndentation = currentBlock.style.marginLeft && currentBlock.style.marginLeft !== '0px';
+                        const isBulletItem = currentBlock.classList.contains('bullet-item');
+                        const isChecklistItem = currentBlock.classList.contains('checklist-item');
+
+                        if (hasIndentation || isBulletItem || isChecklistItem) {
+                            e.preventDefault();
+                            if (isChecklistItem) {
+                                // Convert checklist to plain text
+                                const div = document.createElement('div');
+                                const contentSpan = currentBlock.querySelector('span:not(.checklist-checkbox)');
+                                div.innerHTML = contentSpan ? contentSpan.innerHTML : '&nbsp;';
+                                currentBlock.parentNode.replaceChild(div, currentBlock);
+                                const newRange = document.createRange();
+                                newRange.setStart(div, 0);
+                                newRange.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                            } else if (isBulletItem) {
+                                // Remove bullet class but keep content
+                                currentBlock.classList.remove('bullet-item');
+                                currentBlock.innerHTML = currentBlock.innerHTML.replace(/^-\s*|^-&nbsp;/, '');
+                                if (!currentBlock.innerHTML) currentBlock.innerHTML = '&nbsp;';
+                                const newRange = document.createRange();
+                                newRange.setStart(currentBlock, 0);
+                                newRange.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                            } else if (hasIndentation) {
+                                // Reduce indentation
+                                const currentML = parseInt(currentBlock.style.marginLeft);
+                                currentBlock.style.marginLeft = Math.max(0, currentML - 24) + 'px';
+                            }
+                            setHasChanges(true);
+                            hasChangesRef.current = true;
+                            saveState();
+                            return;
+                        }
                     }
                 }
             };
@@ -967,10 +1154,10 @@
             const initialContent = note.content || '';
 
             return (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-0 md:p-8 transition-all duration-300 animate-in fade-in duration-500">
+                <div className={"fixed inset-0 z-[110] flex items-center justify-center transition-all duration-300 animate-in fade-in duration-500 " + (isFullscreen ? "p-0" : "p-0 md:p-8")}>
                     <div className="absolute inset-0 bg-black/70 backdrop-blur-2xl transition-opacity duration-300 hidden md:block" onClick={() => window.location.href = 'index.html'}></div>
                     
-                    <div className={"task-creator-modal w-full max-w-full md:max-w-4xl h-full md:h-[85vh] rounded-none md:rounded-[2rem] overflow-hidden flex flex-col relative z-10 shadow-2xl transition-all duration-250 animate-in zoom-in-95 duration-500 ease-out transition-colors duration-500 " + currentThemeClass}>
+                    <div className={"task-creator-modal w-full max-w-full overflow-hidden flex flex-col relative z-10 shadow-2xl transition-all duration-250 animate-in zoom-in-95 duration-500 ease-out transition-colors duration-500 " + (isFullscreen ? "md:max-w-full md:h-[100dvh] md:rounded-none !p-0 !m-0" : "md:max-w-4xl h-full md:h-[85vh] rounded-none md:rounded-[2rem]") + " " + currentThemeClass}>
                         
                         <div 
                             className="modal-top-progress cursor-pointer group h-4 bg-black/5 hover:bg-black/10 transition-all relative overflow-hidden"
@@ -1058,13 +1245,75 @@
                                 </div>
                                
                             </div>
+                            {isSearchOpen && (
+                                <div className="note-search-bar sticky top-0 md:top-2 z-[60] ml-auto w-max flex items-center gap-2 mb-4 bg-white/80 backdrop-blur-xl p-2 rounded-xl border border-black/10 shadow-md animate-in slide-in-from-top-2 duration-200">
+                                    <span className="material-symbols-outlined text-slate-400 pl-2">search</span>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Find in note..." 
+                                        className="bg-transparent border-none flex-1 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-0 px-2 font-montserrat"
+                                        value={searchQuery}
+                                        onChange={(e) => {
+                                            setSearchQuery(e.target.value);
+                                            setCurrentMatchIndex(0);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                setCurrentMatchIndex(prev => prev + (e.shiftKey ? -1 : 1));
+                                            }
+                                        }}
+                                        autoFocus
+                                    />
+                                    {totalMatches > 0 && (
+                                        <span className="text-xs text-slate-400 font-montserrat flex-shrink-0">
+                                            {((currentMatchIndex % totalMatches + totalMatches) % totalMatches) + 1} / {totalMatches}
+                                        </span>
+                                    )}
+                                    {totalMatches === 0 && searchQuery && (
+                                        <span className="text-xs text-rose-400 font-montserrat flex-shrink-0">0 / 0</span>
+                                    )}
+                                    <div className="flex items-center gap-1 border-l border-black/5 pl-2 ml-1">
+                                        <button 
+                                            onClick={() => setCurrentMatchIndex(prev => prev - 1)}
+                                            className="p-1.5 hover:bg-black/5 rounded-lg text-slate-500 transition-colors"
+                                            title="Previous phrase"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">keyboard_arrow_up</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => setCurrentMatchIndex(prev => prev + 1)}
+                                            className="p-1.5 hover:bg-black/5 rounded-lg text-slate-500 transition-colors"
+                                            title="Next phrase"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }}
+                                            className="p-1.5 hover:bg-black/5 rounded-lg text-slate-500 transition-colors ml-1"
+                                            title="Close"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">close</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                             <div className="flex-1">
                                 <div 
                                     ref={editorRef}
                                     contentEditable={canEdit ? "true" : "false"}
                                     className="note-editor-area"
                                     data-placeholder="Start typing your notes..."
-                                    onInput={(e) => { if(!canEdit) return; setHasChanges(true); hasChangesRef.current = true; }}
+                                    onInput={(e) => { 
+                                        if(!canEdit) return; 
+                                        setHasChanges(true); 
+                                        hasChangesRef.current = true; 
+                                        
+                                        if (debouncedHistoryTimer.current) clearTimeout(debouncedHistoryTimer.current);
+                                        debouncedHistoryTimer.current = setTimeout(() => {
+                                            saveState();
+                                        }, 1000);
+                                    }}
                                     onBlur={saveState}
                                     onClick={handleEditorClick}
                                     onPaste={handlePaste}
@@ -1419,6 +1668,12 @@
                              </div>
 
                              <div className="flex items-center gap-1 md:gap-2">
+                                 <button onClick={() => { setIsSearchOpen(!isSearchOpen); if(isSearchOpen) setSearchQuery(''); }} className={"footer-action-btn flex-shrink-0 " + (isSearchOpen ? "text-primary bg-primary/10" : "")} title="Find (Ctrl+F)">
+                                     <span className="material-symbols-outlined text-[24px]">search</span>
+                                 </button>
+                                 <button onClick={() => setIsFullscreen(!isFullscreen)} className={"footer-action-btn flex-shrink-0 hidden md:flex " + (isFullscreen ? "text-primary bg-primary/10" : "")} title="Toggle Fullscreen">
+                                     <span className="material-symbols-outlined text-[24px]">{isFullscreen ? "fullscreen_exit" : "fullscreen"}</span>
+                                 </button>
                                  <button 
                                      onClick={undo} 
                                      disabled={historyIndex <= 0 || !canEdit} 

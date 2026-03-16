@@ -1036,3 +1036,19 @@ body.dragging-image-active { cursor: grabbing !important; user-select: none !imp
     border-width: 1.5px !important;
     background: rgba(249, 115, 22, 0.03) !important;
 }
+
+/* CSS Custom Highlights API for Search */
+::highlight(search-match) {
+    background-color: #fcebbb;
+    color: #b45309;
+    font-weight: bold;
+    border-radius: 4px;
+}
+
+/* Fix for left margin in fullscreen */
+.task-creator-modal.md\:w-\[100vw\] .note-editor-area,
+.task-creator-modal.md\:h-\[100dvh\] .note-editor-area {
+    margin-left: 0 !important;
+    max-width: 800px;
+    margin: 0 auto;
+}
