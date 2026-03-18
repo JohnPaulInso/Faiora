@@ -29,6 +29,7 @@ body {
 .card-glow {
     box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(253, 186, 116, 0.1);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, box-shadow;
 }
 
 .card-glow:hover {
@@ -1035,6 +1036,15 @@ body.dragging-image-active { cursor: grabbing !important; user-select: none !imp
     animation: deadline-glow 2s ease-in-out infinite !important;
     border-width: 1.5px !important;
     background: rgba(249, 115, 22, 0.03) !important;
+    will-change: transform, box-shadow, border-color;
+}
+
+.tomorrow-glow {
+    border-color: rgba(251, 191, 36, 0.4) !important;
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.15) !important;
+    background: rgba(251, 191, 36, 0.02) !important;
+    border-width: 1.2px !important;
+    will-change: transform, box-shadow, border-color;
 }
 
 /* CSS Custom Highlights API for Search */

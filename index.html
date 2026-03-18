@@ -76,6 +76,109 @@
         const { createRoot } = ReactDOM;
         const { HashRouter, Routes, Route, Link, useNavigate, useLocation } = ReactRouterDOM;
 
+        const formatDateLocal = (d = new Date()) => {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const parseDateString = (str) => {
+            if (!str) return null;
+            if (str.includes('T')) return new Date(str);
+            const [y, m, d] = str.split('-').map(Number);
+            return new Date(y, m - 1, d);
+        };
+
+        const formatDueDate = (date, time) => {
+            if (!date) return { label: '', isOverdue: false, isNearDeadline: false, isDueTomorrow: false };
+            const d = parseDateString(date);
+            const now = new Date();
+            const today = formatDateLocal(now);
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowStr = formatDateLocal(tomorrow);
+            
+            // Check for Overdue
+            let isOverdue = false;
+            const target = parseDateString(date);
+            if (time) {
+                const [h, m] = time.split(':');
+                target.setHours(parseInt(h), parseInt(m), 0, 0);
+            } else {
+                target.setHours(23, 59, 59, 999);
+            }
+            
+            if (now > target) {
+                isOverdue = true;
+            }
+
+            let isDueTomorrow = false;
+            if (date === today) {
+                let label = isOverdue ? 'Past due' : 'Due Today';
+                let isNearDeadline = false;
+                if (time) {
+                    const [h, m] = time.split(':');
+                    const diffMs = target - now;
+                    const diffHours = diffMs / (1000 * 60 * 60);
+                    
+                    if (diffHours > 0 && diffHours < 1) {
+                        const mins = Math.max(1, Math.ceil(diffHours * 60));
+                        isNearDeadline = true;
+                        label = `Due in ${mins} MINS`;
+                    } else if (diffHours > 0 && diffHours <= 4) {
+                        isNearDeadline = true;
+                        label = `Due in ${Math.ceil(diffHours)}${Math.ceil(diffHours) === 1 ? ' HR' : ' HRS'}`;
+                    } else if (diffHours > 0 && diffHours <= 8) {
+                        label = `Due in ${Math.ceil(diffHours)}${Math.ceil(diffHours) === 1 ? ' HR' : ' HRS'}`;
+                    }
+                    
+                    const hours = parseInt(h);
+                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                    const h12 = hours % 12 || 12;
+                    label += ` • ${h12}:${m} ${ampm}`;
+                }
+                return { label, isOverdue, isNearDeadline, isDueTomorrow };
+            }
+            
+            if (date === tomorrowStr) {
+                let label = isOverdue ? 'Past due' : 'Due Tomorrow';
+                let isNearDeadline = false;
+                if (time) {
+                    const [h, m] = time.split(':');
+                    const tgt = parseDateString(date);
+                    tgt.setHours(parseInt(h), parseInt(m), 0, 0);
+                    const diffMs = tgt - now;
+                    const diffHours = diffMs / (1000 * 60 * 60);
+                    if (diffHours > 0 && diffHours < 1) {
+                        const mins = Math.max(1, Math.ceil(diffHours * 60));
+                        isNearDeadline = true;
+                        label = `Due in ${mins} MINS`;
+                    } else if (diffHours > 0 && diffHours <= 4) {
+                        isNearDeadline = true;
+                        label = `Due in ${Math.ceil(diffHours)}${Math.ceil(diffHours) === 1 ? ' HR' : ' HRS'}`;
+                    }
+                    const hours = parseInt(h);
+                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                    const h12 = hours % 12 || 12;
+                    label += ` • ${h12}:${m} ${ampm}`;
+                }
+                isDueTomorrow = true;
+                return { label, isOverdue, isNearDeadline, isDueTomorrow };
+            }
+
+            const options = { month: 'short', day: 'numeric' };
+            let str = d.toLocaleDateString('en-US', options);
+            if (time) {
+                const [h, m] = time.split(':');
+                const hours = parseInt(h);
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                const h12 = hours % 12 || 12;
+                str += ` • ${h12}:${m} ${ampm}`;
+            }
+            return { label: isOverdue ? `Past due • ${str}` : str, isOverdue, isNearDeadline: false, isDueTomorrow: false };
+        };
+
         // --- Firebase Initialization ---
         const firebaseConfig = {
             apiKey: "AIzaSyDktbyVgI7AAwaY2u-KsWBRwLZawy0949s",
@@ -1402,6 +1505,14 @@
                     editorRef.current.innerHTML = initialContent;
                 }
             }, [initialContent]);
+
+            // Ensure modal starts at the top
+            useEffect(() => {
+                const container = document.querySelector('.task-creator-modal .overflow-y-auto');
+                if (container) {
+                    container.scrollTop = 0;
+                }
+            }, []);
 
             // Visual Highlight Logic
             useEffect(() => {
@@ -2814,7 +2925,7 @@
                                                             target = new Date(now.getTime() + 4 * 60 * 60 * 1000);
                                                         }
                                                         
-                                                        const dateStr = target.toISOString().split('T')[0];
+                                                        const dateStr = formatDateLocal(target);
                                                         const timeStr = target.getHours().toString().padStart(2, '0') + ':' + target.getMinutes().toString().padStart(2, '0');
                                                         setReminderDate(dateStr + 'T' + timeStr); 
                                                         setHasChanges(true); hasChangesRef.current = true; handleSetActivePopup(null); 
@@ -2834,14 +2945,14 @@
                                                     </button>
                                                     <button onClick={() => { 
                                                         const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-                                                        setReminderDate(tomorrow.toISOString().split('T')[0] + 'T08:00'); setHasChanges(true); hasChangesRef.current = true; handleSetActivePopup(null); 
+                                                        setReminderDate(formatDateLocal(tomorrow) + 'T08:00'); setHasChanges(true); hasChangesRef.current = true; handleSetActivePopup(null); 
                                                     }} className="px-5 py-3 hover:bg-black/5 flex items-center justify-between text-sm text-slate-600 transition-colors font-montserrat">
                                                         <span>Tomorrow</span>
                                                         <span className="text-xs text-slate-400 font-montserrat">8:00 AM</span>
                                                     </button>
                                                     <button onClick={() => { 
                                                         const nextWeek = new Date(); nextWeek.setDate(nextWeek.getDate() + 7);
-                                                        setReminderDate(nextWeek.toISOString().split('T')[0] + 'T08:00'); 
+                                                        setReminderDate(formatDateLocal(nextWeek) + 'T08:00'); 
                                                         setHasChanges(true); 
                                                         hasChangesRef.current = true;
                                                         handleSetActivePopup(null); 
@@ -2860,7 +2971,7 @@
                                                             const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek);
                                                             const nextMon = new Date(now);
                                                             nextMon.setDate(now.getDate() + daysUntilMonday);
-                                                            setReminderDate(nextMon.toISOString().split('T')[0] + 'T10:00');
+                                                            setReminderDate(formatDateLocal(nextMon) + 'T10:00');
                                                         }
                                                         setShowCustomReminder(true); 
                                                     }} className="px-5 py-3 hover:bg-black/5 flex items-center gap-3 text-sm text-slate-700 font-semibold transition-colors font-montserrat justify-between">
@@ -2902,7 +3013,7 @@
                                                                 value={reminderDate.split('T')[1] || "08:00"}
                                                                 onChange={(e) => { 
                                                                     const newTime = e.target.value;
-                                                                    const currentDate = reminderDate.split('T')[0] || new Date().toISOString().split('T')[0];
+                                                                    const currentDate = reminderDate.split('T')[0] || formatDateLocal(new Date());
                                                                     setReminderDate(`${currentDate}T${newTime}`); 
                                                                     setHasChanges(true); 
                                                                     hasChangesRef.current = true;
@@ -3318,6 +3429,7 @@
             </div>
             );
         };
+
         const LoginModal = () => {
             const handleLogin = () => {
                 auth.signInWithPopup(googleProvider)
@@ -3422,7 +3534,7 @@
 
         const formatReminderDate = (dateStr) => {
             try {
-                const d = new Date(dateStr);
+                const d = parseDateString(dateStr);
                 if (isNaN(d.getTime())) return dateStr;
                 const month = d.toLocaleString('en-US', { month: 'short' });
                 const day = d.getDate();
@@ -3433,7 +3545,7 @@
 
         const formatDateMinimal = (dateStr) => {
             try {
-                const d = new Date(dateStr);
+                const d = parseDateString(dateStr);
                 if (isNaN(d.getTime())) return dateStr;
                 const month = d.toLocaleString('en-US', { month: 'short' });
                 const day = d.getDate();
@@ -3593,6 +3705,45 @@
             );
         });
 
+        const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit }) => {
+            const { label: dueDateStr, isOverdue, isNearDeadline, isDueTomorrow } = formatDueDate(task.dueDate, task.dueTime);
+
+            return (
+                <div 
+                    className={`glass-panel rounded-[2rem] p-4 md:p-5 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 transition-all duration-200 cursor-pointer border border-white/5 shadow-lg hover:shadow-primary/5 ${task.completed ? 'opacity-40 grayscale-[0.5]' : ''} ${isOverdue && !task.completed ? 'border-red-500/30' : ''} ${isNearDeadline && !task.completed ? 'near-deadline-glow' : ''} ${isDueTomorrow && !task.completed ? 'tomorrow-glow' : ''}`}
+                    style={{ minHeight: window.innerWidth < 768 ? '64px' : 'auto', touchAction: 'pan-y' }}
+                    onClick={() => onToggle(task.id)}
+                    onContextMenu={(e) => {
+                        e.preventDefault();
+                        onEdit(task);
+                    }}
+                >
+                    <div className="flex items-center gap-5 pointer-events-none">
+                        <div className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${task.completed ? 'bg-primary border-primary text-white scale-110 shadow-lg shadow-primary/20' : 'border-white/10 text-transparent group-hover:border-primary/40'}`}>
+                            <span className="material-symbols-outlined text-[1rem] font-bold">check</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                            <h4 className={`text-sm md:text-base text-cream-light font-montserrat font-bold tracking-wide transition-all duration-300 line-clamp-2 overflow-hidden ${task.completed ? 'line-through decoration-primary/50 opacity-60' : 'group-hover:text-primary'} ${isOverdue && !task.completed ? 'text-red-400' : ''}`}>
+                                {formatTaskText(task.text)}
+                            </h4>
+                            {dueDateStr && (
+                                <p className={`text-[9px] md:text-[10px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-opacity ${isOverdue && !task.completed ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
+                                    <span className="material-symbols-outlined text-[10px] md:text-xs">event</span>
+                                    {dueDateStr}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
+                        className="opacity-0 group-hover:opacity-100 p-2 text-white/10 hover:text-red-400 transition-all duration-200 pointer-events-auto transform hover:scale-110"
+                    >
+                        <span className="material-symbols-outlined text-xl">delete</span>
+                    </button>
+                </div>
+            );
+        });
+
         // --- Page Components ---
 
         const DashboardPage = ({ user, notes, quickTasks, onOpenCreator, onEditNote, onRestoreDefaults, onReorderPriorityNote, onToggleQuickTask, onAddQuickTaskClick, onDeleteQuickTask, onUpdateQuickTask, onEditQuickTask, editingQuickTask, setEditingQuickTask, isQuickTaskModalOpen, setIsQuickTaskModalOpen, onRemoveReminder, isProbing }) => {
@@ -3600,6 +3751,7 @@
             const { search } = useLocation();
             const queryParams = new URLSearchParams(search);
             const [dragState, setDragState] = useState(null);
+            const lastUpdateRef = useRef(0);
             const dragRef = useRef(null);
             const gestureRef = useRef({ active: false, activated: false, scrolling: false });
             const longPressTimer = useRef(null);
@@ -3786,8 +3938,16 @@
                 const s = dragRef.current;
                 if (!s) return;
                 s.didMove = true;
-                s.cloneEl.style.left = (mx - s.offsetX) + 'px';
-                s.cloneEl.style.top = (my - s.offsetY) + 'px';
+                
+                // Use requestAnimationFrame for smoother movement and to avoid layout thrashing
+                if (s.cloneEl) {
+                    s.cloneEl.style.transform = `translate3d(${mx - s.offsetX - s.startX + s.startX}px, ${my - s.offsetY - s.startY + s.startY}px, 0)`;
+                }
+
+                // Throttle proximity check to every ~32ms (2 frames)
+                const now = Date.now();
+                if (now - lastUpdateRef.current < 32) return;
+                lastUpdateRef.current = now;
 
                 let hoveredNoteId = null;
                 document.querySelectorAll('[data-priority-note-id]').forEach(el => {
@@ -3851,7 +4011,7 @@
                 return () => removeDocListeners();
             }, []);
 
-            const sortedPriorityNotes = localNotes.slice(0, 6);
+            const sortedPriorityNotes = useMemo(() => localNotes.slice(0, 6), [localNotes]);
 
             const handleRefresh = async () => {
                 if (navigator.vibrate) try { navigator.vibrate([10, 30, 10]); } catch(err) {}
@@ -3960,140 +4120,18 @@
                                     </div>
                                 ) : (
                                     <React.Fragment>
-                                        {(() => {
-                                            // Ensure a recently completed or toggled task stays in view
-                                            // by checking if it's in the displayTasks.
-                                            const formatDueDate = (date, time) => {
-                                                if (!date) return { label: '', isOverdue: false };
-                                                const d = new Date(date);
-                                                const now = new Date();
-                                                const today = now.toISOString().split('T')[0];
-                                                const tomorrow = new Date();
-                                                tomorrow.setDate(tomorrow.getDate() + 1);
-                                                const tomorrowStr = tomorrow.toISOString().split('T')[0];
-                                                
-                                                // Check for Overdue
-                                                let isOverdue = false;
-                                                const target = new Date(date);
-                                                if (time) {
-                                                    const [h, m] = time.split(':');
-                                                    target.setHours(parseInt(h), parseInt(m), 0, 0);
-                                                } else {
-                                                    target.setHours(23, 59, 59, 999);
-                                                }
-                                                
-                                                if (now > target) {
-                                                    isOverdue = true;
-                                                }
+                                        <div className="space-y-4">
+                                            {displayTasks.map(task => (
+                                                <QuickTaskItem 
+                                                    key={task.id}
+                                                    task={task}
+                                                    onToggle={onToggleQuickTask}
+                                                    onDelete={onDeleteQuickTask}
+                                                    onEdit={onEditQuickTask}
+                                                />
+                                            ))}
+                                        </div>
 
-                                                if (date === today) {
-                                                    let label = isOverdue ? 'Past due' : 'Due Today';
-                                                    let isNearDeadline = false;
-                                                    if (time) {
-                                                        const [h, m] = time.split(':');
-                                                        const diffMs = target - now;
-                                                        const diffHours = diffMs / (1000 * 60 * 60);
-                                                        
-                                                        if (diffHours > 0 && diffHours < 1) {
-                                                            const mins = Math.max(1, Math.ceil(diffHours * 60));
-                                                            isNearDeadline = true;
-                                                            label = `Due in ${mins} MINS`;
-                                                        } else if (diffHours > 0 && diffHours <= 4) {
-                                                            isNearDeadline = true;
-                                                            label = `Due in ${Math.ceil(diffHours)}${Math.ceil(diffHours) === 1 ? ' HR' : ' HRS'}`;
-                                                        } else if (diffHours > 0 && diffHours <= 8) {
-                                                            label = `Due in ${Math.ceil(diffHours)}${Math.ceil(diffHours) === 1 ? ' HR' : ' HRS'}`;
-                                                        }
-                                                        
-                                                        const hours = parseInt(h);
-                                                        const ampm = hours >= 12 ? 'PM' : 'AM';
-                                                        const h12 = hours % 12 || 12;
-                                                        label += ` • ${h12}:${m} ${ampm}`;
-                                                    }
-                                                    return { label, isOverdue, isNearDeadline };
-                                                }
-                                                
-                                                if (date === tomorrowStr) {
-                                                    let label = isOverdue ? 'Past due' : 'Due Tomorrow';
-                                                    let isNearDeadline = false;
-                                                    if (time) {
-                                                        const [h, m] = time.split(':');
-                                                        const tgt = new Date(date);
-                                                        tgt.setHours(parseInt(h), parseInt(m), 0, 0);
-                                                        const diffMs = tgt - now;
-                                                        const diffHours = diffMs / (1000 * 60 * 60);
-                                                        if (diffHours > 0 && diffHours < 1) {
-                                                            const mins = Math.max(1, Math.ceil(diffHours * 60));
-                                                            isNearDeadline = true;
-                                                            label = `Due in ${mins} MINS`;
-                                                        } else if (diffHours > 0 && diffHours <= 4) {
-                                                            isNearDeadline = true;
-                                                            label = `Due in ${Math.ceil(diffHours)}${Math.ceil(diffHours) === 1 ? ' HR' : ' HRS'}`;
-                                                        }
-                                                        const hours = parseInt(h);
-                                                        const ampm = hours >= 12 ? 'PM' : 'AM';
-                                                        const h12 = hours % 12 || 12;
-                                                        label += ` • ${h12}:${m} ${ampm}`;
-                                                    }
-                                                    return { label, isOverdue, isNearDeadline };
-                                                }
-
-                                                const options = { month: 'short', day: 'numeric' };
-                                                let str = d.toLocaleDateString('en-US', options);
-                                                if (time) {
-                                                    const [h, m] = time.split(':');
-                                                    const hours = parseInt(h);
-                                                    const ampm = hours >= 12 ? 'PM' : 'AM';
-                                                    const h12 = hours % 12 || 12;
-                                                    str += ` • ${h12}:${m} ${ampm}`;
-                                                }
-                                                return { label: isOverdue ? `Past due • ${str}` : str, isOverdue, isNearDeadline: false };
-                                            };
-
-                                            return (
-                                                <div className="space-y-4">
-                                                           {displayTasks.map(task => {
-                                                        const { label: dueDateStr, isOverdue, isNearDeadline } = formatDueDate(task.dueDate, task.dueTime);
-
-                                                        return (
-                                                            <div 
-                                                                key={task.id}
-                                                                className={`glass-panel rounded-[2rem] p-4 md:p-5 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 transition-all duration-200 cursor-pointer border border-white/5 shadow-lg hover:shadow-primary/5 ${task.completed ? 'opacity-40 grayscale-[0.5]' : ''} ${isOverdue && !task.completed ? 'border-red-500/30' : ''} ${isNearDeadline && !task.completed ? 'near-deadline-glow' : ''}`}
-                                                                style={{ minHeight: window.innerWidth < 768 ? '64px' : 'auto', touchAction: 'pan-y' }}
-                                                                onClick={() => onToggleQuickTask(task.id)}
-                                                                onContextMenu={(e) => {
-                                                                    e.preventDefault();
-                                                                    onEditQuickTask(task);
-                                                                }}
-                                                            >
-                                                                <div className="flex items-center gap-5 pointer-events-none">
-                                                                    <div className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${task.completed ? 'bg-primary border-primary text-white scale-110 shadow-lg shadow-primary/20' : 'border-white/10 text-transparent group-hover:border-primary/40'}`}>
-                                                                        <span className="material-symbols-outlined text-[1rem] font-bold">check</span>
-                                                                    </div>
-                                                                    <div className="flex flex-col gap-0.5">
-                                                                        <h4 className={`text-sm md:text-base text-cream-light font-montserrat font-bold tracking-wide transition-all duration-300 ${task.completed ? 'line-through decoration-primary/50 opacity-60' : 'group-hover:text-primary'} ${isOverdue && !task.completed ? 'text-red-400' : ''}`}>
-                                                                            {formatTaskText(task.text)}
-                                                                        </h4>
-                                                                        {dueDateStr && (
-                                                                            <p className={`text-[9px] md:text-[10px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-opacity ${isOverdue && !task.completed ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
-                                                                                <span className="material-symbols-outlined text-[10px] md:text-xs">event</span>
-                                                                                {dueDateStr}
-                                                                            </p>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                                <button 
-                                                                    onClick={(e) => { e.stopPropagation(); onDeleteQuickTask(task.id); }}
-                                                                    className="opacity-0 group-hover:opacity-100 p-2 text-white/10 hover:text-red-400 transition-all duration-200 pointer-events-auto transform hover:scale-110"
-                                                                >
-                                                                    <span className="material-symbols-outlined text-xl">delete</span>
-                                                                </button>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            );
-                                        })()}   
 
                                         {sortedQuickTasks.length > displayTasks.length && (
                                             <button 
@@ -4113,7 +4151,7 @@
                                 </div>
                                 <h3 className="text-2xl font-bold text-cream-light">Quick Focus</h3>
                                 <p className="text-cream-light/60 font-sans leading-relaxed">Start a 25-minute pomodoro session to breeze through your tasks.</p>
-                                <button className="w-full bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 py-4 rounded-2xl font-bold transition-all uppercase tracking-widest text-xs">Start Session</button>
+                                <button className="w-full bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 py-4 rounded-2xl font-bold transition-all uppercase tracking-widest">Start Session</button>
                             </div>
                         </section>
                     </div>
@@ -4194,7 +4232,7 @@
             const matchesFilter = (note) => {
                 const formatDate = (dateStr) => {
                     if (!dateStr) return '';
-                    const d = new Date(dateStr);
+                    const d = parseDateString(dateStr);
                     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
                     const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                     return `${months[d.getMonth()]} ${d.getDate()} ${d.getFullYear()} ${shortMonths[d.getMonth()]}`;
@@ -5204,22 +5242,22 @@
                 // Note Reminders
                 (notes || []).forEach(note => {
                     if (!note.reminderDate) return;
-                    try {
-                        const d = new Date(note.reminderDate);
+                    const d = parseDateString(note.reminderDate);
+                    if (d) {
                         const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
                         if (!map[key]) map[key] = [];
                         map[key].push({ ...note, type: 'note' });
-                    } catch(e) {}
+                    }
                 });
                 // Quick Tasks
                 (quickTasks || []).forEach(task => {
                     if (!task.dueDate) return;
-                    try {
-                        const d = new Date(task.dueDate);
+                    const d = parseDateString(task.dueDate);
+                    if (d) {
                         const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
                         if (!map[key]) map[key] = [];
                         map[key].push({ ...task, type: 'quickTask' });
-                    } catch(e) {}
+                    }
                 });
                 return map;
             }, [notes, quickTasks]);
@@ -5237,8 +5275,8 @@
                 const now = new Date();
                 now.setHours(0, 0, 0, 0);
                 const allItems = [
-                    ...(notes || []).filter(n => n.reminderDate).map(n => ({ ...n, type: 'note', sortDate: new Date(n.reminderDate) })),
-                    ...(quickTasks || []).filter(t => t.dueDate).map(t => ({ ...t, type: 'quickTask', sortDate: new Date(t.dueDate) }))
+                    ...(notes || []).filter(n => n.reminderDate).map(n => ({ ...n, type: 'note', sortDate: parseDateString(n.reminderDate) })),
+                    ...(quickTasks || []).filter(t => t.dueDate).map(t => ({ ...t, type: 'quickTask', sortDate: parseDateString(t.dueDate) }))
                 ];
                 return allItems
                     .filter(item => item.sortDate >= now)
@@ -5302,7 +5340,7 @@
                                                 {reminders.length > 0 && (
                                                     <div className="flex flex-col gap-1 mt-2">
                                                         {reminders.slice(0, 3).map((r, ri) => (
-                                                            <div key={ri} className={`w-full truncate text-[9px] md:text-[10px] font-bold rounded-lg px-1.5 py-1 flex items-center gap-1.5 ${r.type === 'quickTask' ? 'bg-white/10 text-cream-light/80' : 'bg-primary/15 text-primary/90'} border border-white/5`}>
+                                                            <div key={ri} className={`w-full line-clamp-2 overflow-hidden text-[9px] md:text-[10px] font-bold rounded-lg px-1.5 py-1 flex items-center gap-1.5 ${r.type === 'quickTask' ? 'bg-white/10 text-cream-light/80' : 'bg-primary/15 text-primary/90'} border border-white/5`}>
                                                                 <span className="material-symbols-outlined text-[10px] md:text-[11px] leading-none">{r.type === 'quickTask' ? 'task_alt' : 'event'}</span>
                                                                 {r.type === 'quickTask' ? formatTaskText(r.text) : (r.title || 'Note')}
                                                             </div>
@@ -5322,7 +5360,7 @@
                                 <div className="flex items-center gap-3 mb-1.5 justify-between">
                                     <h3 className="text-xl font-display font-bold text-cream-light">Daily Agenda</h3>
                                     <button 
-                                        onClick={() => onAddQuickTask && onAddQuickTask(selectedDate.toISOString().split('T')[0])}
+                                        onClick={() => onAddQuickTask && onAddQuickTask(formatDateLocal(selectedDate))}
                                         className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-lg active:scale-95"
                                         title="Add Task for this day"
                                     >
@@ -5361,7 +5399,7 @@
                                                             {item.completed && <span className="material-symbols-outlined text-sm font-bold">check</span>}
                                                         </div>
                                                         <div className="flex-1">
-                                                            <h4 className={`text-sm font-bold transition-all ${item.completed ? 'text-cream-light/40 line-through' : 'text-cream-light'}`}>{formatTaskText(item.text)}</h4>
+                                                            <h4 className={`text-sm font-bold transition-all line-clamp-2 overflow-hidden ${item.completed ? 'text-cream-light/40 line-through' : 'text-cream-light'}`}>{formatTaskText(item.text)}</h4>
                                                             <div className="flex items-center gap-2 mt-1">
                                                                 <span className="material-symbols-outlined text-[10px] text-primary/60">schedule</span>
                                                                                                                                 <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest leading-none">
@@ -5720,12 +5758,12 @@
             const getTomorrow = () => {
                 const d = new Date();
                 d.setDate(d.getDate() + 1);
-                return d.toISOString().split('T')[0];
+                return formatDateLocal(d);
             };
             const getNextMonday = () => {
                 const d = new Date();
                 d.setDate(d.getDate() + (1 + 7 - d.getDay()) % 7 || 7);
-                return d.toISOString().split('T')[0];
+                return formatDateLocal(d);
             };
              const extractDateFromText = (input) => {
                 let lower = input.toLowerCase();
@@ -5755,32 +5793,65 @@
                     lower = cleanText.toLowerCase();
                 }
 
-                // 2. Detect Specific Dates (e.g. mar 1, march 10)
+                 // 2. Detect Specific Dates (e.g. mar 1, march 10, this 15)
                 const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
                 const fullMonthNames = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
                 
-                const dateRegex = new RegExp(`\\b(${monthNames.join('|')}|${fullMonthNames.join('|')})\\s+(\\d{1,2})\\b`, 'i');
-                let dateMatch;
-                if ((dateMatch = dateRegex.exec(lower)) !== null) {
+                // Generic date like "march 15", "mar 15", or "mar15"
+                const dateRegex = new RegExp(`\\b(${monthNames.join('|')}|${fullMonthNames.join('|')})\\s*(\\d{1,2})\\b`, 'i');
+                let dateMatch = dateRegex.exec(lower);
+                
+                // "this 15" format
+                const thisDateRegex = /\bthis\s+(\d{1,2})\b/i;
+                let thisDateMatch = thisDateRegex.exec(lower);
+
+                if (dateMatch) {
                     const monthText = dateMatch[1].toLowerCase();
                     let monthIdx = monthNames.findIndex(m => monthText.startsWith(m));
+                    if (monthIdx === -1) monthIdx = fullMonthNames.findIndex(m => m.startsWith(monthText));
                     const day = parseInt(dateMatch[2]);
                     
                     const targetDate = new Date(now.getFullYear(), monthIdx, day);
-                    // If date has already passed this year, assume next year
-                    if (targetDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
-                        targetDate.setFullYear(now.getFullYear() + 1);
+                    const matchIdx = dateMatch.index;
+                    const fullMatch = dateMatch[0];
+                    const nextChar = lower[matchIdx + fullMatch.length];
+
+                    // Refinement: only commit if:
+                    // 1. Next char exists (e.g. user typed a space after "mar 1 ")
+                    // 2. OR the day is > 3 (e.g. "mar 4" is definitely not "mar 40")
+                    // 3. OR it's a 2-digit day (handled by day > 3 mostly, but explicit check for 10-31)
+                    if (day >= 1 && day <= 31) {
+                        const targetDateStr = formatDateLocal(targetDate);
+                        const tempCleanText = cleanText.replace(dateMatch[0], '');
+                        if (nextChar || day > 3) {
+                           if (targetDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+                               targetDate.setFullYear(now.getFullYear() + 1);
+                           }
+                           newDate = formatDateLocal(targetDate);
+                           cleanText = tempCleanText;
+                           lower = cleanText.toLowerCase();
+                        } else {
+                           // Pending single digit
+                           return { date: targetDateStr, time: newTime || '10:00', cleanText: tempCleanText, isPending: true };
+                        }
                     }
-                    newDate = targetDate.toISOString().split('T')[0];
-                    cleanText = cleanText.replace(dateMatch[0], '');
+                } else if (thisDateMatch) {
+                    const day = parseInt(thisDateMatch[1]);
+                    let targetDate = new Date(now.getFullYear(), now.getMonth(), day);
+                    // If 15th of this month has passed, move to next month
+                    if (targetDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+                        targetDate = new Date(now.getFullYear(), now.getMonth() + 1, day);
+                    }
+                    newDate = formatDateLocal(targetDate);
+                    cleanText = cleanText.replace(thisDateMatch[0], '');
                     lower = cleanText.toLowerCase();
                 }
 
-                // 3. Detect Relative Entities (tomorrow, next week, next monday)
+                // 3. Detect Relative Entities (tomorrow, next week, wed, thu, thur)
                 const relativePatterns = [
                     { regex: /\btomorrow\b/i, offset: 1 },
-                    { regex: /\bnext week\b/i, offset: 7 }, // Next monday usually, but simpler +7
-                    { regex: /\bnext (monday|mon|tuesday|tue|wednesday|wed|thursday|thu|friday|fri|saturday|sat|sunday|sun)\b/i }
+                    { regex: /\bnext week\b/i, offset: 7 },
+                    { regex: /\b(?:next\s+)?(monday|mon|tuesday|tue|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun)\b/i }
                 ];
 
                 for (const p of relativePatterns) {
@@ -5790,14 +5861,21 @@
                         if (p.offset) {
                             target.setDate(now.getDate() + p.offset);
                         } else {
-                            // next [day]
-                            const weekdays = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+                            const weekdays = { 
+                                sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, thur: 4, thurs: 4, fri: 5, sat: 6, 
+                                sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 
+                            };
                             const targetDay = weekdays[match[1].toLowerCase()];
-                            target.setDate(now.getDate() + (targetDay + 7 - now.getDay()) % 7 || 7);
+                            // Calculate days until next occurrence
+                            let diff = (targetDay + 7 - now.getDay()) % 7;
+                            // If it's today, move to next week for "closest future"
+                            if (diff === 0) diff = 7;
+                            target.setDate(now.getDate() + diff);
                         }
-                        newDate = target.toISOString().split('T')[0];
+                        newDate = formatDateLocal(target);
                         cleanText = cleanText.replace(match[0], '');
                         lower = cleanText.toLowerCase();
+                        break; // Only one date per task description
                     }
                 }
 
@@ -5815,7 +5893,7 @@
                         target.setHours(now.getHours() + value);
                     }
                     
-                    newDate = target.toISOString().split('T')[0];
+                    newDate = formatDateLocal(target);
                     newTime = target.getHours().toString().padStart(2, '0') + ':' + target.getMinutes().toString().padStart(2, '0');
                     cleanText = cleanText.replace(relTimeMatch[0], '');
                     lower = cleanText.toLowerCase();
@@ -5824,7 +5902,7 @@
                 // 4. Fallback shared logic
                 if (newDate && !newTime) newTime = '10:00';
                 
-                return { date: newDate, time: newTime, cleanText };
+                return { date: newDate, time: newTime, cleanText, isPending: false };
             };
 
 
@@ -5838,7 +5916,7 @@
                     const target = new Date(now);
                     if (hour >= 18) target.setDate(target.getDate() + 1);
                     return {
-                        date: target.toISOString().split('T')[0],
+                        date: formatDateLocal(target),
                         time: '10:00'
                     };
                 }
@@ -5846,7 +5924,7 @@
                 // 6AM - 6PM -> 4 Hours later
                 const future = new Date(now.getTime() + 4 * 60 * 60 * 1000);
                 return {
-                    date: future.toISOString().split('T')[0],
+                    date: formatDateLocal(future),
                     time: future.getHours().toString().padStart(2, '0') + ':' + future.getMinutes().toString().padStart(2, '0')
                 };
             };
@@ -5864,6 +5942,7 @@
                 return 'later';
             });
             const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+            const [pendingExtraction, setPendingExtraction] = useState(null);
             const dropdownRef = useRef(null);
 
             // Ref to track if a history state was pushed by this modal
@@ -5893,12 +5972,31 @@
                 return () => document.removeEventListener('mousedown', handler);
             }, []);
 
-             const handleTextChange = (val) => {
-                const { date, time, cleanText } = extractDateFromText(val);
-                setText(cleanText);
-                if (date) { setDueDate(date); setShowCustom(true); setSelectedPreset('custom'); }
-                if (time) { setDueTime(time); setShowCustom(true); setSelectedPreset('custom'); }
+              const handleTextChange = (val) => {
+                const { date, time, cleanText, isPending } = extractDateFromText(val);
+                if (isPending) {
+                    setText(val);
+                    setPendingExtraction({ date, time, cleanText });
+                } else {
+                    setText(cleanText);
+                    setPendingExtraction(null);
+                    if (date) { setDueDate(date); setShowCustom(true); setSelectedPreset('custom'); }
+                    if (time) { setDueTime(time); setShowCustom(true); setSelectedPreset('custom'); }
+                }
             };
+
+            useEffect(() => {
+                if (pendingExtraction) {
+                    const timer = setTimeout(() => {
+                        const { date, time, cleanText } = pendingExtraction;
+                        setText(cleanText);
+                        if (date) { setDueDate(date); setShowCustom(true); setSelectedPreset('custom'); }
+                        if (time) { setDueTime(time); setShowCustom(true); setSelectedPreset('custom'); }
+                        setPendingExtraction(null);
+                    }, 2000);
+                    return () => clearTimeout(timer);
+                }
+            }, [pendingExtraction, dueDate, dueTime]);
 
             const handleClose = () => {
                 setIsClosing(true);
@@ -5915,7 +6013,7 @@
             };
 
             const getSelectedLabel = () => {
-                const todayStr = new Date().toISOString().split('T')[0];
+                const todayStr = formatDateLocal();
                 const tomorrowStr = getTomorrow();
                 const nextMonStr = getNextMonday();
 
@@ -6006,7 +6104,7 @@
                                     type="text" 
                                     value={text}
                                     onChange={(e) => handleTextChange(e.target.value)}
-                                    maxLength={120} placeholder="What needs to be done?" 
+                                    placeholder="What needs to be done?" 
                                     className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-cream-light placeholder:text-white/10 focus:ring-2 focus:ring-primary/20 transition-all font-montserrat quick-task-input"
                                     style={{ textTransform: 'capitalize' }}
                                 />
@@ -6036,7 +6134,7 @@
                                                 const m = initialLater.time.split(':')[1];
                                                 const ampm = h >= 12 ? 'PM' : 'AM';
                                                 const h12 = h % 12 || 12;
-                                                const day = initialLater.date === new Date().toISOString().split('T')[0] ? 'Today' : 'Tomorrow';
+                                                const day = initialLater.date === formatDateLocal() ? 'Today' : 'Tomorrow';
                                                 return `${day}, ${h12}:${m} ${ampm}`;
                                             })(), icon: 'wb_twilight', date: initialLater.date, t: initialLater.time },
                                             { id: 'tomorrow', label: 'Tomorrow', time: 'Tomorrow, 10:00 AM', icon: 'event', date: getTomorrow(), t: '10:00' },
@@ -6048,6 +6146,7 @@
                                                 type="button"
                                                 onClick={() => {
                                                     setSelectedPreset(opt.id);
+                                                    setPendingExtraction(null);
                                                     if (opt.id === 'custom') {
                                                         setShowCustom(true);
                                                     } else {
@@ -7039,8 +7138,7 @@
 
             const handleAddQuickTask = useCallback((text, dueDate = '', dueTime = '') => {
                 const formattedText = formatTaskText(text);
-                const truncatedText = formattedText.length > 40 ? formattedText.substring(0, 37) + '...' : formattedText;
-                console.log('🆕 handleAddQuickTask called:', { text: truncatedText, dueDate, dueTime });
+                console.log('🆕 handleAddQuickTask called:', { text: formattedText, dueDate, dueTime });
                 
                 // Calculate timezone-agnostic timestamp for reliable notifications
                 let dueTimestamp = null;
@@ -7051,7 +7149,7 @@
 
                 const newTask = {
                     id: 'qt_' + Date.now(),
-                    text: truncatedText,
+                    text: formattedText,
                     dueDate,
                     dueTime,
                     dueTimestamp,
@@ -7063,10 +7161,59 @@
                 FaioraNotifications.scheduleForTask(newTask);
             }, [handleUpdateQuickTasks]);
 
-            const handleToggleQuickTask = (id) => {
+            const handleUpdateQuickTask = (id, text, dueDate, dueTime) => {
                 let updatedTask = null;
+                let dueTimestamp = null;
+                if (dueDate) {
+                    const dt = new Date(`${dueDate}T${dueTime || '23:59'}`);
+                    if (!isNaN(dt.getTime())) dueTimestamp = dt.getTime();
+                }
+
                 const updated = quickTasks.map(t => {
                     if (t.id === id) {
+                        updatedTask = { ...t, text, dueDate, dueTime, dueTimestamp, updatedAt: Date.now() };
+                        return updatedTask;
+                    }
+                    return t;
+                });
+                
+                if (updatedTask) {
+                    handleUpdateQuickTasks(updated, { [`quickTasks.${id}`]: updatedTask });
+                    FaioraNotifications.scheduleForTask(updatedTask);
+                }
+            };
+
+            const [taskSnackbars, setTaskSnackbars] = useState([]);
+            
+            const addTaskSnackbar = useCallback((message, onUndo) => {
+                const id = Date.now() + Math.random();
+                setTaskSnackbars(prev => [...prev, { id, message, onUndo }]);
+                setTimeout(() => {
+                    setTaskSnackbars(prev => prev.filter(s => s.id !== id));
+                }, 5000);
+            }, []);
+
+            const handleDeleteQuickTask = (id) => {
+                const taskToDelete = quickTasks.find(t => t.id === id);
+                if (!taskToDelete) return;
+
+                FaioraNotifications.cancelForTask(id);
+                const updated = quickTasks.filter(t => t.id !== id);
+                handleUpdateQuickTasks(updated, { [`quickTasks.${id}`]: firebase.firestore.FieldValue.delete() });
+                
+                addTaskSnackbar(`Task deleted`, () => {
+                    const restored = [taskToDelete, ...quickTasksRef.current];
+                    handleUpdateQuickTasks(restored, { [`quickTasks.${taskToDelete.id}`]: taskToDelete });
+                    FaioraNotifications.scheduleForTask(taskToDelete);
+                });
+            };
+
+            const handleToggleQuickTask = (id) => {
+                let updatedTask = null;
+                let oldTask = null;
+                const updated = quickTasks.map(t => {
+                    if (t.id === id) {
+                        oldTask = { ...t };
                         const newStatus = !t.completed;
                         updatedTask = { 
                             ...t, 
@@ -7083,41 +7230,18 @@
                     if (updatedTask.completed) {
                         FaioraNotifications.playCheckSFX();
                         FaioraNotifications.cancelForTask(id);
+                        addTaskSnackbar(`Task completed`, () => {
+                            // UNDO: Set it back to incomplete
+                            const reverted = quickTasksRef.current.map(t => {
+                                if (t.id === id) return { ...t, completed: false, completedAt: null };
+                                return t;
+                            });
+                            handleUpdateQuickTasks(reverted, { [`quickTasks.${id}`]: { ...updatedTask, completed: false, completedAt: null } });
+                        });
                     } else {
                         FaioraNotifications.scheduleForTask(updatedTask);
                     }
                 }
-            };
-
-            const handleUpdateQuickTask = (id, text, dueDate, dueTime) => {
-                let updatedTask = null;
-                const formattedText = formatTaskText(text);
-                const truncatedText = formattedText.length > 40 ? formattedText.substring(0, 37) + '...' : formattedText;
-                
-                let dueTimestamp = null;
-                if (dueDate) {
-                    const dt = new Date(`${dueDate}T${dueTime || '23:59'}`);
-                    if (!isNaN(dt.getTime())) dueTimestamp = dt.getTime();
-                }
-
-                const updated = quickTasks.map(t => {
-                    if (t.id === id) {
-                        updatedTask = { ...t, text: truncatedText, dueDate, dueTime, dueTimestamp, updatedAt: Date.now() };
-                        return updatedTask;
-                    }
-                    return t;
-                });
-                
-                if (updatedTask) {
-                    handleUpdateQuickTasks(updated, { [`quickTasks.${id}`]: updatedTask });
-                    FaioraNotifications.scheduleForTask(updatedTask);
-                }
-            };
-
-            const handleDeleteQuickTask = (id) => {
-                FaioraNotifications.cancelForTask(id);
-                const updated = quickTasks.filter(t => t.id !== id);
-                handleUpdateQuickTasks(updated, { [`quickTasks.${id}`]: firebase.firestore.FieldValue.delete() });
             };
 
             const handleOpenCreator = useCallback(() => {
@@ -7280,6 +7404,19 @@
                     }
                 });
 
+                const handleGlobalKeyDown = (e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                        // Global Undo for tasks
+                        setTaskSnackbars(prev => {
+                            if (prev.length === 0) return prev;
+                            const last = prev[prev.length - 1];
+                            if (last.onUndo) last.onUndo();
+                            return prev.slice(0, -1);
+                        });
+                    }
+                };
+                window.addEventListener('keydown', handleGlobalKeyDown);
+
                 const authTimeout = setTimeout(() => {
                     setIsAuthChecked(true);
                 }, 5000);
@@ -7287,8 +7424,29 @@
                 return () => {
                     unsubscribe();
                     clearTimeout(authTimeout);
+                    window.removeEventListener('keydown', handleGlobalKeyDown);
                 };
             }, []);
+
+            useEffect(() => {
+                const handleBackButton = (e) => {
+                    if (closingViaCode.current) {
+                        closingViaCode.current = false;
+                        return;
+                    }
+                    if (isCreatorOpen) {
+                        setIsCreatorOpen(false);
+                        setEditingNote(null);
+                    }
+                    // Dispatch custom event for internal modal cleanups if needed
+                    window.dispatchEvent(new CustomEvent('faiora-close-popups'));
+                };
+                window.addEventListener('popstate', handleBackButton);
+
+                return () => {
+                    window.removeEventListener('popstate', handleBackButton);
+                };
+            }, [isCreatorOpen]);
 
             useEffect(() => {
                 const timer = setTimeout(() => {
@@ -7428,6 +7586,49 @@
                             <div key={toast.id} className="toast-pill">
                                 <span className="material-symbols-outlined text-primary text-xl">check_circle</span>
                                 {toast.message}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Task Snackbars */}
+                    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] flex flex-col-reverse gap-3 pointer-events-none w-full max-w-sm px-4">
+                        <style>{`
+                            .task-snackbar {
+                                background: rgba(15, 23, 42, 0.9);
+                                backdrop-filter: blur(12px);
+                                border: 1px solid rgba(255, 255, 255, 0.1);
+                                border-radius: 1.25rem;
+                                padding: 0.85rem 1.25rem;
+                                display: flex;
+                                items-center;
+                                justify-content: space-between;
+                                color: #f8fafc;
+                                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+                                pointer-events: auto;
+                                animation: snackbar-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                            }
+                            @keyframes snackbar-in {
+                                from { opacity: 0; transform: translateY(20px) scale(0.9); }
+                                to { opacity: 1; transform: translateY(0) scale(1); }
+                            }
+                        `}</style>
+                        {taskSnackbars.slice(-1).map(snack => (
+                            <div key={snack.id} className="task-snackbar group">
+                                <div className="flex items-center gap-3">
+                                    <span className="material-symbols-outlined text-primary text-xl">
+                                        {snack.message.includes('deleted') ? 'delete' : 'check_circle'}
+                                    </span>
+                                    <span className="text-sm font-medium">{snack.message}</span>
+                                </div>
+                                <button 
+                                    onClick={() => {
+                                        snack.onUndo();
+                                        setTaskSnackbars(prev => prev.filter(s => s.id !== snack.id));
+                                    }}
+                                    className="text-primary text-xs font-bold uppercase tracking-wider px-3 py-1.5 hover:bg-primary/10 rounded-lg transition-colors"
+                                >
+                                    Undo
+                                </button>
                             </div>
                         ))}
                     </div>
