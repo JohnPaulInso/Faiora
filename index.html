@@ -5570,50 +5570,131 @@
             );
         };
 
-        const StatsPage = ({ user, onOpenCreator }) => (
-            <Layout onOpenCreator={onOpenCreator}>
-                <div className="max-w-7xl mx-auto w-full px-0 md:px-12 pt-0 md:pt-10 pb-32">
-                    <Header user={user} subtitle="Productivity Statistics" />
-                    <div className="px-4 md:px-0">
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                            <div className="lg:col-span-4 glass-panel rounded-3xl p-8 flex flex-col items-center justify-center card-glow">
-                                <h3 className="text-xl font-display font-bold text-cream-light italic mb-8 w-full">Overall Progress</h3>
-                                <div className="relative w-56 h-56 flex items-center justify-center">
-                                    <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                                        <circle cx="50" cy="50" fill="transparent" r="42" stroke="rgba(255,255,255,0.05)" strokeWidth="8"></circle>
-                                        <circle cx="50" cy="50" fill="transparent" r="42" stroke="#f97316" strokeDasharray="211 264" strokeLinecap="round" strokeWidth="8"></circle>
-                                    </svg>
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                        <span className="text-4xl font-display font-bold text-cream-light">80%</span>
-                                        <span className="text-[10px] font-bold text-primary/60 uppercase tracking-widest mt-1">Completed</span>
+        const StatsPage = ({ user, onOpenCreator, quickTasks = [] }) => {
+            const stats = useMemo(() => {
+                const all = Array.isArray(quickTasks) ? quickTasks : [];
+                const completed = all.filter(t => t.completed);
+                const pending = all.filter(t => !t.completed);
+                const total = all.length;
+                const completionRate = total ? Math.round((completed.length / total) * 100) : 0;
+
+                const startOfToday = new Date();
+                startOfToday.setHours(0, 0, 0, 0);
+                const endOfToday = new Date(startOfToday);
+                endOfToday.setDate(endOfToday.getDate() + 1);
+
+                const doneToday = completed.filter(t => t.completedAt && t.completedAt >= startOfToday.getTime() && t.completedAt < endOfToday.getTime()).length;
+                const overdue = pending.filter(t => {
+                    if (!t.dueDate) return false;
+                    const due = new Date(`${t.dueDate}T${t.dueTime || '23:59'}`).getTime();
+                    return !isNaN(due) && due < Date.now();
+                }).length;
+
+                const weekBuckets = Array.from({ length: 7 }).map((_, idx) => {
+                    const d = new Date(startOfToday);
+                    d.setDate(d.getDate() - (6 - idx));
+                    const key = d.toLocaleDateString('en-US', { weekday: 'short' });
+                    return { key, done: 0 };
+                });
+
+                completed.forEach(t => {
+                    if (!t.completedAt) return;
+                    const d = new Date(t.completedAt);
+                    d.setHours(0, 0, 0, 0);
+                    const diffDays = Math.floor((startOfToday.getTime() - d.getTime()) / (24 * 60 * 60 * 1000));
+                    if (diffDays >= 0 && diffDays < 7) {
+                        const idx = 6 - diffDays;
+                        weekBuckets[idx].done += 1;
+                    }
+                });
+
+                return { total, completed: completed.length, pending: pending.length, completionRate, doneToday, overdue, weekBuckets };
+            }, [quickTasks]);
+
+            const ringCirc = 2 * Math.PI * 42;
+            const ringProgress = (ringCirc * stats.completionRate) / 100;
+            const weeklyMax = Math.max(1, ...stats.weekBuckets.map(b => b.done));
+
+            return (
+                <Layout onOpenCreator={onOpenCreator}>
+                    <div className="max-w-7xl mx-auto w-full px-0 md:px-12 pt-0 md:pt-10 pb-24">
+                        <Header user={user} subtitle="Productivity Statistics" />
+                        <div className="px-4 md:px-0 space-y-6 md:space-y-8">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
+                                <div className="glass-panel rounded-2xl p-4 md:p-5">
+                                    <p className="text-[10px] uppercase tracking-widest text-cream-light/40 font-bold">Total Tasks</p>
+                                    <p className="text-2xl md:text-3xl font-display text-cream-light mt-2">{stats.total}</p>
+                                </div>
+                                <div className="glass-panel rounded-2xl p-4 md:p-5">
+                                    <p className="text-[10px] uppercase tracking-widest text-cream-light/40 font-bold">Completed</p>
+                                    <p className="text-2xl md:text-3xl font-display text-green-300 mt-2">{stats.completed}</p>
+                                </div>
+                                <div className="glass-panel rounded-2xl p-4 md:p-5">
+                                    <p className="text-[10px] uppercase tracking-widest text-cream-light/40 font-bold">Done Today</p>
+                                    <p className="text-2xl md:text-3xl font-display text-primary mt-2">{stats.doneToday}</p>
+                                </div>
+                                <div className="glass-panel rounded-2xl p-4 md:p-5">
+                                    <p className="text-[10px] uppercase tracking-widest text-cream-light/40 font-bold">Overdue</p>
+                                    <p className="text-2xl md:text-3xl font-display text-red-300 mt-2">{stats.overdue}</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+                                <div className="lg:col-span-4 glass-panel rounded-3xl p-6 md:p-8 flex flex-col items-center justify-center card-glow">
+                                    <h3 className="text-xl font-display font-bold text-cream-light italic mb-6 w-full">Overall Progress</h3>
+                                    <div className="relative w-48 h-48 md:w-56 md:h-56 flex items-center justify-center">
+                                        <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                                            <circle cx="50" cy="50" fill="transparent" r="42" stroke="rgba(255,255,255,0.08)" strokeWidth="8"></circle>
+                                            <circle cx="50" cy="50" fill="transparent" r="42" stroke="#f97316" strokeDasharray={`${ringProgress} ${ringCirc}`} strokeLinecap="round" strokeWidth="8"></circle>
+                                        </svg>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className="text-4xl font-display font-bold text-cream-light">{stats.completionRate}%</span>
+                                            <span className="text-[10px] font-bold text-primary/60 uppercase tracking-widest mt-1">Completed</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="lg:col-span-8 glass-panel rounded-3xl p-6 md:p-8 card-glow">
+                                    <h3 className="text-xl font-display font-bold text-cream-light italic mb-6">Weekly Momentum</h3>
+                                    <div className="grid grid-cols-7 gap-2 md:gap-3 items-end h-44 md:h-52">
+                                        {stats.weekBuckets.map(bucket => {
+                                            const pct = Math.max(8, Math.round((bucket.done / weeklyMax) * 100));
+                                            return (
+                                                <div key={bucket.key} className="flex flex-col items-center justify-end h-full">
+                                                    <div className="w-full rounded-xl bg-white/5 border border-white/5 overflow-hidden h-full flex items-end">
+                                                        <div className="w-full bg-gradient-to-t from-primary to-orange-300/80 rounded-xl transition-all duration-300" style={{ height: `${pct}%` }}></div>
+                                                    </div>
+                                                    <p className="text-[9px] md:text-[10px] text-cream-light/50 mt-2 uppercase tracking-wider font-bold">{bucket.key}</p>
+                                                    <p className="text-[10px] text-cream-light/70 font-bold">{bucket.done}</p>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>
-                            <div className="lg:col-span-8 glass-panel rounded-3xl p-8 card-glow">
-                                <h3 className="text-xl font-display font-bold text-cream-light italic mb-8">Completion per List</h3>
-                                <div className="space-y-8">
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between text-xs font-sans font-medium text-cream-light/60"><span>Priority 3A</span><span>92%</span></div>
-                                        <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-                                            <div className="h-full bg-pastel-orange rounded-full" style={{width: '92%'}}></div>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between text-xs font-sans font-medium text-cream-light/60"><span>Errands</span><span>75%</span></div>
-                                        <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-                                            <div className="h-full bg-pastel-peach rounded-full" style={{width: '75%'}}></div>
-                                        </div>
-                                    </div>
-                                </div>
+
+                            <div className="glass-panel rounded-3xl p-6 md:p-8">
+                                <h3 className="text-lg md:text-xl font-display font-bold text-cream-light italic mb-4">Insight</h3>
+                                <p className="text-sm md:text-base text-cream-light/70 font-sans leading-relaxed">
+                                    {stats.total === 0
+                                        ? "Start by adding your first quick task. Your progress analytics will appear here automatically."
+                                        : stats.completionRate >= 80
+                                            ? "Excellent consistency. Keep your momentum by clearing overdue tasks first to maintain high completion."
+                                            : stats.completionRate >= 50
+                                                ? "Good pace. A quick win is finishing 2-3 pending tasks today to push your completion above 70%."
+                                                : "You have room to recover. Focus on completing today's tasks first before adding new ones."}
+                                </p>
                             </div>
                         </div>
                     </div>
-                </div>
-            </Layout>
-        );
+                </Layout>
+            );
+        };
 
         const StreakPage = ({ user, onOpenCreator, gamification }) => {
             const rewards = gamification?.rewards || [];
+            const currentStreak = gamification?.currentStreak || 0;
+            const streakUnit = currentStreak === 1 ? 'DAY' : 'DAYS';
             return (
                 <Layout onOpenCreator={onOpenCreator}>
                     <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-0 md:pt-12 pb-12">
@@ -5623,7 +5704,7 @@
                                 <div className="relative mb-6">
                                     <span className="material-symbols-outlined text-[120px] text-primary glow-orange leading-none relative z-10" style={{fontVariationSettings: "'FILL' 1"}}>local_fire_department</span>
                                 </div>
-                                <h2 className="text-8xl font-black text-primary italic glow-orange tracking-tighter mb-2">{gamification?.currentStreak || 0} DAYS</h2>
+                                <h2 className="text-8xl font-black text-primary italic glow-orange tracking-tighter mb-2">{currentStreak} {streakUnit}</h2>
                                 <p className="text-cream-light/40 text-lg uppercase tracking-[0.5em] font-sans font-bold">Current Streak</p>
                                 <p className="text-cream-light/30 text-xs mt-2 uppercase tracking-wider">Best: {gamification?.longestStreak || 0} days</p>
                             </section>
@@ -6701,6 +6782,19 @@
             const [settingsData, setSettingsData] = useState({});
             const [gamification, setGamification] = useState({ currentStreak: 0, longestStreak: 0, lastLoginDate: null, rewards: [] });
 
+            const normalizeQuickTasks = useCallback((tasks = []) => {
+                const seen = new Set();
+                return (Array.isArray(tasks) ? tasks : []).map((task, idx) => {
+                    const baseId = (task && task.id) ? String(task.id) : `qt_legacy_${Date.now()}_${idx}`;
+                    let nextId = baseId;
+                    if (seen.has(nextId)) {
+                        nextId = `${baseId}_${idx}_${Math.random().toString(36).slice(2, 6)}`;
+                    }
+                    seen.add(nextId);
+                    return { ...task, id: nextId };
+                });
+            }, []);
+
             // Note Locking State
             const [lockedNoteId, setLockedNoteId] = useState(null);
             const [unlockCallback, setUnlockCallback] = useState(null);
@@ -6902,8 +6996,9 @@
                     const localData = JSON.parse(localStorage.getItem(lsKey) || '[]');
                     setNotes(localData);
                     
-                    const localQT = JSON.parse(localStorage.getItem(qtKey) || '[]');
+                    const localQT = normalizeQuickTasks(JSON.parse(localStorage.getItem(qtKey) || '[]'));
                     setQuickTasks(localQT);
+                    localStorage.setItem(qtKey, JSON.stringify(localQT));
                     FaioraNotifications.rescheduleAll(localQT);
                     const localAlarms = JSON.parse(localStorage.getItem(alarmKey) || '[]');
                     setAlarms(localAlarms);
@@ -6922,10 +7017,10 @@
                         let fetchedAlarms = [];
                         if (data.quickTasks) {
                             if (Array.isArray(data.quickTasks)) {
-                                fetchedQuickTasks = data.quickTasks;
+                                fetchedQuickTasks = normalizeQuickTasks(data.quickTasks);
                             } else {
                                 // Convert Map to Array for React state, sorted by createdAt
-                                fetchedQuickTasks = Object.values(data.quickTasks).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+                                fetchedQuickTasks = normalizeQuickTasks(Object.values(data.quickTasks)).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
                             }
                         }
                         if (data.alarms) {
@@ -6977,7 +7072,7 @@
                 });
 
                 return () => unsubscribe();
-            }, [user, activeCollection, rescheduleAlarms]);
+            }, [user, activeCollection, rescheduleAlarms, normalizeQuickTasks]);
 
             // 3. Shared Notes Discovery (Email-based)
             useEffect(() => {
@@ -7544,23 +7639,18 @@
             }, [handleUpdateQuickTasks]);
 
             const handleUpdateQuickTask = (id, text, dueDate, dueTime) => {
-                let updatedTask = null;
                 let dueTimestamp = null;
                 if (dueDate) {
                     const dt = new Date(`${dueDate}T${dueTime || '23:59'}`);
                     if (!isNaN(dt.getTime())) dueTimestamp = dt.getTime();
                 }
 
-                const updated = quickTasks.map(t => {
-                    if (t.id === id) {
-                        updatedTask = { ...t, text, dueDate, dueTime, dueTimestamp, updatedAt: Date.now() };
-                        return updatedTask;
-                    }
-                    return t;
-                });
-                
-                if (updatedTask) {
-                    handleUpdateQuickTasks(updated, { [`quickTasks.${id}`]: updatedTask });
+                const targetIndex = quickTasks.findIndex(t => t.id === id);
+                if (targetIndex > -1) {
+                    const updated = [...quickTasks];
+                    const updatedTask = { ...updated[targetIndex], text, dueDate, dueTime, dueTimestamp, updatedAt: Date.now() };
+                    updated[targetIndex] = updatedTask;
+                    handleUpdateQuickTasks(updated);
                     FaioraNotifications.scheduleForTask(updatedTask);
                 }
             };
@@ -7576,49 +7666,45 @@
             }, []);
 
             const handleDeleteQuickTask = (id) => {
-                const taskToDelete = quickTasks.find(t => t.id === id);
+                const targetIndex = quickTasks.findIndex(t => t.id === id);
+                const taskToDelete = targetIndex > -1 ? quickTasks[targetIndex] : null;
                 if (!taskToDelete) return;
 
                 FaioraNotifications.cancelForTask(id);
-                const updated = quickTasks.filter(t => t.id !== id);
-                handleUpdateQuickTasks(updated, { [`quickTasks.${id}`]: firebase.firestore.FieldValue.delete() });
+                const updated = [...quickTasks];
+                updated.splice(targetIndex, 1);
+                handleUpdateQuickTasks(updated);
                 
                 addTaskSnackbar(`Task deleted`, () => {
                     const restored = [taskToDelete, ...quickTasksRef.current];
-                    handleUpdateQuickTasks(restored, { [`quickTasks.${taskToDelete.id}`]: taskToDelete });
+                    handleUpdateQuickTasks(restored);
                     FaioraNotifications.scheduleForTask(taskToDelete);
                 });
             };
 
             const handleToggleQuickTask = (id) => {
-                let updatedTask = null;
-                let oldTask = null;
-                const updated = quickTasks.map(t => {
-                    if (t.id === id) {
-                        oldTask = { ...t };
-                        const newStatus = !t.completed;
-                        updatedTask = { 
-                            ...t, 
-                            completed: newStatus,
-                            completedAt: newStatus ? Date.now() : null 
-                        };
-                        return updatedTask;
-                    }
-                    return t;
-                });
-                
-                if (updatedTask) {
-                    handleUpdateQuickTasks(updated, { [`quickTasks.${id}`]: updatedTask });
+                const targetIndex = quickTasks.findIndex(t => t.id === id);
+                if (targetIndex > -1) {
+                    const updated = [...quickTasks];
+                    const original = updated[targetIndex];
+                    const updatedTask = {
+                        ...original,
+                        completed: !original.completed,
+                        completedAt: !original.completed ? Date.now() : null
+                    };
+                    updated[targetIndex] = updatedTask;
+                    handleUpdateQuickTasks(updated);
                     if (updatedTask.completed) {
                         FaioraNotifications.playCheckSFX();
                         FaioraNotifications.cancelForTask(id);
                         addTaskSnackbar(`Task completed`, () => {
                             // UNDO: Set it back to incomplete
-                            const reverted = quickTasksRef.current.map(t => {
-                                if (t.id === id) return { ...t, completed: false, completedAt: null };
-                                return t;
-                            });
-                            handleUpdateQuickTasks(reverted, { [`quickTasks.${id}`]: { ...updatedTask, completed: false, completedAt: null } });
+                            const reverted = [...quickTasksRef.current];
+                            const undoIndex = reverted.findIndex(t => t.id === id);
+                            if (undoIndex > -1) {
+                                reverted[undoIndex] = { ...reverted[undoIndex], completed: false, completedAt: null };
+                                handleUpdateQuickTasks(reverted);
+                            }
                         });
                     } else {
                         FaioraNotifications.scheduleForTask(updatedTask);
@@ -7917,7 +8003,7 @@
                                  }}
                             />
                         } />
-                        <Route path="/stats" element={<StatsPage user={user} onOpenCreator={handleOpenCreator} />} />
+                        <Route path="/stats" element={<StatsPage user={user} onOpenCreator={handleOpenCreator} quickTasks={quickTasks} />} />
                         <Route path="/streak" element={<StreakPage user={user} onOpenCreator={handleOpenCreator} gamification={gamification} />} />
                         <Route path="/clock" element={<ClockPage user={user} onOpenCreator={handleOpenCreator} alarms={alarms} onAddAlarm={handleAddAlarm} onToggleAlarm={handleToggleAlarm} onDeleteAlarm={handleDeleteAlarm} />} />
                         <Route path="/profile" element={<ProfilePage user={user} onOpenCreator={handleOpenCreator} profileData={profileData} onSaveProfile={handleSaveProfile} />} />
