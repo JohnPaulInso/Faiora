@@ -452,10 +452,6 @@
                     if (item.timestamp < now) {
                         // missed!
                         sendNotification(item.title, item.body, tag);
-                        // Sync to localStorage for offline catch-up
-                        const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                        scheduled[tag] = { title: item.title, body: item.body, timestamp: dueMs };
-                        localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                         delete scheduled[tag];
                         hasMissed = true;
                     }
@@ -589,7 +585,12 @@
                 }
             };
 
-            return { isSwReady: () => swReady, checkMissedNotifications, requestPermission, testNotification, registerFCMToken, scheduleForTask, cancelForTask, rescheduleAll, playCheckSFX, checkCloudHealth };
+            const notifyNow = (title, body, tag = 'faiora-generic') => {
+                if (Notification.permission !== 'granted') return;
+                sendNotification(title, body, tag);
+            };
+
+            return { isSwReady: () => swReady, checkMissedNotifications, requestPermission, testNotification, registerFCMToken, scheduleForTask, cancelForTask, rescheduleAll, playCheckSFX, checkCloudHealth, notifyNow };
         })();
         
         // --- Shared Components ---
@@ -792,7 +793,7 @@
             const handleFabClick = onFabClick || onOpenCreator;
             
             const content = (
-                <main className={`flex-1 overflow-y-auto no-scrollbar relative pt-0 pb-24 md:pb-12 ${noPadding ? 'px-0' : 'px-0 md:px-48'} md:ml-24`}>
+                <main className={`flex-1 overflow-y-auto no-scrollbar relative pt-0 pb-24 md:pb-12 ${noPadding ? 'px-0' : 'px-0 md:px-18'} md:ml-24`}>
                     {children}
                     <button 
                         onClick={handleFabClick}
@@ -820,6 +821,7 @@
             const [notifStatus, setNotifStatus] = useState(Notification.permission);
             const [cloudStatus, setCloudStatus] = useState('checking');
             const menuRef = useRef();
+            const navigate = useNavigate();
 
             useEffect(() => {
                 if (isOpen && user) {
@@ -968,11 +970,11 @@
 
                             <div className="h-px bg-white/5 my-2"></div>
                             
-                            <button className="flex items-center gap-3 w-full p-3 hover:bg-white/10 rounded-2xl text-white/70 hover:text-primary transition-all text-sm group">
+                            <button onClick={() => { setIsOpen(false); navigate('/profile'); }} className="flex items-center gap-3 w-full p-3 hover:bg-white/10 rounded-2xl text-white/70 hover:text-primary transition-all text-sm group">
                                 <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">person</span>
                                 Profile
                             </button>
-                            <button className="flex items-center gap-3 w-full p-3 hover:bg-white/10 rounded-2xl text-white/70 hover:text-primary transition-all text-sm group">
+                            <button onClick={() => { setIsOpen(false); navigate('/settings'); }} className="flex items-center gap-3 w-full p-3 hover:bg-white/10 rounded-2xl text-white/70 hover:text-primary transition-all text-sm group">
                                 <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">settings</span>
                                 Settings
                             </button>
@@ -1179,6 +1181,7 @@
             const [publicShareToken, setPublicShareToken] = useState(editingNote ? editingNote.publicShareToken || '' : '');
             const fileInputRef = useRef(null);
             const editorRef = useRef(null);
+            const modalRef = useRef(null);
             const initialContent = useMemo(() => editingNote ? editingNote.content || '' : '', [editingNote]);
             const hasChangesRef = useRef(false);
             const editingNoteRef = useRef(editingNote);
@@ -1196,36 +1199,15 @@
             React.useEffect(() => {
                 if (!window.visualViewport) return;
                 const handleViewportChange = () => {
-                    const footer = document.querySelector('.task-creator-footer');
-                    if (!footer) return;
+                    const modal = modalRef.current;
+                    if (!modal) return;
                     const viewport = window.visualViewport;
-                    const offset = window.innerHeight - viewport.height - viewport.offsetTop;
-                    if (offset > 50) {
-                        footer.style.bottom = offset + 'px';
-                        footer.style.position = 'fixed';
-                        footer.style.left = '0';
-                        footer.style.right = '0';
-                        footer.style.zIndex = '1000';
-                        
-                        // Center cursor in viewport
-                        const selection = window.getSelection();
-                        if (selection.rangeCount > 0) {
-                            const range = selection.getRangeAt(0);
-                            let node = range.startContainer;
-                            if (node.nodeType === 3) node = node.parentElement;
-                            if (node && node.closest('.note-editor-area')) {
-                                setTimeout(() => {
-                                    node.scrollIntoView({ block: 'center', behavior: 'auto' });
-                                }, 100);
-                            }
-                        }
-                    } else {
-                        footer.style.bottom = '';
-                        footer.style.position = '';
-                    }
+                    const keyboardOffset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+                    modal.style.setProperty('--faiora-keyboard-offset', keyboardOffset > 40 ? `${keyboardOffset}px` : '0px');
                 };
                 window.visualViewport.addEventListener('resize', handleViewportChange);
                 window.visualViewport.addEventListener('scroll', handleViewportChange);
+                handleViewportChange();
                 return () => {
                     window.visualViewport.removeEventListener('resize', handleViewportChange);
                     window.visualViewport.removeEventListener('scroll', handleViewportChange);
@@ -2394,8 +2376,44 @@
             };
 
             const handlePaste = (e) => {
+                const clipboardData = e.clipboardData || window.clipboardData;
+                if (!clipboardData) return;
+                const items = clipboardData.items || [];
+                const imageItem = Array.from(items).find(item => item.kind === 'file' && item.type.startsWith('image/'));
+                if (imageItem) {
+                    e.preventDefault();
+                    const blob = imageItem.getAsFile();
+                    if (blob) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            const src = event.target && event.target.result ? event.target.result : '';
+                            if (!src) return;
+                            const imgHtml = `
+                                <div class="resizable-image-container selected" contenteditable="false">
+                                    <div class="image-toolbar">
+                                        <button class="image-action-btn danger" data-action="image-delete">
+                                            <span class="material-symbols-outlined text-[16px]">delete</span>
+                                            Delete
+                                        </button>
+                                    </div>
+                                    <img src="${src}" class="resizable-image selected" style="width: 250px" />
+                                    <div class="resize-handle tl"></div>
+                                    <div class="resize-handle tr"></div>
+                                    <div class="resize-handle bl"></div>
+                                    <div class="resize-handle br"></div>
+                                </div>
+                            `;
+                            document.execCommand('insertHTML', false, imgHtml + '<div>&nbsp;</div>');
+                            setHasChanges(true);
+                            hasChangesRef.current = true;
+                            saveState();
+                        };
+                        reader.readAsDataURL(blob);
+                    }
+                    return;
+                }
                 e.preventDefault();
-                const text = (e.clipboardData || window.clipboardData).getData('text');
+                const text = clipboardData.getData('text');
                 document.execCommand('insertText', false, text);
             };
 
@@ -2530,7 +2548,7 @@
                 <div className={"fixed inset-0 z-[110] flex items-center justify-center transition-all duration-300 " + (isFullscreen ? "p-0" : "p-0 md:p-8") + " " + (isClosing ? 'opacity-0 scale-95 pointer-events-none' : 'animate-in fade-in duration-500')}>
                     <div className={"absolute inset-0 bg-black/70 backdrop-blur-2xl transition-opacity duration-300 hidden md:block " + (isClosing ? 'opacity-0' : '')} onClick={handleClose}></div>
                     
-                    <div className={"task-creator-modal w-full max-w-full h-full overflow-hidden flex flex-col relative z-10 shadow-2xl transition-all duration-250 " + (isFullscreen ? "md:max-w-full md:h-[100dvh] md:rounded-none !p-0 !m-0" : "md:max-w-4xl md:h-[85vh] md:rounded-[2rem]") + " " + (isClosing ? 'opacity-0 scale-95 translate-y-20 md:translate-y-0 ease-in' : 'animate-in zoom-in-95 duration-500 ease-out') + ' transition-colors duration-500 ' + currentThemeClass}>
+                    <div ref={modalRef} style={{ transform: 'translateY(calc(-1 * var(--faiora-keyboard-offset, 0px)))' }} className={"task-creator-modal w-full max-w-full h-full overflow-hidden flex flex-col relative z-10 shadow-2xl transition-all duration-250 " + (isFullscreen ? "md:max-w-full md:h-[100dvh] md:rounded-none !p-0 !m-0" : "md:max-w-4xl md:h-[85vh] md:rounded-[2rem]") + " " + (isClosing ? 'opacity-0 scale-95 translate-y-20 md:translate-y-0 ease-in' : 'animate-in zoom-in-95 duration-500 ease-out') + ' transition-colors duration-500 ' + currentThemeClass}>
                         
                         {/* Top Progress Bar Slider */}
                         <div 
@@ -2727,7 +2745,7 @@
                                 />
                             </div>
                         </div>
-                        <div className="task-creator-footer mt-auto flex items-center justify-between p-1.5 md:p-3 bg-white/50 backdrop-blur-xl border-t border-black/5 relative z-[100] gap-1 md:gap-2 overflow-visible">
+                        <div className="task-creator-footer mt-auto flex items-center justify-between p-1 md:p-2 bg-white/50 backdrop-blur-xl border-t border-black/5 relative z-[100] gap-1 md:gap-2 overflow-visible">
                             {/* Left Side: Main Tools Group */}
                             <div className="flex items-center gap-0 md:gap-1 flex-nowrap overflow-visible">
                                 {/* Nested Horizontal Formatting Dropdown */}
@@ -3139,7 +3157,27 @@
                                              </button>
                                              <button onClick={() => { 
                                                  if(confirm("Duplicate this note?")) {
-                                                     alert("Note duplicated (Simulated)");
+                                                    const duplicatedId = 'note_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+                                                    const duplicated = {
+                                                        ...(editingNoteRef.current || {}),
+                                                        id: duplicatedId,
+                                                        title: `${title || 'Untitled'} (Copy)`,
+                                                        content: editorRef.current ? editorRef.current.innerHTML : content,
+                                                        isPinned: false,
+                                                        updatedAt: new Date().toISOString()
+                                                    };
+                                                    if (onUpdateNote) onUpdateNote(duplicated);
+                                                    if (user && activeCollection) {
+                                                        db.collection(activeCollection).doc(user.uid).set({
+                                                            notes: {
+                                                                [duplicatedId]: {
+                                                                    ...duplicated,
+                                                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                                                }
+                                                            }
+                                                        }, { merge: true }).catch(() => {});
+                                                    }
+                                                    showToast("Note duplicated");
                                                      handleSetActivePopup(null);
                                                  }
                                              }} className="menu-item font-montserrat">
@@ -3249,9 +3287,28 @@
                                                                  if(e.key === 'Enter' && shareEmail.trim()) {
                                                                      const email = shareEmail.trim().toLowerCase();
                                                                      if(!sharedWith.includes(email)) {
-                                                                         setSharedWith([...sharedWith, email]);
+                                                                        const nextShared = [...sharedWith, email];
+                                                                        setSharedWith(nextShared);
                                                                          setHasChanges(true);
                                                                          hasChangesRef.current = true;
+                                                                        let token = publicShareToken;
+                                                                        if (!token) {
+                                                                            token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                                                                            setPublicShareToken(token);
+                                                                        }
+                                                                        const url = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share_note.html#/${token}`;
+                                                                        saveToFirestore({ sharedWith: nextShared, publicShareToken: token }, true);
+                                                                        db.collection('shared_access').doc(`${noteId}_${email}`).set({
+                                                                            noteId,
+                                                                            ownerId: user?.uid || 'guest',
+                                                                            ownerCollection: activeCollection || 'tasks',
+                                                                            sharedWith: email,
+                                                                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                                                            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                                                            link: url
+                                                                        }, { merge: true }).catch(() => {});
+                                                                        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent('Faiora note invite')}&body=${encodeURIComponent('You were invited to collaborate on a note:\\n\\n' + url)}`;
+                                                                        window.open(gmailUrl, '_blank');
                                                                      }
                                                                      setShareEmail("");
                                                                  }
@@ -3262,9 +3319,28 @@
                                                                  if(shareEmail.trim()) {
                                                                      const email = shareEmail.trim().toLowerCase();
                                                                      if(!sharedWith.includes(email)) {
-                                                                         setSharedWith([...sharedWith, email]);
+                                                                        const nextShared = [...sharedWith, email];
+                                                                        setSharedWith(nextShared);
                                                                          setHasChanges(true);
                                                                          hasChangesRef.current = true;
+                                                                        let token = publicShareToken;
+                                                                        if (!token) {
+                                                                            token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                                                                            setPublicShareToken(token);
+                                                                        }
+                                                                        const url = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share_note.html#/${token}`;
+                                                                        saveToFirestore({ sharedWith: nextShared, publicShareToken: token }, true);
+                                                                        db.collection('shared_access').doc(`${noteId}_${email}`).set({
+                                                                            noteId,
+                                                                            ownerId: user?.uid || 'guest',
+                                                                            ownerCollection: activeCollection || 'tasks',
+                                                                            sharedWith: email,
+                                                                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                                                            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                                                            link: url
+                                                                        }, { merge: true }).catch(() => {});
+                                                                        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent('Faiora note invite')}&body=${encodeURIComponent('You were invited to collaborate on a note:\\n\\n' + url)}`;
+                                                                        window.open(gmailUrl, '_blank');
                                                                      }
                                                                      setShareEmail("");
                                                                  }
@@ -3276,7 +3352,14 @@
                                                          {sharedWith.map(email => (
                                                              <span key={email} className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 px-2 py-1 rounded-lg text-[10px] font-bold">
                                                                  {email}
-                                                                  <button onClick={() => { setSharedWith(sharedWith.filter(e => e !== email)); setHasChanges(true); hasChangesRef.current = true; }} className="hover:text-red-500">
+                                                                 <button onClick={() => { 
+                                                                    const nextShared = sharedWith.filter(e => e !== email);
+                                                                    setSharedWith(nextShared);
+                                                                    setHasChanges(true);
+                                                                    hasChangesRef.current = true;
+                                                                    saveToFirestore({ sharedWith: nextShared }, true);
+                                                                    db.collection('shared_access').doc(`${noteId}_${email}`).delete().catch(() => {});
+                                                                 }} className="hover:text-red-500">
                                                                      <span className="material-symbols-outlined text-xs">close</span>
                                                                  </button>
                                                              </span>
@@ -3783,9 +3866,6 @@
                          return timeB - timeA;
                      })
              );
-            const [visibleTasksCount, setVisibleTasksCount] = useState(10);
-            const [showAllTasks, setShowAllTasks] = useState(false);
-
             const sortedQuickTasks = useMemo(() => {
                 const tasks = [...quickTasks];
                 tasks.sort((a, b) => {
@@ -3816,16 +3896,53 @@
                 return tasks;
             }, [quickTasks]);
 
-            const displayTasks = useMemo(() => {
-                const incompleteTasks = sortedQuickTasks.filter(t => !t.completed);
-                const completedTasks = sortedQuickTasks.filter(t => t.completed);
-                
-                if (incompleteTasks.length >= visibleTasksCount) {
-                    return incompleteTasks.slice(0, visibleTasksCount);
-                } else {
-                    return [...incompleteTasks, ...completedTasks.slice(0, visibleTasksCount - incompleteTasks.length)];
-                }
-            }, [sortedQuickTasks, visibleTasksCount]);
+            const groupedQuickTasks = useMemo(() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const inTwoDays = new Date(today);
+                inTwoDays.setDate(inTwoDays.getDate() + 2);
+                const weekEnd = new Date(today);
+                weekEnd.setDate(weekEnd.getDate() + 7);
+
+                const groups = {
+                    today: [],
+                    tomorrow: [],
+                    in2days: [],
+                    thisWeek: [],
+                    completed: []
+                };
+
+                sortedQuickTasks.forEach(task => {
+                    if (task.completed) {
+                        groups.completed.push(task);
+                        return;
+                    }
+                    if (!task.dueDate) {
+                        groups.today.push(task);
+                        return;
+                    }
+                    const due = new Date(`${task.dueDate}T00:00:00`);
+                    if (isNaN(due.getTime())) {
+                        groups.thisWeek.push(task);
+                        return;
+                    }
+                    if (due.getTime() <= today.getTime()) {
+                        groups.today.push(task);
+                    } else if (due.getTime() === tomorrow.getTime()) {
+                        groups.tomorrow.push(task);
+                    } else if (due.getTime() === inTwoDays.getTime()) {
+                        groups.in2days.push(task);
+                    } else if (due.getTime() <= weekEnd.getTime()) {
+                        groups.thisWeek.push(task);
+                    } else {
+                        groups.thisWeek.push(task);
+                    }
+                });
+
+                return groups;
+            }, [sortedQuickTasks]);
 
             // Sync localNotes with notes prop when not dragging
             useEffect(() => {
@@ -4024,7 +4141,7 @@
 
             return (
                 <Layout onOpenCreator={onOpenCreator} onFabClick={onAddQuickTaskClick} onRefresh={handleRefresh}>
-                    <div className="max-w-7xl mx-auto w-full px-0 md:px-0 pt-0 md:pt-12 pb-12">
+                    <div className="max-w-7xl mx-auto w-full px-0 md:px-12 pt-0 md:pt-12 pb-12">
                         <Header user={user} />
                         <section className="mt-3 md:mt-8 mb-12 md:mb-16 px-4 md:px-0">
                             <div className="flex items-center gap-4 mb-6 pt-2 md:mb-10">
@@ -4120,27 +4237,35 @@
                                     </div>
                                 ) : (
                                     <React.Fragment>
-                                        <div className="space-y-4">
-                                            {displayTasks.map(task => (
-                                                <QuickTaskItem 
-                                                    key={task.id}
-                                                    task={task}
-                                                    onToggle={onToggleQuickTask}
-                                                    onDelete={onDeleteQuickTask}
-                                                    onEdit={onEditQuickTask}
-                                                />
+                                        <div className="space-y-8">
+                                            {[
+                                                { key: 'today', label: 'Today', items: groupedQuickTasks.today },
+                                                { key: 'tomorrow', label: 'Tomorrow', items: groupedQuickTasks.tomorrow },
+                                                { key: 'in2days', label: 'In 2 Days', items: groupedQuickTasks.in2days },
+                                                { key: 'thisWeek', label: 'This Week', items: groupedQuickTasks.thisWeek },
+                                                { key: 'completed', label: 'Finished', items: groupedQuickTasks.completed }
+                                            ].map(section => (
+                                                section.items.length > 0 && (
+                                                    <div key={section.key} className="space-y-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <h3 className="text-[10px] md:text-xs font-bold uppercase tracking-[0.25em] text-primary/70">{section.label}</h3>
+                                                            <div className="h-px flex-1 bg-white/10"></div>
+                                                        </div>
+                                                        <div className="space-y-4">
+                                                            {section.items.map(task => (
+                                                                <QuickTaskItem
+                                                                    key={task.id}
+                                                                    task={task}
+                                                                    onToggle={onToggleQuickTask}
+                                                                    onDelete={onDeleteQuickTask}
+                                                                    onEdit={onEditQuickTask}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )
                                             ))}
                                         </div>
-
-
-                                        {sortedQuickTasks.length > displayTasks.length && (
-                                            <button 
-                                                onClick={() => setVisibleTasksCount(prev => prev + 10)}
-                                                className="w-full py-4 glass-panel rounded-2xl text-[10px] font-bold text-primary/60 uppercase tracking-widest hover:bg-white/5 transition-all mt-4 mb-20"
-                                            >
-                                                Load More Tasks ({sortedQuickTasks.length - displayTasks.length} remaining)
-                                            </button>
-                                        )}
                                     </React.Fragment>
                                 )}
                             </div>
@@ -5487,67 +5612,162 @@
             </Layout>
         );
 
-        const StreakPage = ({ user, onOpenCreator }) => (
-            <Layout onOpenCreator={onOpenCreator}>
-                <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-0 md:pt-12 pb-12">
-                    <Header user={user} subtitle="Streak & Achievements" />
-                    <div className="px-4 md:px-0">
-                        <section className="mb-16 flex flex-col items-center text-center">
-                            <div className="relative mb-6">
-                                <span className="material-symbols-outlined text-[120px] text-primary glow-orange leading-none relative z-10" style={{fontVariationSettings: "'FILL' 1"}}>local_fire_department</span>
-                            </div>
-                            <h2 className="text-8xl font-black text-primary italic glow-orange tracking-tighter mb-2">12 DAYS</h2>
-                            <p className="text-cream-light/40 text-lg uppercase tracking-[0.5em] font-sans font-bold">Current Streak</p>
-                        </section>
-                        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20">
-                            <div className="glass-panel card-glow rounded-3xl p-8 flex flex-col items-center text-center gap-4">
-                                <div className="w-16 h-16 rounded-full bg-amber-400/10 flex items-center justify-center text-amber-400 border border-amber-400/30">
-                                    <span className="material-symbols-outlined text-3xl" style={{fontVariationSettings: "'FILL' 1"}}>light_mode</span>
+        const StreakPage = ({ user, onOpenCreator, gamification }) => {
+            const rewards = gamification?.rewards || [];
+            return (
+                <Layout onOpenCreator={onOpenCreator}>
+                    <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-0 md:pt-12 pb-12">
+                        <Header user={user} subtitle="Streak & Achievements" />
+                        <div className="px-4 md:px-0">
+                            <section className="mb-16 flex flex-col items-center text-center">
+                                <div className="relative mb-6">
+                                    <span className="material-symbols-outlined text-[120px] text-primary glow-orange leading-none relative z-10" style={{fontVariationSettings: "'FILL' 1"}}>local_fire_department</span>
                                 </div>
-                                <h3 className="text-xl font-bold text-cream-light">Early Bird</h3>
-                                <p className="text-cream-light/40 text-sm font-sans">Completed 5 tasks before 8AM</p>
-                            </div>
-                        </section>
-                    </div>
-                </div>
-            </Layout>
-        );
-
-        const ClockPage = ({ user, onOpenCreator }) => (
-            <Layout onOpenCreator={onOpenCreator}>
-                <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-0 md:pt-12 pb-12">
-                    <Header user={user} subtitle="Clock & Notifications" />
-                    <div className="px-4 md:px-0">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center min-h-[500px]">
-                            <div className="flex flex-col items-center justify-center space-y-12">
-                                <div className="analog-clock flex items-center justify-center">
-                                    <div className="absolute w-[2px] h-[108px] bg-white origin-bottom rotate-[190deg] rounded-full bottom-[50%]"></div>
-                                    <div className="absolute w-[4px] h-[72px] bg-white origin-bottom rotate-[45deg] rounded-full bottom-[50%]"></div>
-                                    <div className="absolute w-[1px] h-[117px] bg-primary origin-bottom rotate-[310deg] rounded-full bottom-[50%] glow-orange"></div>
-                                    <div className="w-3 h-3 bg-primary border-2 border-white rounded-full z-10"></div>
-                                </div>
-                                <div className="text-center">
-                                    <h2 className="text-6xl font-display text-cream-light mb-2">10:08</h2>
-                                    <p className="text-primary/60 font-sans tracking-[0.5em] uppercase text-sm font-bold">Monday, Oct 23</p>
-                                </div>
-                            </div>
-                            <div className="space-y-4">
-                                <h2 className="text-2xl font-bold text-cream-light/90 uppercase tracking-[0.3em] mb-4">Notifications</h2>
-                                <div className="glass-panel p-6 rounded-3xl flex gap-5 border-l-4 border-l-orange-500 hover:bg-white/5 transition-all cursor-pointer">
-                                    <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-500 shrink-0">
-                                        <span className="material-symbols-outlined">priority_high</span>
+                                <h2 className="text-8xl font-black text-primary italic glow-orange tracking-tighter mb-2">{gamification?.currentStreak || 0} DAYS</h2>
+                                <p className="text-cream-light/40 text-lg uppercase tracking-[0.5em] font-sans font-bold">Current Streak</p>
+                                <p className="text-cream-light/30 text-xs mt-2 uppercase tracking-wider">Best: {gamification?.longestStreak || 0} days</p>
+                            </section>
+                            <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20">
+                                {(rewards.length ? rewards : ['Login Starter Reward']).map((reward, idx) => (
+                                    <div key={idx} className="glass-panel card-glow rounded-3xl p-8 flex flex-col items-center text-center gap-4">
+                                        <div className="w-16 h-16 rounded-full bg-amber-400/10 flex items-center justify-center text-amber-400 border border-amber-400/30">
+                                            <span className="material-symbols-outlined text-3xl" style={{fontVariationSettings: "'FILL' 1"}}>military_tech</span>
+                                        </div>
+                                        <h3 className="text-xl font-bold text-cream-light">{typeof reward === 'string' ? reward : reward.name}</h3>
+                                        <p className="text-cream-light/40 text-sm font-sans">Daily login reward unlocked.</p>
                                     </div>
-                                    <div className="flex-1">
-                                        <h4 className="font-bold text-cream-light">Task Deadline Reached</h4>
-                                        <p className="text-sm text-cream-light/60 font-sans mt-1">The project proposal deadline has passed.</p>
+                                ))}
+                            </section>
+                        </div>
+                    </div>
+                </Layout>
+            );
+        };
+
+        const ClockPage = ({ user, onOpenCreator, alarms = [], onAddAlarm, onToggleAlarm, onDeleteAlarm }) => {
+            const [now, setNow] = useState(new Date());
+            const [label, setLabel] = useState('');
+            const [alarmTime, setAlarmTime] = useState('07:00');
+            const [repeatDaily, setRepeatDaily] = useState(true);
+
+            useEffect(() => {
+                const timer = setInterval(() => setNow(new Date()), 1000);
+                return () => clearInterval(timer);
+            }, []);
+
+            const seconds = now.getSeconds();
+            const minutes = now.getMinutes();
+            const hours = now.getHours();
+            const secondDeg = seconds * 6;
+            const minuteDeg = minutes * 6 + seconds * 0.1;
+            const hourDeg = (hours % 12) * 30 + minutes * 0.5;
+
+            const handleSubmitAlarm = (e) => {
+                e.preventDefault();
+                if (!alarmTime) return;
+                onAddAlarm({
+                    label: (label || 'Alarm').trim(),
+                    time: alarmTime,
+                    repeatDaily
+                });
+                setLabel('');
+            };
+
+            return (
+                <Layout onOpenCreator={onOpenCreator}>
+                    <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-0 md:pt-12 pb-12">
+                        <Header user={user} subtitle="Clock & Notifications" />
+                        <div className="px-4 md:px-0">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start min-h-[500px]">
+                                <div className="flex flex-col items-center justify-center space-y-12">
+                                    <div className="analog-clock flex items-center justify-center">
+                                        <div className="absolute w-[2px] h-[108px] bg-white origin-bottom rounded-full bottom-[50%]" style={{ transform: `rotate(${minuteDeg}deg)` }}></div>
+                                        <div className="absolute w-[4px] h-[72px] bg-white origin-bottom rounded-full bottom-[50%]" style={{ transform: `rotate(${hourDeg}deg)` }}></div>
+                                        <div className="absolute w-[1px] h-[117px] bg-primary origin-bottom rounded-full bottom-[50%] glow-orange" style={{ transform: `rotate(${secondDeg}deg)` }}></div>
+                                        <div className="w-3 h-3 bg-primary border-2 border-white rounded-full z-10"></div>
+                                    </div>
+                                    <div className="text-center">
+                                        <h2 className="text-6xl font-display text-cream-light mb-2">{now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</h2>
+                                        <p className="text-primary/60 font-sans tracking-[0.2em] uppercase text-sm font-bold">{now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    <h2 className="text-2xl font-bold text-cream-light/90 uppercase tracking-[0.3em] mb-4">Alarms</h2>
+                                    <form onSubmit={handleSubmitAlarm} className="glass-panel p-4 rounded-3xl space-y-3">
+                                        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (optional)" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-cream-light" />
+                                        <div className="flex items-center gap-3">
+                                            <input type="time" value={alarmTime} onChange={(e) => setAlarmTime(e.target.value)} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-cream-light flex-1" />
+                                            <label className="text-xs text-cream-light/70 flex items-center gap-2">
+                                                <input type="checkbox" checked={repeatDaily} onChange={(e) => setRepeatDaily(e.target.checked)} />
+                                                Repeat Daily
+                                            </label>
+                                        </div>
+                                        <button type="submit" className="w-full bg-primary hover:bg-primary-dark text-white py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider">Add Alarm</button>
+                                    </form>
+                                    <div className="space-y-2">
+                                        {alarms.length === 0 && <div className="text-xs text-cream-light/40 uppercase tracking-wider">No alarms yet</div>}
+                                        {alarms.map(a => (
+                                            <div key={a.id} className="glass-panel p-4 rounded-2xl flex items-center justify-between gap-3">
+                                                <div>
+                                                    <div className="text-cream-light font-bold">{a.label || 'Alarm'}</div>
+                                                    <div className="text-xs text-cream-light/50">{a.time} {a.repeatDaily ? '• Daily' : '• One-time'}</div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button onClick={() => onToggleAlarm(a.id)} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase ${a.enabled ? 'bg-green-500/20 text-green-300' : 'bg-white/10 text-white/50'}`}>{a.enabled ? 'On' : 'Off'}</button>
+                                                    <button onClick={() => onDeleteAlarm(a.id)} className="p-2 rounded-lg hover:bg-red-500/15 text-red-300">
+                                                        <span className="material-symbols-outlined text-base">delete</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </Layout>
-        );
+                </Layout>
+            );
+        };
+
+        const ProfilePage = ({ user, onOpenCreator, profileData, onSaveProfile }) => {
+            const [name, setName] = useState(profileData?.name || user?.displayName || '');
+            useEffect(() => {
+                setName(profileData?.name || user?.displayName || '');
+            }, [profileData, user]);
+            return (
+                <Layout onOpenCreator={onOpenCreator}>
+                    <div className="max-w-3xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-12 pb-12">
+                        <Header user={user} subtitle="Profile" />
+                        <div className="glass-panel rounded-3xl p-6 space-y-4">
+                            <label className="text-xs uppercase tracking-widest text-cream-light/40">Display Name</label>
+                            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-cream-light" />
+                            <button onClick={() => onSaveProfile({ name: name.trim() })} className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider">Save Profile</button>
+                        </div>
+                    </div>
+                </Layout>
+            );
+        };
+
+        const SettingsPage = ({ user, onOpenCreator, settingsData, onSaveSettings }) => {
+            const [compactMode, setCompactMode] = useState(!!settingsData?.compactMode);
+            const [dailyReminders, setDailyReminders] = useState(settingsData?.dailyReminders !== false);
+            useEffect(() => {
+                setCompactMode(!!settingsData?.compactMode);
+                setDailyReminders(settingsData?.dailyReminders !== false);
+            }, [settingsData]);
+            return (
+                <Layout onOpenCreator={onOpenCreator}>
+                    <div className="max-w-3xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-12 pb-12">
+                        <Header user={user} subtitle="Settings" />
+                        <div className="glass-panel rounded-3xl p-6 space-y-4">
+                            <label className="flex items-center justify-between text-sm text-cream-light/80"><span>Compact task cards</span><input type="checkbox" checked={compactMode} onChange={(e) => setCompactMode(e.target.checked)} /></label>
+                            <label className="flex items-center justify-between text-sm text-cream-light/80"><span>Daily reminder nudges</span><input type="checkbox" checked={dailyReminders} onChange={(e) => setDailyReminders(e.target.checked)} /></label>
+                            <button onClick={() => onSaveSettings({ compactMode, dailyReminders })} className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider">Save Settings</button>
+                        </div>
+                    </div>
+                </Layout>
+            );
+        };
 
         const LoadingPage = ({ onComplete }) => {
             useEffect(() => {
@@ -6099,14 +6319,14 @@
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="space-y-3">
                                 <label className="text-[10px] font-bold text-cream-light/40 uppercase tracking-[0.2em] px-1 font-montserrat">Task Description</label>
-                                <input 
+                                <textarea
                                     autoFocus
-                                    type="text" 
                                     value={text}
                                     onChange={(e) => handleTextChange(e.target.value)}
-                                    placeholder="What needs to be done?" 
+                                    placeholder="What needs to be done? (Each new line creates a new quick task)"
                                     className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-cream-light placeholder:text-white/10 focus:ring-2 focus:ring-primary/20 transition-all font-montserrat quick-task-input"
-                                    style={{ textTransform: 'capitalize' }}
+                                    rows={4}
+                                    style={{ textTransform: 'capitalize', resize: 'none' }}
                                 />
                             </div>
                             <div className="space-y-3 relative" ref={dropdownRef}>
@@ -6465,7 +6685,9 @@
                 try { return JSON.parse(localStorage.getItem('faiora_sections') || '[]'); } catch(e) { return []; }
             });
             const [quickTasks, setQuickTasks] = useState([]);
+            const [alarms, setAlarms] = useState([]);
             const migrationDoneRef = useRef(false);
+            const alarmTimersRef = useRef(new Map());
 
             const qtWriteGuard = useRef(0); // Timestamp of last local quick task write
             const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
@@ -6475,6 +6697,9 @@
             const [sharedNotes, setSharedNotes] = useState([]);
             const [publicNote, setPublicNote] = useState(null);
             const [isPublicLoading, setIsPublicLoading] = useState(false);
+            const [profileData, setProfileData] = useState({});
+            const [settingsData, setSettingsData] = useState({});
+            const [gamification, setGamification] = useState({ currentStreak: 0, longestStreak: 0, lastLoginDate: null, rewards: [] });
 
             // Note Locking State
             const [lockedNoteId, setLockedNoteId] = useState(null);
@@ -6614,6 +6839,10 @@
                 const handleOnline = () => {
                     setIsOnline(true);
                     showToast("Back online! Syncing...");
+                    if (auth.currentUser && activeCollection) {
+                        db.collection(activeCollection).doc(auth.currentUser.uid).set({ alarms: alarmsRef.current }, { merge: true }).catch(() => {});
+                    }
+                    rescheduleAlarms(alarmsRef.current);
                 };
                 const handleOffline = () => {
                     setIsOnline(false);
@@ -6625,7 +6854,33 @@
                     window.removeEventListener('online', handleOnline);
                     window.removeEventListener('offline', handleOffline);
                 };
-            }, []);
+            }, [showToast, activeCollection, rescheduleAlarms]);
+
+            useEffect(() => {
+                if (!user || !activeCollection) return;
+                const today = new Date().toLocaleDateString('en-CA');
+                const yesterdayDate = new Date();
+                yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+                const yesterday = yesterdayDate.toLocaleDateString('en-CA');
+
+                setGamification(prev => {
+                    if (prev.lastLoginDate === today) return prev;
+                    const nextStreak = prev.lastLoginDate === yesterday ? (prev.currentStreak || 0) + 1 : 1;
+                    const nextRewards = Array.isArray(prev.rewards) ? [...prev.rewards] : [];
+                    const milestones = { 3: '3-Day Spark', 7: '7-Day Flame', 14: '14-Day Blaze', 30: '30-Day Inferno' };
+                    if (milestones[nextStreak] && !nextRewards.includes(milestones[nextStreak])) {
+                        nextRewards.push(milestones[nextStreak]);
+                    }
+                    const updated = {
+                        currentStreak: nextStreak,
+                        longestStreak: Math.max(prev.longestStreak || 0, nextStreak),
+                        lastLoginDate: today,
+                        rewards: nextRewards
+                    };
+                    db.collection(activeCollection).doc(user.uid).set({ gamification: updated }, { merge: true }).catch(() => {});
+                    return updated;
+                });
+            }, [user, activeCollection]);
 
             const showToast = useCallback((message) => {
                 const id = Date.now();
@@ -6642,6 +6897,7 @@
                 // 1. Initial Load from LocalStorage (Instant)
                 const lsKey = 'faiora_notes_' + user.uid;
                 const qtKey = 'faiora_quick_tasks_' + user.uid;
+                const alarmKey = 'faiora_alarms_' + user.uid;
                 try {
                     const localData = JSON.parse(localStorage.getItem(lsKey) || '[]');
                     setNotes(localData);
@@ -6649,6 +6905,9 @@
                     const localQT = JSON.parse(localStorage.getItem(qtKey) || '[]');
                     setQuickTasks(localQT);
                     FaioraNotifications.rescheduleAll(localQT);
+                    const localAlarms = JSON.parse(localStorage.getItem(alarmKey) || '[]');
+                    setAlarms(localAlarms);
+                    rescheduleAlarms(localAlarms);
                 } catch(e) { console.warn("LocalStorage load fail", e); }
 
                 // 2. Active Sync from Firestore (Background)
@@ -6660,6 +6919,7 @@
                         
                         // Sync Quick Tasks — handle both Map (new) and Array (legacy) formats
                         let fetchedQuickTasks = [];
+                        let fetchedAlarms = [];
                         if (data.quickTasks) {
                             if (Array.isArray(data.quickTasks)) {
                                 fetchedQuickTasks = data.quickTasks;
@@ -6668,12 +6928,18 @@
                                 fetchedQuickTasks = Object.values(data.quickTasks).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
                             }
                         }
+                        if (data.alarms) {
+                            fetchedAlarms = Array.isArray(data.alarms) ? data.alarms : Object.values(data.alarms);
+                        }
                         
                         console.log(`☁️ [SYNC] Remote update received via ${activeCollection}. Tasks: ${fetchedQuickTasks.length}, Notes: ${fetchedNotes.length}`);
                         
                         setQuickTasks(fetchedQuickTasks);
                         localStorage.setItem('faiora_quick_tasks_' + user.uid, JSON.stringify(fetchedQuickTasks));
                         FaioraNotifications.rescheduleAll(fetchedQuickTasks);
+                        setAlarms(fetchedAlarms);
+                        localStorage.setItem('faiora_alarms_' + user.uid, JSON.stringify(fetchedAlarms));
+                        rescheduleAlarms(fetchedAlarms);
 
                         // Centralized Sorting: Pinned first, then sortOrder, then updatedAt
                         fetchedNotes.sort((a, b) => {
@@ -6694,6 +6960,9 @@
                         const fetchedSections = data.noteSections || [];
                         setNoteSections(fetchedSections);
                         localStorage.setItem('faiora_sections', JSON.stringify(fetchedSections));
+                        setProfileData(data.profile || {});
+                        setSettingsData(data.settings || {});
+                        setGamification(data.gamification || { currentStreak: 0, longestStreak: 0, lastLoginDate: null, rewards: [] });
                     } else {
                         console.warn(`⚠️ [SYNC] Document does not exist in '${activeCollection}'`);
                     }
@@ -6708,7 +6977,7 @@
                 });
 
                 return () => unsubscribe();
-            }, [user, activeCollection]);
+            }, [user, activeCollection, rescheduleAlarms]);
 
             // 3. Shared Notes Discovery (Email-based)
             useEffect(() => {
@@ -7093,6 +7362,61 @@
 
             const quickTasksRef = useRef(quickTasks);
             useEffect(() => { quickTasksRef.current = quickTasks; }, [quickTasks]);
+            const alarmsRef = useRef(alarms);
+            useEffect(() => { alarmsRef.current = alarms; }, [alarms]);
+
+            const clearAlarmTimers = useCallback((alarmId = null) => {
+                if (alarmId) {
+                    const timers = alarmTimersRef.current.get(alarmId) || [];
+                    timers.forEach(id => clearTimeout(id));
+                    alarmTimersRef.current.delete(alarmId);
+                    return;
+                }
+                alarmTimersRef.current.forEach((timers) => timers.forEach(id => clearTimeout(id)));
+                alarmTimersRef.current.clear();
+            }, []);
+
+            const scheduleAlarm = useCallback((alarm) => {
+                if (!alarm || !alarm.enabled || !alarm.time) return;
+                clearAlarmTimers(alarm.id);
+                const [h, m] = String(alarm.time).split(':').map(Number);
+                if (Number.isNaN(h) || Number.isNaN(m)) return;
+
+                const now = new Date();
+                const target = new Date();
+                target.setHours(h, m, 0, 0);
+                if (target.getTime() <= now.getTime()) {
+                    target.setDate(target.getDate() + 1);
+                }
+                const delay = target.getTime() - now.getTime();
+                const timeoutId = setTimeout(() => {
+                    FaioraNotifications.notifyNow('Alarm Ringing', `${alarm.label || 'Alarm'} • ${alarm.time}`, `faiora-alarm-${alarm.id}`);
+                    const updatedAlarm = { ...alarm, lastTriggeredAt: Date.now() };
+                    const nextAlarms = alarmsRef.current.map(a => a.id === alarm.id ? updatedAlarm : a);
+                    setAlarms(nextAlarms);
+                    if (auth.currentUser) {
+                        localStorage.setItem('faiora_alarms_' + auth.currentUser.uid, JSON.stringify(nextAlarms));
+                        if (activeCollection) {
+                            db.collection(activeCollection).doc(auth.currentUser.uid).set({ alarms: nextAlarms }, { merge: true }).catch(() => {});
+                        }
+                    }
+                    if (alarm.repeatDaily && alarm.enabled) {
+                        scheduleAlarm(updatedAlarm);
+                    } else {
+                        const disabled = { ...updatedAlarm, enabled: false };
+                        const disabledList = alarmsRef.current.map(a => a.id === alarm.id ? disabled : a);
+                        setAlarms(disabledList);
+                    }
+                }, delay);
+                alarmTimersRef.current.set(alarm.id, [timeoutId]);
+            }, [activeCollection, clearAlarmTimers]);
+
+            const rescheduleAlarms = useCallback((list) => {
+                clearAlarmTimers();
+                (list || []).forEach(a => scheduleAlarm(a));
+            }, [clearAlarmTimers, scheduleAlarm]);
+
+            useEffect(() => () => clearAlarmTimers(), [clearAlarmTimers]);
 
             const handleUpdateQuickTasks = useCallback((updatedTasks, specificUpdate = null) => {
                 setQuickTasks(updatedTasks);
@@ -7136,29 +7460,87 @@
                 }
             }, [activeCollection, isProbing]);
 
+            const handleUpdateAlarms = useCallback((updatedAlarms) => {
+                setAlarms(updatedAlarms);
+                alarmsRef.current = updatedAlarms;
+                const currentUser = auth.currentUser;
+                if (!currentUser) return;
+                localStorage.setItem('faiora_alarms_' + currentUser.uid, JSON.stringify(updatedAlarms));
+                if (isProbing || !activeCollection) return;
+                db.collection(activeCollection).doc(currentUser.uid).set({ alarms: updatedAlarms }, { merge: true }).catch(() => {});
+            }, [activeCollection, isProbing]);
+
+            const handleAddAlarm = useCallback((payload) => {
+                const alarm = {
+                    id: 'alarm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                    label: payload.label || 'Alarm',
+                    time: payload.time || '07:00',
+                    repeatDaily: payload.repeatDaily !== false,
+                    enabled: true,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now()
+                };
+                const updated = [alarm, ...alarmsRef.current];
+                handleUpdateAlarms(updated);
+                scheduleAlarm(alarm);
+            }, [handleUpdateAlarms, scheduleAlarm]);
+
+            const handleToggleAlarm = useCallback((alarmId) => {
+                const updated = alarmsRef.current.map(a => a.id === alarmId ? { ...a, enabled: !a.enabled, updatedAt: Date.now() } : a);
+                handleUpdateAlarms(updated);
+                const next = updated.find(a => a.id === alarmId);
+                if (next && next.enabled) scheduleAlarm(next);
+                else clearAlarmTimers(alarmId);
+            }, [handleUpdateAlarms, scheduleAlarm, clearAlarmTimers]);
+
+            const handleDeleteAlarm = useCallback((alarmId) => {
+                clearAlarmTimers(alarmId);
+                const updated = alarmsRef.current.filter(a => a.id !== alarmId);
+                handleUpdateAlarms(updated);
+            }, [clearAlarmTimers, handleUpdateAlarms]);
+
+            const handleSaveProfile = useCallback((nextProfile) => {
+                setProfileData(prev => ({ ...prev, ...nextProfile }));
+                if (user && activeCollection) {
+                    db.collection(activeCollection).doc(user.uid).set({ profile: { ...profileData, ...nextProfile } }, { merge: true }).catch(() => {});
+                }
+                showToast("Profile saved");
+            }, [user, activeCollection, profileData, showToast]);
+
+            const handleSaveSettings = useCallback((nextSettings) => {
+                setSettingsData(prev => ({ ...prev, ...nextSettings }));
+                if (user && activeCollection) {
+                    db.collection(activeCollection).doc(user.uid).set({ settings: { ...settingsData, ...nextSettings } }, { merge: true }).catch(() => {});
+                }
+                showToast("Settings saved");
+            }, [user, activeCollection, settingsData, showToast]);
+
             const handleAddQuickTask = useCallback((text, dueDate = '', dueTime = '') => {
-                const formattedText = formatTaskText(text);
-                console.log('🆕 handleAddQuickTask called:', { text: formattedText, dueDate, dueTime });
-                
-                // Calculate timezone-agnostic timestamp for reliable notifications
+                const chunks = String(text || '')
+                    .split(/\r?\n/)
+                    .map(line => formatTaskText(line))
+                    .map(line => line.trim())
+                    .filter(Boolean);
+                if (!chunks.length) return;
+
                 let dueTimestamp = null;
                 if (dueDate) {
                     const dt = new Date(`${dueDate}T${dueTime || '23:59'}`);
                     if (!isNaN(dt.getTime())) dueTimestamp = dt.getTime();
                 }
-
-                const newTask = {
-                    id: 'qt_' + Date.now(),
-                    text: formattedText,
+                const now = Date.now();
+                const newTasks = chunks.map((line, idx) => ({
+                    id: 'qt_' + (now + idx) + '_' + Math.random().toString(36).slice(2, 7),
+                    text: line,
                     dueDate,
                     dueTime,
                     dueTimestamp,
                     completed: false,
-                    createdAt: Date.now()
-                };
-                const updated = [newTask, ...quickTasksRef.current];
-                handleUpdateQuickTasks(updated, { [`quickTasks.${newTask.id}`]: newTask });
-                FaioraNotifications.scheduleForTask(newTask);
+                    createdAt: now + idx
+                }));
+                const updated = [...newTasks, ...quickTasksRef.current];
+                handleUpdateQuickTasks(updated);
+                newTasks.forEach(task => FaioraNotifications.scheduleForTask(task));
             }, [handleUpdateQuickTasks]);
 
             const handleUpdateQuickTask = (id, text, dueDate, dueTime) => {
@@ -7536,8 +7918,10 @@
                             />
                         } />
                         <Route path="/stats" element={<StatsPage user={user} onOpenCreator={handleOpenCreator} />} />
-                        <Route path="/streak" element={<StreakPage user={user} onOpenCreator={handleOpenCreator} />} />
-                        <Route path="/clock" element={<ClockPage user={user} onOpenCreator={handleOpenCreator} />} />
+                        <Route path="/streak" element={<StreakPage user={user} onOpenCreator={handleOpenCreator} gamification={gamification} />} />
+                        <Route path="/clock" element={<ClockPage user={user} onOpenCreator={handleOpenCreator} alarms={alarms} onAddAlarm={handleAddAlarm} onToggleAlarm={handleToggleAlarm} onDeleteAlarm={handleDeleteAlarm} />} />
+                        <Route path="/profile" element={<ProfilePage user={user} onOpenCreator={handleOpenCreator} profileData={profileData} onSaveProfile={handleSaveProfile} />} />
+                        <Route path="/settings" element={<SettingsPage user={user} onOpenCreator={handleOpenCreator} settingsData={settingsData} onSaveSettings={handleSaveSettings} />} />
                         </TransitionManager>
                     </div>
                      {isCreatorOpen && <TaskCreator onClose={handleCloseCreator} user={user} editingNote={editingNote} activeCollection={activeCollection} onUpdateNote={handleUpdateNoteLocal} onDeleteNote={handleDeleteNoteLocal} onSaveVersion={handleSaveVersion} showToast={showToast} notes={notes} onToggleLock={handleRemoveLock} onOpenLockSet={() => setIsSetLockModalOpen(true)} />}
