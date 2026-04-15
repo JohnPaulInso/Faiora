@@ -10,6 +10,35 @@ html, body {
     overflow-x: hidden;
 }
 
+/* Capacitor / WebView: ensure routed UI has a height chain (prevents blank gradient-only screen) */
+#root {
+    min-height: 100%;
+    min-height: 100dvh;
+    height: 100%;
+}
+
+/* app-route-shell - wrapper for routed page content */
+/* FIX 2026-04-15: Only force opacity/animation reset when NOT in a dissolve transition */
+#root .app-route-shell:not(.route-dissolve-out):not(.route-dissolve-in) {
+    opacity: 1 !important;
+    filter: none !important;
+    animation: none !important;
+}
+
+/* route-dissolve-out - GPU-friendly fade-out (no transform for cleaner fire wipe) */
+#root .app-route-shell.route-dissolve-out {
+    opacity: 0 !important;
+    transition: opacity 0.4s ease-out !important;
+    animation: none !important;
+    will-change: opacity;
+}
+
+/* route-dissolve-in - GPU-friendly fade-in (opacity only) */
+#root .app-route-shell.route-dissolve-in {
+    animation: route-fade-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+    will-change: opacity;
+}
+
 html {
     font-size: 14.4px; /* 90% of default 16px */
     user-select: none;
@@ -18,6 +47,188 @@ html {
 
 body {
     min-height: 100dvh;
+}
+
+.startup-fallback {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background:
+        radial-gradient(circle at top left, rgba(249, 115, 22, 0.22), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(251, 146, 60, 0.16), transparent 30%),
+        linear-gradient(180deg, rgba(124, 45, 18, 0.94) 0%, rgba(17, 24, 39, 0.96) 42%, rgba(10, 10, 10, 0.98) 100%);
+    transition: opacity 0.28s ease, visibility 0.28s ease;
+}
+
+.startup-fallback__panel {
+    position: relative;
+    width: min(100%, 420px);
+    overflow: hidden;
+    border-radius: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(9, 9, 11, 0.72);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+    padding: 32px 24px;
+    text-align: center;
+    backdrop-filter: blur(24px);
+}
+
+.startup-fallback__glow {
+    position: absolute;
+    width: 180px;
+    height: 180px;
+    border-radius: 999px;
+    filter: blur(54px);
+    opacity: 0.65;
+    pointer-events: none;
+}
+
+.startup-fallback__glow--left {
+    top: -70px;
+    left: -36px;
+    background: rgba(249, 115, 22, 0.28);
+}
+
+.startup-fallback__glow--right {
+    right: -44px;
+    bottom: -84px;
+    background: rgba(251, 146, 60, 0.2);
+}
+
+.startup-fallback__eyebrow {
+    position: relative;
+    margin: 0 0 10px;
+    color: #fb923c;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.38em;
+    text-transform: uppercase;
+}
+
+.startup-fallback__title {
+    position: relative;
+    margin: 0;
+    color: #fff7ed;
+    font-size: clamp(2rem, 7vw, 2.9rem);
+    font-style: italic;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+}
+
+.startup-fallback__status {
+    position: relative;
+    margin: 18px auto 0;
+    max-width: 28ch;
+    color: rgba(255, 247, 237, 0.76);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.startup-fallback__progress {
+    position: relative;
+    margin-top: 22px;
+    height: 5px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.09);
+}
+
+.startup-fallback__progress-bar {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    transform-origin: left center;
+    background: linear-gradient(90deg, #f97316 0%, #fdba74 100%);
+    animation: startup-fallback-load 1.8s ease-in-out infinite alternate;
+}
+
+.startup-fallback__button {
+    position: relative;
+    display: none;
+    margin-top: 20px;
+    width: 100%;
+    border: 0;
+    border-radius: 18px;
+    background: #f97316;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    padding: 14px 18px;
+    text-transform: uppercase;
+}
+
+.startup-fallback--stalled .startup-fallback__button {
+    display: block;
+}
+
+body.faiora-react-ready .startup-fallback {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.faiora-auth-screen,
+.faiora-loading-screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.faiora-auth-panel {
+    width: min(100%, 720px);
+}
+
+.faiora-auth-title,
+.faiora-loading-title {
+    color: #fff7ed;
+}
+
+.faiora-auth-eyebrow {
+    color: #fb923c;
+}
+
+.faiora-auth-copy {
+    color: rgba(255, 247, 237, 0.74);
+}
+
+.faiora-auth-links a {
+    color: rgba(255, 247, 237, 0.46);
+}
+
+.faiora-auth-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 64px;
+}
+
+.faiora-loading-brand,
+.faiora-loading-copy {
+    color: #fff7ed;
+}
+
+.faiora-loading-progress-wrap {
+    width: min(100%, 420px);
+}
+
+@keyframes startup-fallback-load {
+    from {
+        transform: scaleX(0.18);
+        opacity: 0.72;
+    }
+    to {
+        transform: scaleX(1);
+        opacity: 1;
+    }
 }
 
 .dark-gradient-bg {
@@ -62,7 +273,25 @@ body {
 }
 
 .animate-mobile-header {
-    animation: mobile-header-pulse 15s ease-in-out infinite;
+  animation: mobile-header-pulse 15s ease-in-out infinite;
+}
+
+@media (max-width: 767px) {
+  body.faiora-overlay-open .faiora-mobile-header,
+  body.faiora-overlay-open .animate-mobile-header,
+  body.faiora-overlay-open .faiora-mobile-nav,
+  body.faiora-overlay-open .faiora-mobile-banner,
+  body.faiora-overlay-open .faiora-mobile-fab {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translateY(-140%) !important;
+  }
+
+  body.faiora-overlay-open .faiora-mobile-fab {
+    transform: translateY(140%) !important;
+  }
 }
 
 .glass-panel {
@@ -257,6 +486,7 @@ input:focus, textarea:focus, button:focus, select:focus, [contenteditable]:focus
     box-shadow: 0 0 40px rgba(249, 115, 22, 0.1), inset 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
+/* FIX 2026-04-15: Restored fire-wipe overlay and active sweep classes */
 .fire-wipe-overlay {
     position: fixed;
     left: 0;
@@ -271,8 +501,10 @@ input:focus, textarea:focus, button:focus, select:focus, [contenteditable]:focus
 }
 
 .fire-wipe-active {
-    animation: fire-wipe-sweep 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+    animation: fire-wipe-sweep 1.85s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+    -webkit-animation: fire-wipe-sweep 1.85s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
 }
+
 
 .fire-bg-video {
     position: fixed;
@@ -330,14 +562,25 @@ input:focus, textarea:focus, button:focus, select:focus, [contenteditable]:focus
     opacity: 1 !important;
 }
 
+/* task-creator-footer - bottom bar inside note editor with action buttons */
+/* FIX 2026-04-15: Reduced min-height from 64px to 44px and padding from 0.75rem to 0.375rem */
+/* to prevent it from blocking typing area on mobile view */
 .task-creator-footer {
-    padding: 0.75rem 1rem;
+    padding: 0.375rem 0.75rem;
     background: #fdfcfb !important;
     display: flex;
     align-items: center;
     justify-content: space-between;
     border-top: 1px solid #f1f5f9;
-    min-height: 64px;
+    min-height: 44px;
+}
+
+/* task-creator-footer desktop - restore larger padding on desktop */
+@media (min-width: 768px) {
+    .task-creator-footer {
+        padding: 0.75rem 1rem;
+        min-height: 56px;
+    }
 }
 
 .footer-divider {
@@ -458,26 +701,6 @@ input:focus, textarea:focus, button:focus, select:focus, [contenteditable]:focus
     }
 }
 
-.fire-wipe-sprite {
-    width: 100vw;
-    height: 360px;
-    background-image: url('fire-wipe-spritesheet.png');
-    background-repeat: no-repeat;
-    background-size: 100% 1800px;
-    animation: fire-wipe-sprites 0.5s steps(5) infinite;
-    filter: drop-shadow(0 0 40px rgba(249, 115, 22, 0.9));
-    opacity: 0.98;
-    backface-visibility: hidden;
-    transform: translateZ(0);
-}
-
-@keyframes fire-wipe-sweep {
-    0% { transform: translate3d(0, 70vh, 0); opacity: 0; }
-    15% { opacity: 1; }
-    85% { opacity: 1; }
-    100% { transform: translate3d(0, -100vh, 0); opacity: 0; }
-}
-
 .toast-container {
     position: fixed;
     bottom: 2rem;
@@ -503,25 +726,85 @@ input:focus, textarea:focus, button:focus, select:focus, [contenteditable]:focus
     font-family: 'Montserrat', sans-serif;
 }
 
-@keyframes toast-in-out {
-    0% { opacity: 0; transform: translateY(20px); }
-    10% { opacity: 1; transform: translateY(0); }
-    90% { opacity: 1; transform: translateY(0); }
-    100% { opacity: 0; transform: translateY(-20px); }
+/* LABEL: FIRE-WIPE-SPRITE — Spritesheet-based fire transition effect */
+/* FIX 2026-04-15: Widened to 140vw and centered with translate3d for full viewport coverage */
+/* UPDATED 2026-04-15: GPU-optimized with will-change and translate3d centering */
+.fire-wipe-sprite {
+    width: 140vw; 
+    min-width: 140vw;
+    flex-shrink: 0;
+    height: 360px;
+    background-image: url('fire-wipe-spritesheet.png');
+    background-repeat: no-repeat;
+    background-size: 100% 1800px;
+    background-position: 0 0;
+    animation: fire-wipe-sprites 0.5s steps(5) infinite;
+    -webkit-animation: fire-wipe-sprites 0.5s steps(5) infinite;
+    filter: drop-shadow(0 0 40px rgba(249, 115, 22, 0.9));
+    opacity: 1;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translate3d(-20vw, 0, 0); /* Centering 140vw within 100vw viewport */
+    -webkit-transform: translate3d(-20vw, 0, 0);
+    will-change: background-position;
+}
+
+@keyframes fire-wipe-sweep {
+    0% { transform: translate3d(0, 100vh, 0); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translate3d(0, -120vh, 0); opacity: 0; }
+}
+
+@-webkit-keyframes fire-wipe-sweep {
+    0% { -webkit-transform: translate3d(0, 100vh, 0); transform: translate3d(0, 100vh, 0); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { -webkit-transform: translate3d(0, -120vh, 0); transform: translate3d(0, -120vh, 0); opacity: 0; }
 }
 
 @keyframes fire-wipe-sprites {
+    from { background-position: 0 0; }
     to { background-position: 0 -1800px; }
 }
 
+/* LABEL: FIRE-WIPE-SPRITE-MOBILE — Mobile override for fire spritesheet */
+/* FIX 2026-04-15: Widened to 500vw with -200vw margin to ensure full screen coverage on mobile APK */
+/* UPDATED 2026-04-15: This is the critical fix for fire sprite not showing on Android WebView */
 @media (max-width: 768px) {
     .fire-wipe-sprite {
-        background-size: 450% 1800px !important; 
-        background-position: 50% 0;
+        width: 500vw; 
+        min-width: 500vw;
+        height: 360px;
+        margin-left: -200vw;
+        background-size: 100% 1800px !important;
+        background-position: 0 0;
+        animation: fire-wipe-sprites-mobile 0.45s steps(5) infinite;
+        -webkit-animation: fire-wipe-sprites-mobile 0.45s steps(5) infinite;
+        /* Override desktop centering transform — margin-left handles positioning */
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
     }
-    @keyframes fire-wipe-sprites {
-        to { background-position: 50% -1800px; }
-    }
+}
+
+@keyframes fire-wipe-sprites-mobile {
+    from { background-position: 0 0; }
+    to { background-position: 0 -1800px; }
+}
+
+
+/* ==========================================================================
+   LABEL: APP-FADE-IN — Smooth transition for app launch
+   NEW 2026-04-15: Replaces harsh loading screens with a premium fade-in
+   ========================================================================== */
+.faiora-app-loaded #root {
+    animation: app-fade-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* FIX 2026-04-15: Clean fade-in without scaling/upward movement */
+@keyframes app-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .dissolve-layer {
@@ -539,14 +822,26 @@ input:focus, textarea:focus, button:focus, select:focus, [contenteditable]:focus
     animation: content-fade-in 0.4s ease-out forwards;
 }
 
+/* route-dissolve-out and route-dissolve-in rules are defined above with #root specificity */
+/* @see lines 29-41 for #root .app-route-shell.route-dissolve-out / .route-dissolve-in */
+
+/* FIX 2026-04-15: GPU-optimized keyframes - pure opacity fade-in */
+@keyframes route-fade-in {
+    0% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+/* FIX 2026-04-15: Clean fade-in without transform */
 @keyframes content-fade-in {
     from { 
         opacity: 0;
-        transform: translate3d(0, 10px, 0);
     }
     to { 
         opacity: 1;
-        transform: translate3d(0, 0, 0);
     }
 }
 
@@ -661,9 +956,10 @@ input:focus, textarea:focus, button:focus, select:focus, [contenteditable]:focus
     user-select: text !important;
 }
 
-.block-input.h1 { font-size: 2.25rem; font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; }
-.block-input.h2 { font-size: 1.75rem; font-weight: 700; line-height: 1.3; }
-.block-input { font-size: 1.2rem !important; }
+/* block-input heading sizes */
+.block-input.h1 { font-size: 1.91rem; font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; } /* FIX 2026-04-15: Reduced 15% from 2.25rem */
+.block-input.h2 { font-size: 1.49rem; font-weight: 700; line-height: 1.3; } /* FIX 2026-04-15: Reduced 15% from 1.75rem */
+.block-input { font-size: 1.02rem !important; } /* FIX 2026-04-15: Reduced 15% from 1.2rem */
 
 .theme-amber input::placeholder, .theme-orange input::placeholder, .theme-peach input::placeholder,
 .theme-yellow input::placeholder, .theme-green input::placeholder, .theme-blue input::placeholder,
@@ -676,13 +972,15 @@ input:focus, textarea:focus, button:focus, select:focus, [contenteditable]:focus
     color: inherit !important;
 }
 
+/* note-editor-area - main content editing area inside the notepad */
+/* FIX 2026-04-15: Reduced font-size by 15% from 1.2rem to 1.02rem */
 .note-editor-area {
     outline: none;
     min-height: 200px;
     font-family: 'Inter', sans-serif;
     color: #334155;
     line-height: 1.6;
-    font-size: 1.2rem;
+    font-size: 1.02rem;
     padding: 0 1rem;
 }
 

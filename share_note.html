@@ -777,6 +777,109 @@
                 }
             };
 
+            const handleImageResize = (e, targetImage, handleType) => {
+                const isTouch = e.type.startsWith('touch');
+                const startX = isTouch ? e.touches[0].clientX : e.clientX;
+                const startY = isTouch ? e.touches[0].clientY : e.clientY;
+                const initialWidth = targetImage.offsetWidth;
+                const initialHeight = targetImage.offsetHeight;
+                const aR = initialWidth / initialHeight;
+                const editorWidth = editorRef.current ? editorRef.current.offsetWidth : window.innerWidth;
+
+                document.body.classList.add('resizing-active');
+                document.body.style.cursor = (handleType === 'br' || handleType === 'tl') ? 'nwse-resize' : 'nesw-resize';
+
+                const onMove = (moveEvent) => {
+                    const curX = isTouch ? moveEvent.touches[0].clientX : moveEvent.clientX;
+                    const curY = isTouch ? moveEvent.touches[0].clientY : moveEvent.clientY;
+                    
+                    let deltaX = 0; let deltaY = 0;
+                    if (handleType === 'br') { deltaX = curX - startX; deltaY = curY - startY; }
+                    else if (handleType === 'tl') { deltaX = startX - curX; deltaY = startY - curY; }
+                    else if (handleType === 'tr') { deltaX = curX - startX; deltaY = curY - startY; }
+                    else if (handleType === 'bl') { deltaX = startX - curX; deltaY = curY - startY; }
+
+                    const dominantDelta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : (deltaY * aR);
+                    const newWidth = Math.max(80, Math.min(editorWidth - 40, initialWidth + dominantDelta));
+                    
+                    targetImage.style.width = newWidth + 'px';
+                    targetImage.style.height = 'auto';
+                    if (isTouch) moveEvent.preventDefault();
+                };
+
+                const onEnd = () => {
+                    document.removeEventListener('mousemove', onMove, true);
+                    document.removeEventListener('mouseup', onEnd, true);
+                    document.removeEventListener('touchmove', onMove, { passive: false });
+                    document.removeEventListener('touchend', onEnd, true);
+                    document.body.classList.remove('resizing-active');
+                    document.body.style.cursor = '';
+                    saveState();
+                };
+
+                document.addEventListener('mousemove', onMove, true);
+                document.addEventListener('mouseup', onEnd, true);
+                document.addEventListener('touchmove', onMove, { passive: false });
+                document.addEventListener('touchend', onEnd, true);
+            };
+
+            const handleImageMoveStart = (e, container) => {
+                const isTouch = e.type.startsWith('touch');
+                const startX = isTouch ? e.touches[0].clientX : e.clientX;
+                const startY = isTouch ? e.touches[0].clientY : e.clientY;
+                const img = container.querySelector('img');
+                if (!img) return;
+
+                const rect = container.getBoundingClientRect();
+                const offsetX = startX - rect.left;
+                const offsetY = startY - rect.top;
+
+                const ghost = container.cloneNode(true);
+                ghost.className = 'image-drag-ghost';
+                ghost.style.cssText = `position:fixed;width:${rect.width}px;height:${rect.height}px;left:${rect.left}px;top:${rect.top}px;z-index:9999;pointer-events:none;opacity:0.8;box-shadow:0 20px 40px rgba(0,0,0,0.3);`;
+                document.body.appendChild(ghost);
+
+                container.classList.add('dragging-now');
+                document.body.classList.add('dragging-image-active');
+                const marker = document.createElement('div');
+                marker.className = 'drop-insertion-marker';
+                let currentDropTarget = null;
+
+                const onMove = (moveEvent) => {
+                    const curX = isTouch ? moveEvent.touches[0].clientX : moveEvent.clientX;
+                    const curY = isTouch ? moveEvent.touches[0].clientY : moveEvent.clientY;
+                    ghost.style.left = (curX - offsetX) + 'px';
+                    ghost.style.top = (curY - offsetY) + 'px';
+
+                    let range;
+                    if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(curX, curY);
+                    else if (moveEvent.rangeParent) { range = document.createRange(); range.setStart(moveEvent.rangeParent, moveEvent.rangeOffset); }
+
+                    if (range && editorRef.current.contains(range.startContainer)) {
+                        let c = range.startContainer; if (c.nodeType === 3) c = c.parentNode;
+                        const block = c.closest('div, p, li, h1, h2');
+                        if (block && editorRef.current.contains(block)) {
+                             range.insertNode(marker);
+                             currentDropTarget = range;
+                        }
+                    }
+                    if (isTouch) moveEvent.preventDefault();
+                };
+
+                const onEnd = () => {
+                    document.removeEventListener('mousemove', onMove, true); document.removeEventListener('mouseup', onEnd, true);
+                    document.removeEventListener('touchmove', onMove, { passive: false }); document.removeEventListener('touchend', onEnd, true);
+                    document.body.classList.remove('dragging-image-active'); container.classList.remove('dragging-now');
+                    ghost.remove();
+                    if (currentDropTarget && editorRef.current.contains(marker)) {
+                        marker.parentNode.insertBefore(container, marker);
+                        marker.remove(); saveState();
+                    } else marker.remove();
+                };
+                document.addEventListener('mousemove', onMove, true); document.addEventListener('mouseup', onEnd, true);
+                document.addEventListener('touchmove', onMove, { passive: false }); document.addEventListener('touchend', onEnd, true);
+            };
+
             const handleEditorKeyDown = (e) => {
                 if (!note || !note.allowPublicEdit) return;
                 const selection = window.getSelection();
@@ -973,29 +1076,6 @@
                 }
             };
 
-            const handleEditorClick = useCallback((e) => {
-                const target = e.target;
-                if (target.classList.contains('checklist-checkbox')) {
-                    const item = target.closest('.checklist-item');
-                    if (item) {
-                        item.classList.toggle('checked');
-                        saveState();
-                    }
-                    return;
-                }
-                
-                const actionBtn = target.closest('[data-action="image-delete"]');
-                if (actionBtn) {
-                    const container = target.closest('.resizable-image-container');
-                    if (container) {
-                        container.remove();
-                        setHasChanges(true);
-                        hasChangesRef.current = true;
-                        saveState();
-                    }
-                }
-            }, [saveState]);
-
             const handleImageUpload = (e) => {
                 const file = e.target.files[0];
                 if (file) {
@@ -1027,9 +1107,11 @@
 
             useEffect(() => {
                 const handleGlobalInteract = (e) => {
-                    if (!note || !canEdit) return;
                     const target = e.target;
-                    
+                    const isTouch = e.type.startsWith('touch');
+                    const startX = isTouch ? e.touches[0].clientX : e.clientX;
+                    const startY = isTouch ? e.touches[0].clientY : e.clientY;
+
                     const clearAll = () => {
                         document.querySelectorAll('.resizable-image.selected, .resizable-image-container.selected').forEach(el => el.classList.remove('selected'));
                         setSelectedImage(null);
@@ -1037,35 +1119,49 @@
 
                     if (target.classList.contains('resizable-image')) {
                         e.stopPropagation();
+                        if (!isTouch) e.preventDefault();
                         clearAll();
                         const container = target.closest('.resizable-image-container');
                         if (container) container.classList.add('selected');
                         target.classList.add('selected');
                         setSelectedImage(target);
-                        return;
-                    }
-                    
-                    const action = target.closest('[data-action]') ? target.closest('[data-action]').dataset.action : null;
-                    if (action === 'image-delete') {
-                        e.stopPropagation();
-                        const container = target.closest('.resizable-image-container');
-                        if (container) {
-                            container.remove();
-                            setHasChanges(true);
-                            hasChangesRef.current = true;
-                            saveState();
-                        }
+
+                        const timer = setTimeout(() => {
+                            if (container && canEdit) handleImageMoveStart(e, container);
+                        }, 500);
+                        const clr = () => clearTimeout(timer);
+                        document.addEventListener('mouseup', clr, { once: true });
+                        document.addEventListener('touchend', clr, { once: true });
+                        document.addEventListener('mousemove', (mx) => { if (Math.abs(mx.clientX - startX) > 10 || Math.abs(mx.clientY - startY) > 10) clr(); }, { once: true });
                         return;
                     }
 
-                    if (selectedImage && !target.closest('.resizable-image-container')) {
-                        clearAll();
+                    if (target.classList.contains('resize-handle')) {
+                        e.stopPropagation(); e.preventDefault();
+                        const h = target.classList.contains('tl') ? 'tl' : target.classList.contains('tr') ? 'tr' : target.classList.contains('bl') ? 'bl' : 'br';
+                        const c = target.closest('.resizable-image-container');
+                        const img = c ? c.querySelector('img') : null;
+                        if (img && canEdit) handleImageResize(e, img, h);
+                        return;
                     }
+
+                    const action = target.closest('[data-action]') ? target.closest('[data-action]').dataset.action : null;
+                    if (action && canEdit) {
+                        e.stopPropagation(); e.preventDefault();
+                        const c = target.closest('.resizable-image-container');
+                        if (action === 'image-delete' && c) { c.remove(); setHasChanges(true); saveState(); }
+                        return;
+                    }
+
+                    if (selectedImage && !target.closest('.resizable-image-container')) clearAll();
                 };
-                
                 document.addEventListener('mousedown', handleGlobalInteract, true);
-                return () => document.removeEventListener('mousedown', handleGlobalInteract, true);
-            }, [note, selectedImage, canEdit]);
+                document.addEventListener('touchstart', handleGlobalInteract, { capture: true, passive: false });
+                return () => {
+                    document.removeEventListener('mousedown', handleGlobalInteract, true);
+                    document.removeEventListener('touchstart', handleGlobalInteract, true);
+                };
+            }, [selectedImage, canEdit]);
 
             const toggleFormat = (marker) => {
                 if (!note || !canEdit) return;
@@ -1245,55 +1341,56 @@
                                 </div>
                                
                             </div>
+                            {/* share_note-find-widget - compact search bar sync [FIX 2026-04-16] */}
                             {isSearchOpen && (
-                                <div className="note-search-bar sticky top-0 md:top-2 z-[60] ml-auto w-max flex items-center gap-2 mb-4 bg-white/80 backdrop-blur-xl p-2 rounded-xl border border-black/10 shadow-md animate-in slide-in-from-top-2 duration-200">
-                                    <span className="material-symbols-outlined text-slate-400 pl-2">search</span>
-                                    <input 
-                                        type="text" 
-                                        placeholder="Find in note..." 
-                                        className="bg-transparent border-none flex-1 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-0 px-2 font-montserrat"
-                                        value={searchQuery}
-                                        onChange={(e) => {
-                                            setSearchQuery(e.target.value);
-                                            setCurrentMatchIndex(0);
-                                        }}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                setCurrentMatchIndex(prev => prev + (e.shiftKey ? -1 : 1));
-                                            }
-                                        }}
-                                        autoFocus
-                                    />
+                                <div id="share_note_find_widget" className="note-search-bar fixed top-4 right-4 md:right-12 z-[200] flex items-center gap-1.5 bg-white/95 backdrop-blur-2xl p-1.5 pr-2 rounded-xl border border-black/10 shadow-[0_8px_30px_rgb(0,0,0,0.12)] animate-in slide-in-from-top-4 zoom-in-95 duration-300 ring-1 ring-black/5">
+                                    <div className="flex items-center flex-1 bg-black/[0.03] rounded-lg px-2 py-1">
+                                        <span className="material-symbols-outlined text-slate-400 text-sm">search</span>
+                                        <input 
+                                            id="find_input_field"
+                                            type="text" 
+                                            placeholder="Find..." 
+                                            className="bg-transparent border-none w-24 md:w-40 text-[13px] text-slate-700 placeholder:text-slate-400 focus:ring-0 px-1.5 font-montserrat h-6"
+                                            value={searchQuery}
+                                            onChange={(e) => {
+                                                setSearchQuery(e.target.value);
+                                                setCurrentMatchIndex(0);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    setCurrentMatchIndex(prev => prev + (e.shiftKey ? -1 : 1));
+                                                }
+                                            }}
+                                            autoFocus
+                                        />
+                                    </div>
                                     {totalMatches > 0 && (
-                                        <span className="text-xs text-slate-400 font-montserrat flex-shrink-0">
-                                            {((currentMatchIndex % totalMatches + totalMatches) % totalMatches) + 1} / {totalMatches}
+                                        <span className="text-[10px] font-bold text-slate-400 font-montserrat flex-shrink-0 px-1">
+                                            {((currentMatchIndex % totalMatches + totalMatches) % totalMatches) + 1}/{totalMatches}
                                         </span>
                                     )}
-                                    {totalMatches === 0 && searchQuery && (
-                                        <span className="text-xs text-rose-400 font-montserrat flex-shrink-0">0 / 0</span>
-                                    )}
-                                    <div className="flex items-center gap-1 border-l border-black/5 pl-2 ml-1">
+                                    <div className="flex items-center gap-0.5 border-l border-black/5 pl-1 ml-0.5">
                                         <button 
+                                            id="find_prev_btn"
                                             onClick={() => setCurrentMatchIndex(prev => prev - 1)}
-                                            className="p-1.5 hover:bg-black/5 rounded-lg text-slate-500 transition-colors"
-                                            title="Previous phrase"
+                                            className="p-1 hover:bg-black/5 rounded-md text-slate-500 transition-colors"
                                         >
-                                            <span className="material-symbols-outlined text-[18px]">keyboard_arrow_up</span>
+                                            <span className="material-symbols-outlined text-base">keyboard_arrow_up</span>
                                         </button>
                                         <button 
+                                            id="find_next_btn"
                                             onClick={() => setCurrentMatchIndex(prev => prev + 1)}
-                                            className="p-1.5 hover:bg-black/5 rounded-lg text-slate-500 transition-colors"
-                                            title="Next phrase"
+                                            className="p-1 hover:bg-black/5 rounded-md text-slate-500 transition-colors"
                                         >
-                                            <span className="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+                                            <span className="material-symbols-outlined text-base">keyboard_arrow_down</span>
                                         </button>
                                         <button 
+                                            id="find_close_btn"
                                             onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }}
-                                            className="p-1.5 hover:bg-black/5 rounded-lg text-slate-500 transition-colors ml-1"
-                                            title="Close"
+                                            className="p-1 hover:bg-black/5 rounded-md text-slate-400 hover:text-rose-500 transition-colors"
                                         >
-                                            <span className="material-symbols-outlined text-[18px]">close</span>
+                                            <span className="material-symbols-outlined text-base">close</span>
                                         </button>
                                     </div>
                                 </div>

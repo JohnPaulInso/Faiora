@@ -71,10 +71,73 @@
 <body class="dark-gradient-bg font-montserrat text-slate-100 min-h-screen selection:bg-primary/30 overflow-hidden" style="overscroll-behavior-y: contain;">
     <div id="root"></div>
 
+    <script>
+        /* 
+           LABEL: STARTUP-SCRIPT-OVERRIDE — Disabled startup fallback script
+           FIX 2026-04-15: Removed loaders for a more direct app launch experience.
+        */
+        (function setupStartupFallback() {
+            let fired = false;
+            const trigger = () => {
+                if (fired) return;
+                fired = true;
+                // LABEL: FAIORA-APP-READY-TRIGGER — Triggers app fade-in
+                document.body.classList.add('faiora-react-ready');
+                document.documentElement.classList.add('faiora-app-loaded');
+            };
+
+            window.addEventListener('faiora-app-ready', trigger);
+
+            // SAFETY FALLBACK: If React/Auth takes > 2s, force show the app anyway
+            // FIX 2026-04-15: Reduced from 5s to 2s for faster start.
+            setTimeout(trigger, 2000);
+        })();
+    </script>
+
     <script type="text/babel" data-presets="env,react">
         const { useState, useEffect, useRef, useMemo, useCallback } = React;
         const { createRoot } = ReactDOM;
-        const { HashRouter, Routes, Route, Link, useNavigate, useLocation } = ReactRouterDOM;
+        const { HashRouter, Routes, Route, Link, useNavigate, useLocation, Navigate } = ReactRouterDOM;
+
+        const normalizeRouteLocation = (loc) => {
+            if (!loc || typeof loc !== 'object') return { pathname: '/', search: '', hash: '', state: null, key: 'default' };
+            return { ...loc, pathname: loc.pathname && loc.pathname !== '' ? loc.pathname : '/' };
+        };
+
+        class FaioraErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, err: null };
+            }
+            static getDerivedStateFromError(error) {
+                return { hasError: true, err: error };
+            }
+            componentDidCatch(error, info) {
+                console.error('FaioraErrorBoundary:', error, info?.componentStack);
+            }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="min-h-[100dvh] flex flex-col items-center justify-center p-8 text-cream-light text-center gap-4">
+                            <p className="font-bold">Something went wrong loading the app.</p>
+                            <p className="text-white/50 text-sm max-w-sm">{this.state.err?.message || 'Unknown error'}</p>
+                            <button type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-primary text-white rounded-xl text-xs font-bold uppercase">Reload</button>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
+        // Capacitor / in-app WebView: empty or bare "#" hash yields no Route match → blank UI after login.
+        (function ensureHashDefault() {
+            try {
+                const h = window.location.hash;
+                if (h === '' || h === '#') {
+                    window.location.hash = '#/';
+                }
+            } catch (e) { /* ignore */ }
+        })();
 
         const formatDateLocal = (d = new Date()) => {
             const year = d.getFullYear();
@@ -208,6 +271,46 @@
         });
 
         const googleProvider = new firebase.auth.GoogleAuthProvider();
+        const isAndroidNative = () =>
+            !!window.Capacitor &&
+            typeof window.Capacitor.getPlatform === "function" &&
+            window.Capacitor.getPlatform() === "android";
+
+        const signInWithGoogle = async () => {
+            if (isAndroidNative()) {
+                const firebaseAuthPlugin = window.Capacitor?.Plugins?.FirebaseAuthentication;
+                if (!firebaseAuthPlugin) {
+                    throw new Error("FirebaseAuthentication plugin is not available on Android build.");
+                }
+                const nativeResult = await firebaseAuthPlugin.signInWithGoogle({
+                    skipNativeAuth: true,
+                    scopes: ["email", "profile"],
+                    useCredentialManager: false
+                });
+                let idToken = nativeResult?.credential?.idToken;
+                if (!idToken) {
+                    const tokenResult = await firebaseAuthPlugin.getIdToken({ forceRefresh: true });
+                    idToken = tokenResult?.token;
+                }
+                if (!idToken) {
+                    throw new Error("Google sign-in did not return an ID token.");
+                }
+                const credential = firebase.auth.GoogleAuthProvider.credential(idToken);
+                const result = await auth.signInWithCredential(credential);
+                if (result?.user) {
+                    localStorage.setItem('faiora_logged_in', 'true');
+                    window.dispatchEvent(new CustomEvent('faiora-signed-in', { detail: result.user }));
+                }
+                return result;
+            }
+
+            const result = await auth.signInWithPopup(googleProvider);
+            if (result?.user) {
+                localStorage.setItem('faiora_logged_in', 'true');
+                window.dispatchEvent(new CustomEvent('faiora-signed-in', { detail: result.user }));
+            }
+            return result;
+        };
 
         // ==========================================================================
         // LABEL: NOTIF-ENGINE — Push Notification Engine
@@ -257,6 +360,7 @@
             //   3. Copy the key and paste it below
             // ------------------------------------------------------------------
             const VAPID_KEY = 'BPEtleiswwW1JQ2b8rtlPBGHm2DhcSmxmDZh6ifdZusmLdD0HzOScot047EvfbSJkN9VbQlD04G4RaNCoBbdiFI';
+            const hasNotificationApi = typeof window !== 'undefined' && typeof window.Notification !== 'undefined';
 
             // ------------------------------------------------------------------
             // LABEL: NOTIF-PERMISSION — Request notification permission + FCM token
@@ -275,12 +379,12 @@
                     return status;
                 } catch (err) {
                     console.error('Error requesting notification permission:', err);
-                    return Notification.permission;
+                    return hasNotificationApi ? Notification.permission : 'unsupported';
                 }
             };
 
             const testNotification = async () => {
-                if (Notification.permission !== 'granted') {
+                if (!hasNotificationApi || Notification.permission !== 'granted') {
                     const res = await requestPermission();
                     if (res !== 'granted') return;
                 }
@@ -376,9 +480,10 @@
                         osc.start(ctx.currentTime + start);
                         osc.stop(ctx.currentTime + start + dur);
                     };
-                    playTone(880, 0, 0.15, 0.12);
-                    playTone(1100, 0.12, 0.15, 0.1);
-                    playTone(1320, 0.24, 0.25, 0.08);
+                    // Pleasant Chime: C6 -> E6 -> G6
+                    playTone(1046.50, 0, 0.15, 0.12); 
+                    playTone(1318.51, 0.12, 0.15, 0.1); 
+                    playTone(1567.98, 0.24, 0.25, 0.08); 
                 } catch(e) { /* AudioContext not available */ }
             };
 
@@ -467,7 +572,7 @@
                 if (!task || !task.dueDate || task.completed) return;
                 cancelForTask(task.id);
 
-                const permitted = Notification.permission === 'granted';
+                const permitted = hasNotificationApi && Notification.permission === 'granted';
                 if (!permitted) return;
 
                 const dueTime = task.dueTime || '23:59';
@@ -492,32 +597,27 @@
                     taskTimers.push(id);
                 }
 
-                // Timer 2: 2 hours before
-                const twoHoursBefore = dueMs - (2 * 60 * 60 * 1000);
-                if (twoHoursBefore > now) {
+                // Timer 2: 1 hour before (Updated 2026-04-15)
+                const oneHourBefore = dueMs - (1 * 60 * 60 * 1000);
+                if (oneHourBefore > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`Task Reminder!  🔥`, `⏳ Due in 2hr: ${taskName}\n`, `faiora-2h-${task.id}`);
-                        // Sync to localStorage for offline catch-up
+                        sendNotification(`Task Reminder!  🔥`, `⏳ Due in 1hr: ${taskName}\n`, `faiora-1h-${task.id}`);
                         const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                        scheduled[`faiora-2h-${task.id}`] = { title: `Task Reminder!  🔥`, body: `⏳ Due in 2hr: ${taskName}\n`, timestamp: dueMs };
+                        scheduled[`faiora-1h-${task.id}`] = { title: `Task Reminder!  🔥`, body: `⏳ Due in 1hr: ${taskName}\n`, timestamp: dueMs };
                         localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
-                    }, twoHoursBefore - now);
+                    }, oneHourBefore - now);
                     taskTimers.push(id);
                 }
 
-                // Timer 3: 1 day before at 9 AM
-                const dayBefore = new Date(dueDateTime);
-                dayBefore.setDate(dayBefore.getDate() - 1);
-                dayBefore.setHours(9, 0, 0, 0);
-                const dayBeforeMs = dayBefore.getTime();
-                if (dayBeforeMs > now) {
+                // Timer 3: 24 hours before (Updated 2026-04-15)
+                const twentyFourHoursBefore = dueMs - (24 * 60 * 60 * 1000);
+                if (twentyFourHoursBefore > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`Task Reminder! 🔥`, `⚡ Due Tomorrow: ${taskName}\n`, `faiora-1d-${task.id}`);
-                        // Sync to localStorage for offline catch-up
+                        sendNotification(`Task Reminder! 🔥`, `⚡ Due in 24hrs: ${taskName}\n`, `faiora-24h-${task.id}`);
                         const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                        scheduled[`faiora-1d-${task.id}`] = { title: `Task Reminder! 🔥`, body: `⚡ Due Tomorrow: ${taskName}\n`, timestamp: dueMs };
+                        scheduled[`faiora-24h-${task.id}`] = { title: `Task Reminder! 🔥`, body: `⚡ Due in 24hrs: ${taskName}\n`, timestamp: dueMs };
                         localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
-                    }, dayBeforeMs - now);
+                    }, twentyFourHoursBefore - now);
                     taskTimers.push(id);
                 }
 
@@ -586,7 +686,7 @@
             };
 
             const notifyNow = (title, body, tag = 'faiora-generic') => {
-                if (Notification.permission !== 'granted') return;
+                if (!hasNotificationApi || Notification.permission !== 'granted') return;
                 sendNotification(title, body, tag);
             };
 
@@ -635,7 +735,7 @@
             return (
                 <React.Fragment>
                     {/* Mobile Bottom Nav */}
-                    <nav className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-2xl border-t border-white/5 flex justify-around items-center py-3 z-50 px-4 md:hidden transition-opacity duration-300">
+                    <nav className="faiora-mobile-nav fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-2xl border-t border-white/5 flex justify-around items-center py-3 z-50 px-4 md:hidden transition-opacity duration-300">
                         <NavLink to="/" icon="home" label="Home" />
                         <NavLink to="/notes" icon="grid_view" label="Notes" />
                         <NavLink to="/calendar" icon="calendar_month" label="Calendar" />
@@ -789,23 +889,39 @@
             );
         };
 
-        const Layout = ({ children, onOpenCreator, onFabClick, onRefresh, noPadding = false }) => {
+        const Layout = ({ children, onOpenCreator, onFabClick, onRefresh, noPadding = false, showFab = true, pomodoroTime, isPomodoroActive }) => {
             const handleFabClick = onFabClick || onOpenCreator;
             
+            const pomodoroProgress = isPomodoroActive ? ((1500 - pomodoroTime) / 1500) * 100 : 0;
+
             const content = (
                 <main className={`flex-1 overflow-y-auto no-scrollbar relative pt-0 pb-24 md:pb-12 ${noPadding ? 'px-0' : 'px-0 md:px-18'} md:ml-24`}>
                     {children}
-                    <button 
-                        onClick={handleFabClick}
-                        className="fixed bottom-[100px] md:bottom-12 right-6 md:right-12 w-[68px] h-[68px] md:w-20 md:h-20 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center fab-shadow transition-all duration-300 hover:scale-110 active:scale-95 z-40 group"
-                    >
-                        <span className="material-symbols-outlined text-[32px] md:text-4xl group-hover:rotate-90 transition-transform duration-300">add</span>
-                    </button>
+                    {showFab && handleFabClick && (
+                        <button 
+                            id="faiora_mobile_fab"
+                            onClick={handleFabClick}
+                            className="faiora-mobile-fab fixed bottom-[100px] md:bottom-12 right-6 md:right-12 w-[68px] h-[68px] md:w-20 md:h-20 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center fab-shadow transition-all duration-300 hover:scale-110 active:scale-95 z-40 group"
+                        >
+                            <span className="material-symbols-outlined text-[32px] md:text-4xl group-hover:rotate-90 transition-transform duration-300">add</span>
+                        </button>
+                    )}
                 </main>
             );
 
             return (
                 <div className="flex flex-col md:flex-row h-[100dvh] overflow-hidden bg-transparent">
+                    {/* Global Pomodoro Progress Bar [FIX 2026-04-16] */}
+                    {isPomodoroActive && (
+                        <div id="global_pomodoro_sync_bar" className="fixed top-0 left-0 right-0 h-[3px] bg-white/5 z-[1000] pointer-events-none">
+                            <div 
+                                className="h-full bg-primary shadow-[0_0_10px_rgba(249,115,22,0.8)] transition-all duration-1000 ease-linear"
+                                style={{ width: `${pomodoroProgress}%` }}
+                            ></div>
+                            <div className="absolute top-0 right-0 h-full w-20 bg-gradient-to-l from-primary/30 to-transparent animate-pulse"></div>
+                        </div>
+                    )}
+
                     <ResponsiveNav />
                     {onRefresh ? (
                         <PullToRefresh onRefresh={onRefresh}>
@@ -818,7 +934,7 @@
 
         const UserMenu = ({ user }) => {
             const [isOpen, setIsOpen] = useState(false);
-            const [notifStatus, setNotifStatus] = useState(Notification.permission);
+            const [notifStatus, setNotifStatus] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
             const [cloudStatus, setCloudStatus] = useState('checking');
             const menuRef = useRef();
             const navigate = useNavigate();
@@ -857,7 +973,7 @@
                  if (next) {
                      window.history.pushState({ modal: 'usermenu', popup: true }, '');
                      // Refresh notification status whenever menu opens
-                     setNotifStatus(Notification.permission);
+                    setNotifStatus(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
                  }
                  setIsOpen(next);
              };
@@ -867,9 +983,12 @@
                 localStorage.removeItem('faiora_logged_in');
             };
 
-            const handleLogin = () => {
-                auth.signInWithPopup(googleProvider);
-            };
+           const handleLogin = () => {
+               signInWithGoogle().catch(e => {
+                    console.error("Login failed", e);
+                    alert("Google login failed: " + (e?.message || "Unknown error"));
+               });
+           };
 
             if (!user) {
                 return (
@@ -903,7 +1022,8 @@
                                 <p className="text-white/40 text-xs truncate">{user.email}</p>
                             </div>
                             
-                            {/* Notification Control Section */}
+                            {/* Notification Control Section - HIDDEN 2026-04-15 to declutter profile menu */}
+                            {false && (
                             <div className="px-3 py-2">
                                 <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em] mb-2 px-1">Notifications</p>
                                 <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
@@ -967,6 +1087,7 @@
                                     )}
                                 </div>
                             </div>
+                            )}
 
                             <div className="h-px bg-white/5 my-2"></div>
                             
@@ -1036,8 +1157,8 @@
                             animation: search-spin 0.6s linear infinite;
                         }
                     `}</style>
-                    {/* Mobile Sticky Header */}
-                    <header className="md:hidden sticky top-0 left-0 right-0 z-[200] bg-black/95 backdrop-blur-2xl border-b border-white/5 px-0 py-4 flex flex-col gap-3 relative animate-mobile-header">
+                    {/* Mobile Sticky Header — FIXED 2026-04-15: Now using fixed top-0 to stay anchored at absolute top */}
+                    <header className="faiora-mobile-header md:hidden fixed top-0 left-0 right-0 z-[300] bg-black/95 backdrop-blur-2xl border-b border-white/5 px-0 py-4 flex flex-col gap-3 animate-mobile-header">
                         <div className="flex items-center justify-between gap-3 relative z-10 w-full px-4">
                             <div className="shrink-0 flex items-center justify-center text-primary">
                                 <span className="material-symbols-outlined text-2xl" style={{fontVariationSettings: '"FILL" 1'}}>local_fire_department</span>
@@ -1074,8 +1195,8 @@
                         </div>
                     </header>
 
-                    {/* Desktop Header */}
-                    <header className="hidden md:flex items-center justify-between gap-8 md:pt-2 mb-4 relative">
+                    {/* Desktop Header — UPDATED 2026-04-15: Non-sticky, transparent, no blur */}
+                    <header className="hidden md:flex relative top-0 md:pt-4 mb-4 z-[100] bg-transparent items-center justify-between gap-8">
                         <div className="flex flex-col">
                             <h1 className="text-[3.5rem] font-display font-bold tracking-tighter text-cream-light italic leading-none drop-shadow-2xl">{title}</h1>
                             <p className="text-primary/70 text-xs uppercase tracking-[0.5em] font-sans font-bold opacity-90">{subtitle}</p>
@@ -1178,6 +1299,7 @@
             const [shareEmail, setShareEmail] = useState('');
             const [isPublic, setIsPublic] = useState(editingNote ? !!editingNote.isPublic : false);
             const [allowPublicEdit, setAllowPublicEdit] = useState(editingNote ? !!editingNote.allowPublicEdit : false);
+            const [isSubmitting, setIsSubmitting] = useState(false);
             const [publicShareToken, setPublicShareToken] = useState(editingNote ? editingNote.publicShareToken || '' : '');
             const fileInputRef = useRef(null);
             const editorRef = useRef(null);
@@ -1194,6 +1316,7 @@
             const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
             const [totalMatches, setTotalMatches] = useState(0);
             const [matchRanges, setMatchRanges] = useState([]);
+            const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false });
 
             // Responsive Toolbar Logic
             React.useEffect(() => {
@@ -1257,6 +1380,20 @@
             ];
             
             const filteredIcons = icons.filter(icon => icon.toLowerCase().includes(searchTerm.toLowerCase()));
+
+            useEffect(() => {
+                const checkFormat = () => {
+                    if (document.activeElement === editorRef.current) {
+                        setActiveFormats({
+                            bold: document.queryCommandState('bold'),
+                            italic: document.queryCommandState('italic'),
+                            underline: document.queryCommandState('underline')
+                        });
+                    }
+                };
+                document.addEventListener('selectionchange', checkFormat);
+                return () => document.removeEventListener('selectionchange', checkFormat);
+            }, []);
 
             useEffect(() => {
                 // Global mouse/key handlers for robustness
@@ -1580,6 +1717,7 @@
             };
 
             const handleClose = () => {
+                if (isSubmitting) return; // Prevent double closure/save
                 const html = editorRef.current ? editorRef.current.innerHTML : content;
                 const isBlank = !title.trim() && (!html || html === '<br>' || html === '<div><br></div>' || html.trim() === '');
                 
@@ -1588,6 +1726,7 @@
                     return;
                 }
 
+                setIsSubmitting(true); // [FIX 2026-04-16] Prevent duplicate saves on mobile lag
                 if (hasChanges && !isBlank) {
                     // Force final sync on exit
                     saveToFirestore({ 
@@ -2544,9 +2683,12 @@
             const theme = themes.find(t => t.id === noteTheme);
             const currentThemeClass = theme ? theme.themeClass : '';
 
+            /* notepad-modal-overlay - fullscreen overlay container for the task creator/notepad */
+            /* notepad-modal-overlay - raised z-index to 999 for extreme mobile priority */
+            /* FIX 2026-04-15: Raised to z-[999] (was 500) */
             return (
-                <div className={"fixed inset-0 z-[110] flex items-center justify-center transition-all duration-300 " + (isFullscreen ? "p-0" : "p-0 md:p-8") + " " + (isClosing ? 'opacity-0 scale-95 pointer-events-none' : 'animate-in fade-in duration-500')}>
-                    <div className={"absolute inset-0 bg-black/70 backdrop-blur-2xl transition-opacity duration-300 hidden md:block " + (isClosing ? 'opacity-0' : '')} onClick={handleClose}></div>
+                <div className={"fixed inset-0 z-[999] flex items-center justify-center transition-all duration-300 " + (isFullscreen ? "p-0" : "p-0 md:p-8") + " " + (isClosing ? 'opacity-0 scale-95 pointer-events-none' : 'animate-in fade-in duration-500')}>
+                    <div className={"absolute inset-0 bg-black/70 backdrop-blur-2xl transition-opacity duration-300 " + (isClosing ? 'opacity-0' : '')} onClick={handleClose}></div>
                     
                     <div ref={modalRef} style={{ transform: 'translateY(calc(-1 * var(--faiora-keyboard-offset, 0px)))' }} className={"task-creator-modal w-full max-w-full h-full overflow-hidden flex flex-col relative z-10 shadow-2xl transition-all duration-250 " + (isFullscreen ? "md:max-w-full md:h-[100dvh] md:rounded-none !p-0 !m-0" : "md:max-w-4xl md:h-[85vh] md:rounded-[2rem]") + " " + (isClosing ? 'opacity-0 scale-95 translate-y-20 md:translate-y-0 ease-in' : 'animate-in zoom-in-95 duration-500 ease-out') + ' transition-colors duration-500 ' + currentThemeClass}>
                         
@@ -2626,8 +2768,9 @@
                                         {labels.map(label => (
                                             <span key={label} className="text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-2 py-1 rounded-md flex items-center gap-1 font-montserrat">
                                                 {label}
+                                                {/* FIX 2026-04-15: label-remove-btn - saves updated labels directly to Firestore instead of stale saveState */}
                                                 {canEdit && (
-                                                    <button onClick={() => { setLabels(labels.filter(l => l !== label)); setHasChanges(true); hasChangesRef.current = true; saveState(); }} className="hover:text-primary-dark">
+                                                    <button onClick={() => { const newLabels = labels.filter(l => l !== label); setLabels(newLabels); setHasChanges(true); hasChangesRef.current = true; saveToFirestore({ title, content: (editorRef.current ? editorRef.current.innerHTML : content), progress, isPinned, noteTheme, noteIcon, labels: newLabels, reminderDate, section: (editingNote ? editingNote.section : '') || '' }, true); }} className="hover:text-primary-dark">
                                                         <span className="material-symbols-outlined text-xs">close</span>
                                                     </button>
                                                 )}
@@ -2658,54 +2801,50 @@
                                 </div>
                             </div>
                             {isSearchOpen && (
-                                <div className="note-search-bar sticky top-0 md:top-2 z-[60] ml-auto w-max flex items-center gap-2 mb-4 bg-white/80 backdrop-blur-xl p-2 rounded-xl border border-black/10 shadow-md animate-in slide-in-from-top-2 duration-200">
-                                    <span className="material-symbols-outlined text-slate-400 pl-2">search</span>
-                                    <input 
-                                        type="text" 
-                                        placeholder="Find in note..." 
-                                        className="bg-transparent border-none flex-1 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-0 px-2 font-montserrat"
-                                        value={searchQuery}
-                                        onChange={(e) => {
-                                            setSearchQuery(e.target.value);
-                                            setCurrentMatchIndex(0);
-                                        }}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                setCurrentMatchIndex(prev => prev + (e.shiftKey ? -1 : 1));
-                                            }
-                                        }}
-                                        autoFocus
-                                    />
+                                <div className="note-search-bar fixed top-4 right-4 md:right-12 z-[200] flex items-center gap-1.5 bg-white/95 backdrop-blur-2xl p-1.5 pr-2 rounded-xl border border-black/10 shadow-[0_8px_30px_rgb(0,0,0,0.12)] animate-in slide-in-from-top-4 zoom-in-95 duration-300 ring-1 ring-black/5">
+                                    <div className="flex items-center flex-1 bg-black/[0.03] rounded-lg px-2 py-1">
+                                        <span className="material-symbols-outlined text-slate-400 text-sm">search</span>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Find..." 
+                                            className="bg-transparent border-none w-24 md:w-40 text-[13px] text-slate-700 placeholder:text-slate-400 focus:ring-0 px-1.5 font-montserrat h-6"
+                                            value={searchQuery}
+                                            onChange={(e) => {
+                                                setSearchQuery(e.target.value);
+                                                setCurrentMatchIndex(0);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    setCurrentMatchIndex(prev => prev + (e.shiftKey ? -1 : 1));
+                                                }
+                                            }}
+                                            autoFocus
+                                        />
+                                    </div>
                                     {totalMatches > 0 && (
-                                        <span className="text-xs text-slate-400 font-montserrat flex-shrink-0">
-                                            {((currentMatchIndex % totalMatches + totalMatches) % totalMatches) + 1} / {totalMatches}
+                                        <span className="text-[10px] font-bold text-slate-400 font-montserrat flex-shrink-0 px-1">
+                                            {((currentMatchIndex % totalMatches + totalMatches) % totalMatches) + 1}/{totalMatches}
                                         </span>
                                     )}
-                                    {totalMatches === 0 && searchQuery && (
-                                        <span className="text-xs text-rose-400 font-montserrat flex-shrink-0">0 / 0</span>
-                                    )}
-                                    <div className="flex items-center gap-1 border-l border-black/5 pl-2 ml-1">
+                                    <div className="flex items-center gap-0.5 border-l border-black/5 pl-1 ml-0.5">
                                         <button 
                                             onClick={() => setCurrentMatchIndex(prev => prev - 1)}
-                                            className="p-1.5 hover:bg-black/5 rounded-lg text-slate-500 transition-colors"
-                                            title="Previous phrase"
+                                            className="p-1 hover:bg-black/5 rounded-md text-slate-500 transition-colors"
                                         >
-                                            <span className="material-symbols-outlined text-[18px]">keyboard_arrow_up</span>
+                                            <span className="material-symbols-outlined text-base">keyboard_arrow_up</span>
                                         </button>
                                         <button 
                                             onClick={() => setCurrentMatchIndex(prev => prev + 1)}
-                                            className="p-1.5 hover:bg-black/5 rounded-lg text-slate-500 transition-colors"
-                                            title="Next phrase"
+                                            className="p-1 hover:bg-black/5 rounded-md text-slate-500 transition-colors"
                                         >
-                                            <span className="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+                                            <span className="material-symbols-outlined text-base">keyboard_arrow_down</span>
                                         </button>
                                         <button 
                                             onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }}
-                                            className="p-1.5 hover:bg-black/5 rounded-lg text-slate-500 transition-colors ml-1"
-                                            title="Close"
+                                            className="p-1 hover:bg-black/5 rounded-md text-slate-400 hover:text-rose-500 transition-colors"
                                         >
-                                            <span className="material-symbols-outlined text-[18px]">close</span>
+                                            <span className="material-symbols-outlined text-base">close</span>
                                         </button>
                                     </div>
                                 </div>
@@ -2750,9 +2889,16 @@
                             <div className="flex items-center gap-0 md:gap-1 flex-nowrap overflow-visible">
                                 {/* Nested Horizontal Formatting Dropdown */}
                                  <div className="relative flex-shrink-0">
-                                     <button onClick={() => handleSetActivePopup(activePopup === 'format' ? null : 'format')} className={"footer-action-btn h-[32px] w-[32px] flex items-center justify-center transition-all rounded-xl " + (activePopup === 'format' ? "bg-black/5 text-secondary" : "text-secondary hover:bg-black/5")} title="Formatting">
-                                         <span className="material-symbols-outlined text-[22px]">format_color_text</span>
-                                     </button>
+                                    {/* notepad-formatting-trigger [FIX 2026-04-16] */}
+                                    <button 
+                                        id="notepad_format_btn"
+                                        onClick={() => { if(!canEdit) return; setActivePopup(activePopup === 'format' ? null : 'format'); }} 
+                                        className={"footer-action-btn h-[32px] w-[32px] flex items-center justify-center transition-all rounded-xl " + (activePopup === 'format' ? "bg-black/5 text-secondary" : "text-secondary hover:bg-black/5") + (!canEdit ? " opacity-30 grayscale pointer-events-none" : "")} 
+                                        title="Formatting"
+                                        disabled={!canEdit}
+                                    >
+                                        <span className="material-symbols-outlined text-[22px]">format_color_text</span>
+                                    </button>
                                     
                                     {activePopup === 'format' && (
                                         <div className="format-popup-bar absolute bottom-[calc(100%+8px)] left-1 bg-white rounded-2xl pl-3 shadow-xl border border-black/5 flex flex-nowrap items-center p-2 z-[150] animate-in slide-in-from-bottom-2 duration-200">
@@ -2801,13 +2947,13 @@
 
                                                 {/* Basic Formatting Buttons */}
                                                 <div className="flex items-center">
-                                                    <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('**'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Bold">
-                                                        <span className="material-symbols-outlined text-[20px]">format_bold</span>
+                                                    <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('**'); }} className={"w-10 h-10 flex items-center justify-center rounded-lg transition-colors " + (activeFormats.bold ? "bg-black/10 text-primary scale-110" : "hover:bg-black/5 text-slate-600")} title="Bold">
+                                                        <span className="material-symbols-outlined text-[20px]" style={activeFormats.bold ? {fontVariationSettings: "'WGHT' 700"} : {}}>format_bold</span>
                                                     </button>
-                                                    <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('*'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Italic">
+                                                    <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('*'); }} className={"w-10 h-10 flex items-center justify-center rounded-lg transition-colors " + (activeFormats.italic ? "bg-black/10 text-primary scale-110" : "hover:bg-black/5 text-slate-600")} title="Italic">
                                                         <span className="material-symbols-outlined text-[20px]">format_italic</span>
                                                     </button>
-                                                    <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('__'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Underline">
+                                                    <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('__'); }} className={"w-10 h-10 flex items-center justify-center rounded-lg transition-colors " + (activeFormats.underline ? "bg-black/10 text-primary scale-110" : "hover:bg-black/5 text-slate-600")} title="Underline">
                                                         <span className="material-symbols-outlined text-[20px]">format_underlined</span>
                                                     </button>
                                                     <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('~~'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Strikethrough">
@@ -3296,7 +3442,7 @@
                                                                             token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
                                                                             setPublicShareToken(token);
                                                                         }
-                                                                        const url = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share_note.html#/${token}`;
+                                                                        const url = `https://johnpaulinso.github.io/Faiora/share_note.html#/${token}`;
                                                                         saveToFirestore({ sharedWith: nextShared, publicShareToken: token }, true);
                                                                         db.collection('shared_access').doc(`${noteId}_${email}`).set({
                                                                             noteId,
@@ -3328,7 +3474,7 @@
                                                                             token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
                                                                             setPublicShareToken(token);
                                                                         }
-                                                                        const url = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share_note.html#/${token}`;
+                                                                        const url = `https://johnpaulinso.github.io/Faiora/share_note.html#/${token}`;
                                                                         saveToFirestore({ sharedWith: nextShared, publicShareToken: token }, true);
                                                                         db.collection('shared_access').doc(`${noteId}_${email}`).set({
                                                                             noteId,
@@ -3429,7 +3575,7 @@
                                                              <button 
                                                                  onClick={() => {
                                                                      const activeToken = publicShareToken || (editingNoteRef.current?.publicShareToken);
-                                                                     const url = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share_note.html#/${activeToken}`;
+                                                                     const url = `https://johnpaulinso.github.io/Faiora/share_note.html#/${activeToken}`;
                                                                      navigator.clipboard.writeText(url);
                                                                      showToast("Public link copied!");
                                                                  }}
@@ -3515,42 +3661,48 @@
 
         const LoginModal = () => {
             const handleLogin = () => {
-                auth.signInWithPopup(googleProvider)
+                signInWithGoogle()
                     .then(() => localStorage.setItem('faiora_logged_in', 'true'))
-                    .catch(e => console.error("Login failed", e));
+                    .catch(e => {
+                        console.error("Login failed", e);
+                        alert("Google login failed: " + (e?.message || "Unknown error"));
+                    });
             };
 
+            /* welcome-back-modal - z-index raised above header */
+            /* welcome-back-modal - raised z-index to 999 */
+            /* FIX 2026-04-15: Raised to z-[999] (was 500) */
             return (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 blur-overlay overflow-hidden">
+                <div className="faiora-auth-screen fixed inset-0 z-[999] flex items-center justify-center p-6 blur-overlay overflow-hidden">
                     <div className="absolute inset-0 z-0">
                         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[120px] animate-pulse"></div>
                         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-burnt-orange/30 rounded-full blur-[120px] animate-pulse delay-1000"></div>
                     </div>
                     
-                    <div className="glass-panel max-w-xl w-full p-12 rounded-[3.5rem] flex flex-col items-center text-center relative z-10 shadow-2xl border-white/10">
+                    <div className="faiora-auth-panel glass-panel max-w-xl w-full p-12 rounded-[3.5rem] flex flex-col items-center text-center relative z-10 shadow-2xl border-white/10">
                         <div className="mb-10 relative">
                              <div className="flame-container flex justify-center !static h-16 mb-4">
                                  {[...Array(3)].map((_, i) => (
                                      <div key={i} className="flame-tongue !w-16 !h-24 mx-2" style={{animationDelay: (i * 0.2) + "s"}}></div>
                                  ))}
                              </div>
-                             <h2 className="text-8xl font-black text-cream-light italic tracking-tighter drop-shadow-[0_0_50px_rgba(249,115,22,0.4)]" style={{ fontFamily: 'inherit' }}>Faiora</h2>
-                             <p className="text-primary font-bold uppercase tracking-[0.8em] text-sm mt-4">Ignite your productivity</p>
+                             <h2 className="faiora-auth-title text-8xl font-black text-cream-light italic tracking-tighter drop-shadow-[0_0_50px_rgba(249,115,22,0.4)]" style={{ fontFamily: 'inherit' }}>Faiora</h2>
+                             <p className="faiora-auth-eyebrow text-primary font-bold uppercase tracking-[0.8em] text-sm mt-4">Ignite your productivity</p>
                         </div>
 
-                        <p className="text-cream-light/60 text-lg mb-12 max-w-md font-sans leading-relaxed">
+                        <p className="faiora-auth-copy text-cream-light/60 text-lg mb-12 max-w-md font-sans leading-relaxed">
                             Experience a fiery approach to digital planning. Sync your lists, tasks, and goals with Google and light up your potential.
                         </p>
 
                         <button 
                             onClick={handleLogin}
-                            className="bg-white text-black py-5 px-10 rounded-3xl font-bold flex items-center gap-4 hover:bg-primary hover:text-white transition-all duration-500 hover:scale-105 active:scale-95 shadow-xl group mb-12"
+                            className="faiora-auth-button bg-white text-black py-5 px-10 rounded-3xl font-bold flex items-center gap-4 hover:bg-primary hover:text-white transition-all duration-500 hover:scale-105 active:scale-95 shadow-xl group mb-12"
                         >
                             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6 group-hover:invert transition-all" alt="Google" />
                             <span className="text-xl">Login with Google</span>
                         </button>
 
-                        <div className="flex gap-8 text-[10px] uppercase tracking-widest font-bold text-cream-light/20">
+                        <div className="faiora-auth-links flex gap-8 text-[10px] uppercase tracking-widest font-bold text-cream-light/20">
                             <a href="https://johnpaulinso.github.io/Faiora/privacy.html" className="hover:text-primary transition-colors">Privacy Policy</a>
                             <a href="https://johnpaulinso.github.io/Faiora/terms.html" className="hover:text-primary transition-colors">Terms of Service</a>
                         </div>
@@ -3562,8 +3714,11 @@
         // --- Page Components ---
 
         const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmText = "Confirm", cancelText = "Cancel", type = "danger" }) => {
+            /* confirmation-modal - z-index raised above header */
+            /* confirmation-modal - raised z-index to 999 */
+            /* FIX 2026-04-15: Raised to z-[999] (was 500) */
             return (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 modal-overlay animation-fade-in">
+                <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 md:p-10 modal-overlay animation-fade-in">
                     <div className="w-full max-w-sm bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl border border-white/10 p-8 text-center space-y-6 transform scale-up-center font-montserrat">
                         <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${type === 'danger' ? 'bg-rose-500/10 text-rose-500' : 'bg-primary/10 text-primary'}`}>
                             <span className="material-symbols-outlined text-3xl">{type === 'danger' ? 'warning' : 'info'}</span>
@@ -3817,9 +3972,12 @@
                             )}
                         </div>
                     </div>
+                    {/* LABEL: QUIK-TSK-ITM — Desktop/Mobile Task Item */}
+                    {/* FIX 2026-04-15: Increased touch target for deletion and made button visible on mobile */}
                     <button 
                         onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
-                        className="opacity-0 group-hover:opacity-100 p-2 text-white/10 hover:text-red-400 transition-all duration-200 pointer-events-auto transform hover:scale-110"
+                        className="opacity-60 md:opacity-0 group-hover:opacity-100 p-4 -m-2 text-white/40 hover:text-red-400 transition-all duration-200 pointer-events-auto transform hover:scale-110"
+                        title="Delete Task"
                     >
                         <span className="material-symbols-outlined text-xl">delete</span>
                     </button>
@@ -3829,7 +3987,7 @@
 
         // --- Page Components ---
 
-        const DashboardPage = ({ user, notes, quickTasks, onOpenCreator, onEditNote, onRestoreDefaults, onReorderPriorityNote, onToggleQuickTask, onAddQuickTaskClick, onDeleteQuickTask, onUpdateQuickTask, onEditQuickTask, editingQuickTask, setEditingQuickTask, isQuickTaskModalOpen, setIsQuickTaskModalOpen, onRemoveReminder, isProbing }) => {
+        const DashboardPage = ({ user, notes, quickTasks, onOpenCreator, onEditNote, onRestoreDefaults, onReorderPriorityNote, onToggleQuickTask, onAddQuickTaskClick, onDeleteQuickTask, onUpdateQuickTask, onEditQuickTask, editingQuickTask, setEditingQuickTask, isQuickTaskModalOpen, setIsQuickTaskModalOpen, onRemoveReminder, isProbing, pomodoroTime, isPomodoroActive }) => {
             const navigate = useNavigate();
             const { search } = useLocation();
             const queryParams = new URLSearchParams(search);
@@ -3945,8 +4103,12 @@
             }, [sortedQuickTasks]);
 
             // Sync localNotes with notes prop when not dragging
+            // [FIX 2026-04-16] Stabilized with JSON comparison to prevent infinite loop during Pomodoro ticks
+            const lastSyncRef = useRef('');
             useEffect(() => {
-                if (!dragState) {
+                const currentSync = JSON.stringify(notes.map(n => ({ id: n.id, updatedAt: n.updatedAt, homeOrder: n.homeOrder, labels: n.labels })));
+                if (!dragState && currentSync !== lastSyncRef.current) {
+                    lastSyncRef.current = currentSync;
                     const priorities = notes
                         .filter(n => (n.labels || []).some(l => l.toUpperCase() === 'PRIORITY'))
                         .sort((a, b) => {
@@ -3987,7 +4149,8 @@
 
                     // Before long-press: detect scroll and bail
                     if (!gs.activated) {
-                        if (Math.abs(mx - gs.startX) > 8 || Math.abs(my - gs.startY) > 8) {
+                        // FIX 2026-04-15: Increased movement threshold to 15px (was 8px) to prevent accidental drag triggers during scroll
+                        if (Math.abs(mx - gs.startX) > 15 || Math.abs(my - gs.startY) > 15) {
                             if (longPressTimer.current) clearTimeout(longPressTimer.current);
                             gs.scrolling = true;
                             gs.active = false;
@@ -4056,15 +4219,25 @@
                 if (!s) return;
                 s.didMove = true;
                 
-                // Use requestAnimationFrame for smoother movement and to avoid layout thrashing
+                /* FIX 2026-04-16: Clone follows finger correctly using delta from start position */
                 if (s.cloneEl) {
-                    s.cloneEl.style.transform = `translate3d(${mx - s.offsetX - s.startX + s.startX}px, ${my - s.offsetY - s.startY + s.startY}px, 0)`;
+                    s.cloneEl.style.transform = `translate3d(${mx - s.startX}px, ${my - s.startY}px, 0) scale(1.05) rotate(2deg)`;
+                }
+
+                // [FIX 2026-04-16] Edge Autoscrolling for Mobile
+                const scrollSpeed = 15;
+                const edgeThreshold = 80;
+                if (my < edgeThreshold) {
+                    window.scrollBy(0, -scrollSpeed);
+                } else if (my > window.innerHeight - edgeThreshold) {
+                    window.scrollBy(0, scrollSpeed);
                 }
 
                 // Throttle proximity check to every ~32ms (2 frames)
                 const now = Date.now();
                 if (now - lastUpdateRef.current < 32) return;
                 lastUpdateRef.current = now;
+                // handlePointerMoveCore - Dashboard reorder logic sync [FIX 2026-04-16]
 
                 let hoveredNoteId = null;
                 document.querySelectorAll('[data-priority-note-id]').forEach(el => {
@@ -4085,6 +4258,8 @@
                 }
             };
 
+            /* handlePointerEndCore - cleans up drag state when pointer is released */
+            /* FIX 2026-04-15: Added cleanup for activated-but-no-move case where clone and opacity were not restored */
             const handlePointerEndCore = (e) => {
                 const gs = gestureRef.current;
                 if (!gs.active) return;
@@ -4099,6 +4274,7 @@
 
                 const s = dragRef.current;
                 if (s && gs.activated && s.didMove) {
+                    /* User dragged and moved - commit reorder */
                     setLocalNotes(currentLocal => {
                         const fi = currentLocal.findIndex(n => n.id === s.noteId);
                         let tid = s.noteId;
@@ -4106,15 +4282,19 @@
                         if (tid !== s.noteId) onReorderPriorityNote(s.noteId, tid);
                         return currentLocal;
                     });
+                } else if (!gs.activated) {
+                    /* Short tap: open note */
+                    const note = localNotes.find(n => n.id === gs.noteId);
+                    if (note) onEditNote(note);
+                }
+
+                /* Always cleanup clone element and restore original card styles */
+                if (s) {
                     if (s.cloneEl) s.cloneEl.remove();
                     if (s.originalEl) {
                         s.originalEl.style.opacity = '1';
                         s.originalEl.style.transform = '';
                     }
-                } else if (!gs.activated) {
-                    // Short tap: open note
-                    const note = localNotes.find(n => n.id === gs.noteId);
-                    if (note) onEditNote(note);
                 }
 
                 document.body.style.cursor = '';
@@ -4140,8 +4320,8 @@
             };
 
             return (
-                <Layout onOpenCreator={onOpenCreator} onFabClick={onAddQuickTaskClick} onRefresh={handleRefresh}>
-                    <div className="max-w-7xl mx-auto w-full px-0 md:px-12 pt-0 md:pt-12 pb-12">
+                <Layout onOpenCreator={onOpenCreator} onFabClick={onAddQuickTaskClick} onRefresh={handleRefresh} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
+                    <div className="max-w-7xl mx-auto w-full px-0 md:px-12 pt-20 md:pt-12 pb-12">
                         <Header user={user} />
                         <section className="mt-3 md:mt-8 mb-12 md:mb-16 px-4 md:px-0">
                             <div className="flex items-center gap-4 mb-6 pt-2 md:mb-10">
@@ -4182,10 +4362,12 @@
                                                 key={note.id}
                                                 onPointerDown={(e) => handlePointerDown(note.id, e)}
                                                 onContextMenu={(e) => e.preventDefault()}
-                                                style={{ touchAction: 'pan-y' }}
-                                                className="transition-transform duration-300"
+                                                style={{ touchAction: (dragState && dragState.noteId === note.id) ? 'none' : 'pan-y' }}
+                                                className={"transition-transform duration-300 " + (dragState && dragState.noteId === note.id ? 'z-[1000] scale-105' : 'z-10')}
                                             >
+                                                {/* note-card-container: individual priority note [FIX 2026-04-16] */}
                                                 <NoteCard 
+                                                    id={`note_card_${note.id}`}
                                                     note={note} 
                                                     onClick={() => onEditNote(note)} 
                                                     index={index} 
@@ -4336,8 +4518,12 @@
              };
 
             // Sync localNotes with prop notes when not dragging
+            // [FIX 2026-04-16] Stabilized with JSON comparison to prevent infinite loop during Pomodoro ticks
+            const lastSyncRef = useRef('');
             useEffect(() => {
-                if (!dragState) {
+                const currentSync = JSON.stringify(notes.map(n => ({ id: n.id, updatedAt: n.updatedAt, section: n.section, labels: n.labels })));
+                if (!dragState && currentSync !== lastSyncRef.current) {
+                    lastSyncRef.current = currentSync;
                     setLocalNotes(notes);
                 }
             }, [notes, dragState]);
@@ -4472,7 +4658,8 @@
 
                     // Before long-press: detect scroll and bail
                     if (!gs.activated) {
-                        if (Math.abs(mx - gs.startX) > 8 || Math.abs(my - gs.startY) > 8) {
+                        // FIX 2026-04-15: Increased movement threshold to 15px (was 8px) to prevent accidental drag triggers during scroll
+                        if (Math.abs(mx - gs.startX) > 15 || Math.abs(my - gs.startY) > 15) {
                             if (longPressTimer.current) clearTimeout(longPressTimer.current);
                             gs.scrolling = true;
                             gs.active = false;
@@ -4500,6 +4687,7 @@
 
                 if (selectionMode) return;
 
+                // FIX 2026-04-15: Increased to 550ms (was 500ms) for clearer "hold-to-move" intent
                 longPressTimer.current = setTimeout(() => {
                     if (navigator.vibrate) try { navigator.vibrate(50); } catch(err) {}
                     gestureRef.current.activated = true;
@@ -4834,7 +5022,7 @@
                         updates.allowPublicEdit = false;
                     }
                     onBulkUpdate(noteId, updates);
-                    const shareLink = window.location.origin + window.location.pathname.replace('index.html', '') + 'share_note.html?id=' + noteId;
+                    const shareLink = `https://johnpaulinso.github.io/Faiora/share_note.html?id=${noteId}`;
                     navigator.clipboard.writeText(shareLink).then(() => {
                         if (showToast) showToast("Public link copied to clipboard!");
                         setSelectedNotes([]);
@@ -4947,10 +5135,10 @@
                                         }
                                     }} 
                                     style={{ 
-                                        touchAction: 'pan-y',
+                                        touchAction: (dragState && dragState.noteId === note.id) ? 'none' : 'pan-y',
                                         cursor: selectionMode ? 'pointer' : (dragState ? 'grabbing' : 'pointer')
                                     }}
-                                    className="transition-all duration-300"
+                                    className={"transition-all duration-300 " + (dragState && dragState.noteId === note.id ? 'z-[1000] scale-105' : 'z-10')}
                                 >
                                     <NoteCard 
                                         note={note} 
@@ -5003,11 +5191,11 @@
             );
 
             return (
-                <Layout onOpenCreator={onOpenCreator}>
-                    <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-0 md:pt-12 pb-12">
+                <Layout onOpenCreator={onOpenCreator} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
+                    <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-20 md:pt-12 pb-12">
                         {selectionMode ? (
                             <React.Fragment>
-                                <div className="sticky px-8 top-0 left-[-16px] right-[-16px] z-[200] bg-black backdrop-blur-2xl border-b border-white/5 px-4 py-4 flex items-center justify-between -mx-4 -mt-4 mb-6 relative animate-mobile-header font-montserrat">
+                                <div className="fixed top-0 left-0 right-0 z-[200] bg-black backdrop-blur-2xl border-b border-white/5 px-8 py-4 flex items-center justify-between animate-mobile-header font-montserrat">
                                     <div className="flex items-center gap-3">
                                         <button onClick={() => setSelectedNotes([])} className="text-cream-light/60 hover:text-cream-light transition-colors p-1">
                                             <span className="material-symbols-outlined text-2xl">close</span>
@@ -5342,7 +5530,7 @@
             );
         });
 
-        const CalendarPage = ({ user, notes, quickTasks = [], onOpenCreator, onEditNote, onToggleQuickTask, onEditQuickTask, onAddQuickTask }) => {
+        const CalendarPage = ({ user, notes, quickTasks = [], onOpenCreator, onEditNote, onToggleQuickTask, onEditQuickTask, onAddQuickTask, pomodoroTime, isPomodoroActive }) => {
             const [currentDate, setCurrentDate] = useState(new Date());
             const [selectedDate, setSelectedDate] = useState(new Date());
             const today = new Date();
@@ -5409,17 +5597,14 @@
                     .slice(0, 8);
             }, [notes, quickTasks]);
 
-            // Build calendar grid cells
             const cells = [];
-            // Previous month trailing days
             for (let i = firstDay - 1; i >= 0; i--) {
                 cells.push({ day: prevMonthDays - i, current: false });
             }
-            // Current month days
+            /* 2026-04-15: Restored corrupted calendar grid population logic */
             for (let d = 1; d <= daysInMonth; d++) {
                 cells.push({ day: d, current: true });
             }
-            // Next month leading days
             const remaining = 7 - (cells.length % 7);
             if (remaining < 7) {
                 for (let i = 1; i <= remaining; i++) {
@@ -5428,9 +5613,10 @@
             }
 
             return (
-                <Layout onOpenCreator={onOpenCreator} noPadding={true}>
+                /* 2026-04-15: Ensured FAB is enabled for CalendarPage */
+                <Layout onOpenCreator={onOpenCreator} noPadding={true} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
                     <div className="flex-1 flex flex-col md:flex-row md:h-full md:overflow-hidden">
-                        <div className="flex-1 md:overflow-y-auto no-scrollbar px-0 md:px-10 pt-0 md:pt-12 pb-8">
+                        <div className="flex-1 md:overflow-y-auto no-scrollbar px-0 md:px-10 pt-20 md:pt-12 pb-8">
                             <Header user={user} />
                             <div className="px-4 md:px-0  mx-2 mt-3">
                                 <div className="flex items-center justify-between mb-4 md:mb-6">
@@ -5466,7 +5652,7 @@
                                                     <div className="flex flex-col gap-1 mt-2">
                                                         {reminders.slice(0, 3).map((r, ri) => (
                                                             <div key={ri} className={`w-full line-clamp-2 overflow-hidden text-[9px] md:text-[10px] font-bold rounded-lg px-1.5 py-1 flex items-center gap-1.5 ${r.type === 'quickTask' ? 'bg-white/10 text-cream-light/80' : 'bg-primary/15 text-primary/90'} border border-white/5`}>
-                                                                <span className="material-symbols-outlined text-[10px] md:text-[11px] leading-none">{r.type === 'quickTask' ? 'task_alt' : 'event'}</span>
+                                                                <span className="text-white/30"></span>
                                                                 {r.type === 'quickTask' ? formatTaskText(r.text) : (r.title || 'Note')}
                                                             </div>
                                                         ))}
@@ -5570,7 +5756,8 @@
             );
         };
 
-        const StatsPage = ({ user, onOpenCreator, quickTasks = [] }) => {
+        /* StatsPage Component: Visualizes productivity metrics */
+        const StatsPage = ({ user, onOpenCreator, quickTasks = [], pomodoroTime, isPomodoroActive }) => {
             const stats = useMemo(() => {
                 const all = Array.isArray(quickTasks) ? quickTasks : [];
                 const completed = all.filter(t => t.completed);
@@ -5616,8 +5803,10 @@
             const weeklyMax = Math.max(1, ...stats.weekBuckets.map(b => b.done));
 
             return (
-                <Layout onOpenCreator={onOpenCreator}>
-                    <div className="max-w-7xl mx-auto w-full px-0 md:px-12 pt-0 md:pt-10 pb-24">
+                /* FIX 2026-04-15: Added showFab={false} and removed noPadding for StatsPage display */
+                <Layout onOpenCreator={onOpenCreator} showFab={false} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
+                    {/* FIX 2026-04-15: Increased to pt-[110px] for better header separation */}
+                    <div className="max-w-7xl mx-auto w-full px-0 md:px-12 pt-[110px] md:pt-10 pb-24">
                         <Header user={user} subtitle="Productivity Statistics" />
                         <div className="px-4 md:px-0 space-y-6 md:space-y-8">
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
@@ -5691,13 +5880,16 @@
             );
         };
 
-        const StreakPage = ({ user, onOpenCreator, gamification }) => {
+        /* StreakPage Component: Displays gamification streaks and rewards */
+        const StreakPage = ({ user, onOpenCreator, gamification, pomodoroTime, isPomodoroActive }) => {
             const rewards = gamification?.rewards || [];
             const currentStreak = gamification?.currentStreak || 0;
             const streakUnit = currentStreak === 1 ? 'DAY' : 'DAYS';
             return (
-                <Layout onOpenCreator={onOpenCreator}>
-                    <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-0 md:pt-12 pb-12">
+                /* FIX 2026-04-15: Added showFab={false} to disable Floating Action Button on StreakPage as requested */
+                <Layout onOpenCreator={onOpenCreator} showFab={false} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
+                    {/* FIX 2026-04-15: Increased to pt-[110px] for better header separation */}
+                    <div className="max-w-2xl mx-auto w-full pt-[110px] pb-24 px-4 md:px-0">
                         <Header user={user} subtitle="Streak & Achievements" />
                         <div className="px-4 md:px-0">
                             <section className="mb-16 flex flex-col items-center text-center">
@@ -5725,7 +5917,8 @@
             );
         };
 
-        const ClockPage = ({ user, onOpenCreator, alarms = [], onAddAlarm, onToggleAlarm, onDeleteAlarm }) => {
+        /* ClockPage Component: Displays analog clock and alarm management */
+        const ClockPage = ({ user, onOpenCreator, alarms = [], onAddAlarm, onToggleAlarm, onDeleteAlarm, pomodoroTime, setPomodoroTime, isPomodoroActive, setIsPomodoroActive, pomodoroSessions }) => {
             const [now, setNow] = useState(new Date());
             const [label, setLabel] = useState('');
             const [alarmTime, setAlarmTime] = useState('07:00');
@@ -5755,8 +5948,10 @@
             };
 
             return (
-                <Layout onOpenCreator={onOpenCreator}>
-                    <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-0 md:pt-12 pb-12">
+                /* FIX 2026-04-15: Added showFab={false} to disable Floating Action Button on ClockPage as requested */
+                <Layout onOpenCreator={onOpenCreator} showFab={false}>
+                    {/* FIX 2026-04-15: Increased to pt-[110px] for better header separation */}
+                    <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-[110px] md:pt-12 pb-12">
                         <Header user={user} subtitle="Clock & Notifications" />
                         <div className="px-4 md:px-0">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start min-h-[500px]">
@@ -5773,7 +5968,77 @@
                                     </div>
                                 </div>
                                 <div className="space-y-4">
-                                    <h2 className="text-2xl font-bold text-cream-light/90 uppercase tracking-[0.3em] mb-4">Alarms</h2>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h2 className="text-2xl font-bold text-cream-light/90 uppercase tracking-[0.3em]">Pomodoro</h2>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase tracking-widest">{pomodoroSessions} Sessions Done</span>
+                                        </div>
+                                    </div>
+                                    <div className="glass-panel p-10 rounded-[3rem] flex flex-col items-center justify-center space-y-8 relative overflow-hidden group">
+                                        {/* Pomodoro Progress Ring [FIX 2026-04-16] */}
+                                        <div className="relative w-64 h-64 flex items-center justify-center">
+                                            <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                                                {/* Background Circle */}
+                                                <circle 
+                                                    cx="50" cy="50" r="46" 
+                                                    fill="none" stroke="currentColor" strokeWidth="4" 
+                                                    className="text-white/[0.03]" 
+                                                />
+                                                {/* Active Progress Circle */}
+                                                <circle 
+                                                    cx="50" cy="50" r="46" 
+                                                    fill="none" stroke="url(#pomoGradient)" 
+                                                    strokeWidth="4" strokeLinecap="round"
+                                                    strokeDasharray="289.027"
+                                                    strokeDashoffset={289.027 - (289.027 * ((1500 - pomodoroTime) / 1500))}
+                                                    className="transition-all duration-1000 ease-linear"
+                                                />
+                                                <defs>
+                                                    <linearGradient id="pomoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                        <stop offset="0%" stopColor="#f97316" />
+                                                        <stop offset="100%" stopColor="#ef4444" />
+                                                    </linearGradient>
+                                                </defs>
+                                            </svg>
+                                            
+                                            {/* Inner UI */}
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                                <div className={`text-6xl font-display font-bold text-cream-light tracking-tighter ${isPomodoroActive ? 'animate-pulse' : ''}`}>
+                                                    {Math.floor(pomodoroTime / 60)}:{String(pomodoroTime % 60).padStart(2, '0')}
+                                                </div>
+                                                <p className="text-[10px] font-bold text-cream-light/30 uppercase tracking-[0.2em] mt-2">Focus Mode</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-6 relative z-10">
+                                            <button 
+                                                id="pomo_play_pause_btn"
+                                                onClick={() => {
+                                                    if (navigator.vibrate) try { navigator.vibrate(20); } catch(e) {}
+                                                    setIsPomodoroActive(!isPomodoroActive);
+                                                }}
+                                                className={`w-16 h-16 flex items-center justify-center rounded-full transition-all duration-300 shadow-xl ${isPomodoroActive ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-primary/20 text-primary border border-primary/30'}`}
+                                            >
+                                                <span className="material-symbols-outlined text-4xl font-bold">{isPomodoroActive ? 'pause' : 'play_arrow'}</span>
+                                            </button>
+                                            <button 
+                                                id="pomo_reset_btn"
+                                                onClick={() => { 
+                                                    if (navigator.vibrate) try { navigator.vibrate([10, 10]); } catch(e) {}
+                                                    setIsPomodoroActive(false); 
+                                                    setPomodoroTime(25 * 60); 
+                                                }}
+                                                className="w-16 h-16 flex items-center justify-center rounded-full bg-white/5 text-slate-400 hover:text-slate-200 transition-all border border-white/5 hover:bg-white/10"
+                                            >
+                                                <span className="material-symbols-outlined text-3xl">refresh</span>
+                                            </button>
+                                        </div>
+                                        
+                                        {/* Background Decor */}
+                                        <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-primary/5 rounded-full blur-[40px] pointer-events-none group-hover:bg-primary/10 transition-all duration-700"></div>
+                                    </div>
+
+                                    <h2 className="text-2xl font-bold text-cream-light/90 uppercase tracking-[0.3em] mt-8 mb-4">Alarms</h2>
                                     <form onSubmit={handleSubmitAlarm} className="glass-panel p-4 rounded-3xl space-y-3">
                                         <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (optional)" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-cream-light" />
                                         <div className="flex items-center gap-3">
@@ -5810,26 +6075,32 @@
             );
         };
 
-        const ProfilePage = ({ user, onOpenCreator, profileData, onSaveProfile }) => {
+        /* ProfilePage Component: User profile management */
+        const ProfilePage = ({ user, onOpenCreator, profileData, onSaveProfile, pomodoroTime, isPomodoroActive }) => {
             const [name, setName] = useState(profileData?.name || user?.displayName || '');
             useEffect(() => {
                 setName(profileData?.name || user?.displayName || '');
             }, [profileData, user]);
             return (
-                <Layout onOpenCreator={onOpenCreator}>
-                    <div className="max-w-3xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-12 pb-12">
+                <Layout onOpenCreator={onOpenCreator} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
+                    {/* FIX 2026-04-15: Added pt-20 for mobile absolute-top header */}
+                    <div className="max-w-3xl mx-auto w-full px-4 md:px-8 pt-20 md:pt-12 pb-12">
                         <Header user={user} subtitle="Profile" />
                         <div className="glass-panel rounded-3xl p-6 space-y-4">
                             <label className="text-xs uppercase tracking-widest text-cream-light/40">Display Name</label>
                             <input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-cream-light" />
                             <button onClick={() => onSaveProfile({ name: name.trim() })} className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider">Save Profile</button>
+                            <div className="pt-6 border-t border-white/5 flex flex-col items-center gap-1">
+                                <p className="text-[10px] font-bold text-cream-light/20 uppercase tracking-[0.2em] font-montserrat">Faiora Version</p>
+                                <p className="text-xs font-bold text-primary/40 font-montserrat tracking-widest">v1.1.0</p>
+                            </div>
                         </div>
                     </div>
                 </Layout>
             );
         };
 
-        const SettingsPage = ({ user, onOpenCreator, settingsData, onSaveSettings }) => {
+        const SettingsPage = ({ user, onOpenCreator, settingsData, onSaveSettings, pomodoroTime, isPomodoroActive }) => {
             const [compactMode, setCompactMode] = useState(!!settingsData?.compactMode);
             const [dailyReminders, setDailyReminders] = useState(settingsData?.dailyReminders !== false);
             useEffect(() => {
@@ -5837,8 +6108,9 @@
                 setDailyReminders(settingsData?.dailyReminders !== false);
             }, [settingsData]);
             return (
-                <Layout onOpenCreator={onOpenCreator}>
-                    <div className="max-w-3xl mx-auto w-full px-4 md:px-8 pt-2 md:pt-12 pb-12">
+                <Layout onOpenCreator={onOpenCreator} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
+                    {/* FIX 2026-04-15: Added pt-20 (80px) to compensate for fixed absolute-top mobile header */}
+                    <div className="max-w-3xl mx-auto w-full px-4 md:px-8 pt-20 md:pt-12 pb-12">
                         <Header user={user} subtitle="Settings" />
                         <div className="glass-panel rounded-3xl p-6 space-y-4">
                             <label className="flex items-center justify-between text-sm text-cream-light/80"><span>Compact task cards</span><input type="checkbox" checked={compactMode} onChange={(e) => setCompactMode(e.target.checked)} /></label>
@@ -5852,31 +6124,32 @@
 
         const LoadingPage = ({ onComplete }) => {
             useEffect(() => {
-                const timer = setTimeout(onComplete, 1000);
+                // FIX 2026-04-15: Reduced artificial loading delay from 1s to 200ms
+                const timer = setTimeout(onComplete, 200);
                 return () => clearTimeout(timer);
             }, [onComplete]);
 
             return (
-                <div className="fixed inset-0 z-50 blur-overlay flex flex-col items-center justify-center">
+                <div className="faiora-loading-screen fixed inset-0 z-50 blur-overlay flex flex-col items-center justify-center">
                     <div className="loading-arc-container relative flex items-center justify-center w-[252px] h-[252px]">
                         <div className="loading-arc"></div>
-                        <div className="absolute flex flex-col items-center text-center z-10">
+                        <div className="faiora-loading-brand absolute flex flex-col items-center text-center z-10">
                             <div className="relative">
                                 <div className="flame-container">
                                     {[...Array(5)].map((_, i) => (
                                         <div key={i} className="flame-tongue" style={{animationDelay: (i * 0.15) + "s"}}></div>
                                     ))}
                                 </div>
-                                <h1 className="text-7xl font-display font-bold tracking-tight text-cream-light italic leading-none drop-shadow-[0_0_30px_rgba(249,115,22,0.4)]">
+                                <h1 className="faiora-loading-title text-7xl font-display font-bold tracking-tight text-cream-light italic leading-none drop-shadow-[0_0_30px_rgba(249,115,22,0.4)]">
                                     Faiora
                                 </h1>
                             </div>
-                            <div className="mt-8">
+                            <div className="faiora-loading-copy mt-8">
                                 <p className="text-primary text-[10px] uppercase tracking-[0.8em] font-sans font-bold">Fallo ora</p>
                             </div>
                         </div>
                     </div>
-                    <div className="absolute bottom-24 w-full px-12 max-w-md">
+                    <div className="faiora-loading-progress-wrap absolute bottom-24 w-full px-12 max-w-md">
                         <div className="flex justify-between items-end mb-4 px-1">
                             <span className="text-[10px] font-sans font-medium uppercase tracking-[0.2em] text-white/40">Awakening Systems</span>
                             <span className="text-xs font-sans font-bold text-primary tracking-tighter">100%</span>
@@ -5927,7 +6200,7 @@
             if (!visible) return null;
 
             return (
-                <div className="fixed top-0 left-0 right-0 z-[300] px-4 pt-3 pb-0 md:flex md:justify-center pointer-events-none" style={{paddingTop: 'env(safe-area-inset-top, 12px)'}}>
+                <div className="faiora-mobile-banner fixed top-0 left-0 right-0 z-[300] px-4 pt-3 pb-0 md:flex md:justify-center pointer-events-none" style={{paddingTop: 'env(safe-area-inset-top, 12px)'}}>
                     <div className="pointer-events-auto w-full md:max-w-lg bg-gradient-to-r from-orange-950/95 via-black/95 to-orange-950/95 backdrop-blur-2xl border border-orange-500/30 rounded-2xl p-4 shadow-[0_8px_40px_rgba(249,115,22,0.25)] flex items-center gap-3 animate-in slide-in-from-top-4 duration-500">
                         <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0">
                             <span className="material-symbols-outlined text-orange-400 text-xl" style={{fontVariationSettings: '"FILL" 1'}}>notifications_active</span>
@@ -5957,11 +6230,15 @@
         
 
 
+        /* TransitionManager - handles page navigation transitions with fire-wipe overlay and content dissolve */
+        /* FIX 2026-04-15: Added fade-in/fade-out dissolve animation on route content behind the fire sprite */
         const TransitionManager = ({ children, onTransitionStart, onTransitionEnd }) => {
+            const FIRE_WIPE_DURATION_MS = 1200; // FIX 2026-04-15: Reduced from 1850ms for faster page switching
             const location = useLocation();
-            const [displayLocation, setDisplayLocation] = useState(location);
+            const [displayLocation, setDisplayLocation] = useState(() => normalizeRouteLocation(location));
             const [isWiping, setIsWiping] = useState(false);
             const [isDissolving, setIsDissolving] = useState(false);
+            const [isFadingIn, setIsFadingIn] = useState(false);
             const [transitionKey, setTransitionKey] = useState(0);
 
             const playFireSFX = () => {
@@ -5989,7 +6266,7 @@
                 }, 1000);
             };
 
-            const lastPath = useRef(location.pathname);
+            const lastPath = useRef(location.pathname || '/');
             const timers = useRef([]);
 
             const clearTimers = () => {
@@ -6001,41 +6278,74 @@
                 clearTimers();
                 setIsWiping(true);
                 setIsDissolving(true);
+                setIsFadingIn(false);
                 setTransitionKey(prev => prev + 1);
                 if (onTransitionStart) setTimeout(() => onTransitionStart(), 0);
                 playFireSFX();
 
+                /* t1: At 450ms, swap route content but keep it hidden (still dissolve-out) */
                 const t1 = setTimeout(() => {
-                    setDisplayLocation(newLoc);
-                    setIsDissolving(false);
-                }, 900);
+                    setDisplayLocation(normalizeRouteLocation(newLoc));
+                }, 450); // FIX 2026-04-15: Reduced from 850ms
 
+                /* t2: At 750ms, start the smooth fade-in as fire sprite begins to clear */
+                /* Fire sprite peak is faster now, so content appears earlier for snappier feel */
                 const t2 = setTimeout(() => {
-                    setIsWiping(false);
+                    setIsDissolving(false);
+                    setIsFadingIn(true);
+                }, 750); // FIX 2026-04-15: Reduced from 1300ms
+
+                /* t3: Re-enable nav bar faster (at 600ms instead of 1100ms) */
+                /* This eliminates the 'stuck' feeling during the fire sweep on mobile */
+                const t3 = setTimeout(() => {
                     if (onTransitionEnd) setTimeout(() => onTransitionEnd(), 0);
-                }, 1000);
+                }, 600); // FIX 2026-04-15: Reduced from 1100ms
+
+                /* t4: Fire sprite ends at 1200ms, remove fire overlay */
+                const t4 = setTimeout(() => {
+                    setIsWiping(false);
+                }, FIRE_WIPE_DURATION_MS);
+
+                /* t5: At 1500ms, fade-in animation done, cleanup dissolve state */
+                const t5 = setTimeout(() => {
+                    setIsFadingIn(false);
+                }, 1500); // FIX 2026-04-15: Reduced from 2200ms
                 
-                timers.current = [t1, t2];
+                timers.current = [t1, t2, t3, t4, t5];
             };
 
             useEffect(() => {
-                // Initial mount transition
-                startTransition(location);
-                return clearTimers;
+                // Do not run startTransition on first mount: it applies dissolve-out (opacity: 0) to all
+                // routes until timers fire, which looks like a blank screen right after login when HashRouter mounts.
+                setDisplayLocation(normalizeRouteLocation(location));
+                lastPath.current = location.pathname || '/';
             }, []);
 
             useEffect(() => {
-                if (location.pathname !== lastPath.current) {
+                const safety = setTimeout(() => {
+                    setIsDissolving(false);
+                    setIsWiping(false);
+                    setIsFadingIn(false);
+                }, 1600); // FIX 2026-04-15: Reduced from 2500ms safety limit
+                return () => clearTimeout(safety);
+            }, []);
+
+            useEffect(() => {
+                const path = location.pathname || '/';
+                if (path !== lastPath.current) {
                     const params = new URLSearchParams(location.search);
                     if (params.has('search')) {
-                        setDisplayLocation(location);
-                        lastPath.current = location.pathname;
+                        setDisplayLocation(normalizeRouteLocation(location));
+                        lastPath.current = path;
                         return;
                     }
-                    lastPath.current = location.pathname;
+                    lastPath.current = path;
                     startTransition(location);
                 }
             }, [location.pathname]);
+
+            /* route-transition-shell - dissolve class determines fade-out/fade-in state */
+            const dissolveClass = isDissolving ? 'route-dissolve-out' : (isFadingIn ? 'route-dissolve-in' : '');
 
             return (
                 <div className="relative w-full h-full overflow-hidden">
@@ -6044,12 +6354,11 @@
                             <div className="fire-wipe-sprite"></div>
                         </div>
                     )}
-                    <div key={displayLocation.pathname} className={`w-full h-full transition-all duration-300 ${isDissolving ? 'dissolve-out' : 'dissolve-in'}`}>
-                        <Routes location={displayLocation}>
+                    <div key={displayLocation.pathname || '/'} className={"app-route-shell w-full h-full min-h-0 flex flex-col " + dissolveClass}>
+                        <Routes location={normalizeRouteLocation(displayLocation)}>
                             {children}
+                            <Route path="*" element={<Navigate to="/" replace />} />
                         </Routes>
-                        {/* Fallback invisibility safety: If somehow stuck in dissolve-out for more than 5s, force dissolve-in via inline style if needed, 
-                            but better to ensure isDissolving state is reliable */}
                     </div>
                 </div>
             );
@@ -6236,6 +6545,7 @@
             const [dueDate, setDueDate] = useState((initialData && initialData.dueDate) || prefillDate || initialLater.date);
             const [dueTime, setDueTime] = useState((initialData && initialData.dueTime) || (prefillDate ? '10:00' : initialLater.time));
             const [isClosing, setIsClosing] = useState(false);
+            const [isSubmitting, setIsSubmitting] = useState(false);
             const [showCustom, setShowCustom] = useState(!!prefillDate || !!(initialData && (initialData.dueDate || initialData.dueTime)));
             const [selectedPreset, setSelectedPreset] = useState(() => {
                 if (showCustom) return 'custom';
@@ -6306,9 +6616,11 @@
 
             const handleSubmit = (e) => {
                 e.preventDefault();
-                if (text.trim()) {
+                if (text.trim() && !isSubmitting) {
+                    setIsSubmitting(true);
                     onAdd(text.trim(), dueDate, dueTime);
                     if (showToast) showToast(initialData ? "Task updated!" : "Quick task added!");
+                    // Instant close for better perceived performance
                     handleClose();
                 }
             };
@@ -6366,8 +6678,11 @@
 
             const selected = getSelectedLabel();
 
+            /* quick-task-modal - z-index raised above header */
+            /* quick-task-modal - raised z-index to 999 */
+            /* FIX 2026-04-15: Raised to z-[999] (was 500) */
             return (
-                <div className={"fixed inset-0 z-[150] flex items-center justify-center p-4 transition-all duration-200 " + (isClosing ? 'opacity-0 scale-95' : 'animate-in fade-in duration-300')}>
+                <div className={"fixed inset-0 z-[999] flex items-center justify-center p-4 transition-all duration-200 " + (isClosing ? 'opacity-0 scale-95' : 'animate-in fade-in duration-300')}>
                     <style>{`
                         .quick-task-input:focus {
                             border-color: #f97316 !important;
@@ -6408,6 +6723,7 @@
                                     className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-cream-light placeholder:text-white/10 focus:ring-2 focus:ring-primary/20 transition-all font-montserrat quick-task-input"
                                     rows={4}
                                     style={{ textTransform: 'capitalize', resize: 'none' }}
+                                    disabled={isSubmitting}
                                 />
                             </div>
                             <div className="space-y-3 relative" ref={dropdownRef}>
@@ -6568,8 +6884,10 @@
                 }
             };
 
+            /* set-lock-modal - raised z-index to 999 */
+            /* FIX 2026-04-15: Raised to z-[999] (was 500) */
             return (
-                <div className={"fixed inset-0 z-[250] flex items-center justify-center p-4 transition-all duration-200 " + (isClosing ? 'opacity-0 scale-95' : 'animate-in fade-in zoom-in-95 duration-300')}>
+                <div className={"fixed inset-0 z-[999] flex items-center justify-center p-4 transition-all duration-200 " + (isClosing ? 'opacity-0 scale-95' : 'animate-in fade-in zoom-in-95 duration-300')}>
                     <style>{`
                         @keyframes shake {
                             0%, 100% { transform: translateX(0); }
@@ -6707,7 +7025,7 @@
             };
 
             return (
-                <div className={"fixed inset-0 z-[300] flex items-center justify-center p-4 transition-all duration-200 " + (isClosing ? 'opacity-0 scale-95' : 'animate-in fade-in zoom-in-95 duration-300')}>
+                <div className={"fixed inset-0 z-[999] flex items-center justify-center p-4 transition-all duration-200 " + (isClosing ? 'opacity-0 scale-95' : 'animate-in fade-in zoom-in-95 duration-300')}>
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={handleClose}></div>
                     <div className={`bg-[#0f172a] w-full max-w-sm rounded-[2.5rem] p-8 relative z-[210] shadow-2xl border border-white/5 ${isError ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
                         <div className="text-center mb-8">
@@ -6801,7 +7119,23 @@
             const [isSetLockModalOpen, setIsSetLockModalOpen] = useState(false);
             const [noteToLock, setNoteToLock] = useState(null);
             const [unlockingNote, setUnlockingNote] = useState(null);
+            
+            // LABEL: POMODORO-STATE — Global persistence for the timer (v1.1.0)
+            const [pomodoroTime, setPomodoroTime] = useState(25 * 60);
+            const [isPomodoroActive, setIsPomodoroActive] = useState(false);
+            const [pomodoroSessions, setPomodoroSessions] = useState(0);
 
+            const isQuickTaskEditorOpen = isQuickTaskModalOpen || !!editingQuickTask;
+            const isOverlayOpen = isCreatorOpen || isQuickTaskEditorOpen || isSetLockModalOpen || !!unlockingNote;
+
+            useEffect(() => {
+                document.body.classList.add('faiora-react-ready');
+                window.dispatchEvent(new Event('faiora-app-ready'));
+            }, []);
+
+            /* handleRequestEditNote - opens note editor, handles locked notes */
+            /* FIX 2026-04-15: Push history state for non-locked notes so back button */
+            /* closes the note instead of navigating to the previous page (e.g. calendar) */
             const handleRequestEditNote = useCallback((note) => {
                 if (note.isLocked) {
                     setUnlockingNote(note);
@@ -6809,6 +7143,7 @@
                 } else {
                     setEditingNote(note);
                     setIsCreatorOpen(true);
+                    window.history.pushState({ modal: 'creator' }, '');
                 }
             }, []);
 
@@ -6830,7 +7165,47 @@
             };
 
             const [toasts, setToasts] = useState([]);
-            const [isTransitioning, setIsTransitioning] = useState(true);
+            const [isTransitioning, setIsTransitioning] = useState(false);
+            // Pomodoro Logic (v1.1.4 Persistence & Functional Fixes) [FIX 2026-04-16]
+            useEffect(() => {
+                const savedTime = localStorage.getItem('faiora_pomo_time');
+                const savedSessions = localStorage.getItem('faiora_pomo_sessions');
+                if (savedTime) setPomodoroTime(parseInt(savedTime));
+                if (savedSessions) setPomodoroSessions(parseInt(savedSessions));
+            }, []);
+
+            useEffect(() => {
+                let interval = null;
+                if (isPomodoroActive && pomodoroTime > 0) {
+                    interval = setInterval(() => {
+                        setPomodoroTime(prev => {
+                            const next = prev - 1;
+                            localStorage.setItem('faiora_pomo_time', next.toString());
+                            return next;
+                        });
+                    }, 1000);
+                } else if (pomodoroTime === 0 && isPomodoroActive) {
+                    setIsPomodoroActive(false);
+                    setPomodoroSessions(s => {
+                        const next = s + 1;
+                        localStorage.setItem('faiora_pomo_sessions', next.toString());
+                        return next;
+                    });
+                    
+                    // Push Notification for Pomodoro [FIX 2026-04-16]
+                    if (FaioraNotifications) {
+                        FaioraNotifications.show("Pomodoro Finished!", "Great job! Time for a short break.");
+                        FaioraNotifications.playNotifSFX();
+                    }
+                    
+                    // Reset to 25 mins
+                    const defaultTime = 25 * 60;
+                    setPomodoroTime(defaultTime);
+                    localStorage.setItem('faiora_pomo_time', defaultTime.toString());
+                }
+                return () => clearInterval(interval);
+            }, [isPomodoroActive, pomodoroTime]);
+
             // Notification Catch-up Logic
             useEffect(() => {
                 const triggerCheck = () => {
@@ -6853,13 +7228,100 @@
 
             const videoRef = useRef();
             const prevPopState = useRef(0);
+            const lastRoutePathRef = useRef((window.location.hash || '#/').replace(/^#/, '').split('?')[0] || '/');
 
             // Ref to indicate if a modal was closed via code, to prevent double-handling by popstate
             const closingViaCode = useRef(false);
             const appStartTimeRef = useRef(Date.now());
+            const prevAuthUidRef = useRef(null);
+            const getHashPath = useCallback(() => {
+                const rawHash = window.location.hash || '#/';
+                const normalizedHash = rawHash.startsWith('#') ? rawHash.slice(1) : rawHash;
+                const [pathnameOnly] = normalizedHash.split('?');
+                return pathnameOnly || '/';
+            }, []);
+            const scrollHomeToTop = useCallback(() => {
+                try {
+                    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+                } catch (e) {
+                    window.scrollTo(0, 0);
+                }
+                const main = document.querySelector('main');
+                if (main) {
+                    try {
+                        main.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+                    } catch (e) {
+                        main.scrollTop = 0;
+                    }
+                }
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
+            }, []);
+            const exitApp = useCallback(() => {
+                const appPlugin = window.Capacitor?.Plugins?.App;
+                if (appPlugin && typeof appPlugin.exitApp === 'function') {
+                    try {
+                        appPlugin.exitApp();
+                        return;
+                    } catch (error) {
+                        console.warn('Capacitor App exit failed:', error);
+                    }
+                }
+                if (window.navigator?.app && typeof window.navigator.app.exitApp === 'function') {
+                    try {
+                        window.navigator.app.exitApp();
+                        return;
+                    } catch (error) {
+                        console.warn('navigator.app.exitApp failed:', error);
+                    }
+                }
+                try {
+                    window.close();
+                } catch (error) {
+                    console.warn('window.close failed:', error);
+                }
+            }, []);
+            const redirectToHomeFromBack = useCallback((alreadyAtHome = false) => {
+                prevPopState.current = 0;
+                lastRoutePathRef.current = '/';
+                if (!alreadyAtHome) {
+                    window.location.hash = '#/';
+                }
+                const syncToTop = () => scrollHomeToTop();
+                if (typeof window.requestAnimationFrame === 'function') {
+                    window.requestAnimationFrame(syncToTop);
+                } else {
+                    setTimeout(syncToTop, 0);
+                }
+                window.history.pushState({ stayAlive: true }, '');
+            }, [scrollHomeToTop]);
 
             useEffect(() => {
-                 const handleBackButton = (e) => {
+                const syncRoutePath = () => {
+                    const path = getHashPath();
+                    lastRoutePathRef.current = path;
+
+                    const state = window.history.state || {};
+                    if (state.modal || state.popup || state.exitGate || state.stayAlive || state.routeSentinel) {
+                        return;
+                    }
+
+                    if (path !== '/') {
+                        window.history.pushState({ routeSentinel: true, path }, '');
+                    }
+                };
+                syncRoutePath();
+                window.addEventListener('hashchange', syncRoutePath);
+                return () => window.removeEventListener('hashchange', syncRoutePath);
+            }, [getHashPath]);
+
+            useEffect(() => {
+                document.body.classList.toggle('faiora-overlay-open', isOverlayOpen);
+                return () => document.body.classList.remove('faiora-overlay-open');
+            }, [isOverlayOpen]);
+
+            useEffect(() => {
+                 const handleBackButton = () => {
                      // If we're closing via code (close button), don't re-process
                      if (closingViaCode.current) {
                          closingViaCode.current = false;
@@ -6867,7 +7329,8 @@
                      }
 
                      const now = Date.now();
-                     const state = window.history.state;
+                     const state = window.history.state || {};
+                     const currentPath = getHashPath();
 
                      // 1. Dispatch close event for all internal popups/dropdowns
                      window.dispatchEvent(new CustomEvent('faiora-close-popups'));
@@ -6903,31 +7366,94 @@
                          }
                          setIsQuickTaskModalOpen(false);
                          setEditingQuickTask(null);
+                         setPrefillDate(null);
                          return;
                      }
 
-                    // 6. Navigation Logic — only if no modal was open
-                    const path = window.location.hash.replace('#', '');
-                    if (path !== '/' && path !== '') {
-                        // Not on home — navigate to home
-                        window.location.hash = '#/';
-                    } else {
-                        // On home, double-back to exit
-                        if (now - prevPopState.current < 2000) {
-                            showToast("Closing app...");
-                            window.close();
-                        } else {
-                            showToast("Press back again to exit");
-                            prevPopState.current = now;
-                            // Push a state so the next back doesn't navigate away
-                            window.history.pushState({ stayAlive: true }, '');
-                        }
+                     /* FIX 2026-04-15: Advanced Back Button Handling
+                        - Redirection to homepage (#/) if currently on a sub-page
+                        - Scroll to top when navigating back to homepage
+                        - Double-tap back button to exit app with toast confirmation
+                     */
+                     if (currentPath !== '/') {
+                         // Not on home — navigate to home and scroll to top
+                         redirectToHomeFromBack(false);
+                         return;
+                     }
+                     if (now - prevPopState.current < 2000) {
+                         prevPopState.current = 0;
+                         exitApp();
+                     } else {
+                         showToast("Press back again to exit");
+                         prevPopState.current = now;
+                        window.history.pushState({ exitGate: true }, '');
                     }
                 };
 
                 window.addEventListener('popstate', handleBackButton);
                 return () => window.removeEventListener('popstate', handleBackButton);
-            }, [isCreatorOpen, isQuickTaskModalOpen, editingQuickTask, unlockingNote, isSetLockModalOpen]);
+            }, [editingQuickTask, exitApp, getHashPath, isCreatorOpen, isQuickTaskModalOpen, isSetLockModalOpen, redirectToHomeFromBack, showToast, unlockingNote]);
+
+            useEffect(() => {
+                const appPlugin = window.Capacitor?.Plugins?.App;
+                if (!appPlugin || typeof appPlugin.addListener !== 'function') return;
+
+                let listenerHandle = null;
+                let isMounted = true;
+
+                const registerBackListener = async () => {
+                    try {
+                        const handle = await appPlugin.addListener('backButton', () => {
+                            const currentState = window.history.state;
+                            if (
+                                currentState?.popup ||
+                                unlockingNote ||
+                                isSetLockModalOpen ||
+                                isCreatorOpen ||
+                                isQuickTaskModalOpen ||
+                                editingQuickTask
+                            ) {
+                                window.history.back();
+                                return;
+                            }
+
+                            const currentPath = getHashPath();
+                            if (currentPath !== '/') {
+                                redirectToHomeFromBack(false);
+                                return;
+                            }
+
+                            const now = Date.now();
+                            if (now - prevPopState.current < 2000) {
+                                prevPopState.current = 0;
+                                exitApp();
+                                return;
+                            }
+
+                            showToast("Press back again to exit");
+                            prevPopState.current = now;
+                            window.history.pushState({ exitGate: true }, '');
+                        });
+
+                        if (isMounted) {
+                            listenerHandle = handle;
+                        } else if (handle && typeof handle.remove === 'function') {
+                            handle.remove();
+                        }
+                    } catch (error) {
+                        console.warn('Failed to register Android back handler:', error);
+                    }
+                };
+
+                registerBackListener();
+
+                return () => {
+                    isMounted = false;
+                    if (listenerHandle && typeof listenerHandle.remove === 'function') {
+                        listenerHandle.remove();
+                    }
+                };
+            }, [editingQuickTask, exitApp, getHashPath, isCreatorOpen, isQuickTaskModalOpen, isSetLockModalOpen, redirectToHomeFromBack, showToast, unlockingNote]);
 
             useEffect(() => {
                 const handleOnline = () => {
@@ -7725,6 +8251,46 @@
                 window.history.pushState({ modal: 'creator' }, '');
             }, []);
 
+            const handleOpenSetLock = useCallback(() => {
+                setIsSetLockModalOpen(true);
+                window.history.pushState({ modal: 'setLock' }, '');
+            }, []);
+
+            const handleCloseSetLock = useCallback(() => {
+                setIsSetLockModalOpen(false);
+                if (window.history.state && window.history.state.modal === 'setLock') {
+                    window.history.back();
+                }
+            }, []);
+
+            const handleOpenQuickTaskModal = useCallback((date = null) => {
+                setPrefillDate(date);
+                setEditingQuickTask(null);
+                setIsQuickTaskModalOpen(true);
+            }, []);
+
+            const handleCloseQuickTaskModal = useCallback(() => {
+                setIsQuickTaskModalOpen(false);
+                setPrefillDate(null);
+            }, []);
+
+            const handleOpenQuickTaskEditor = useCallback((task) => {
+                setPrefillDate(null);
+                setIsQuickTaskModalOpen(false);
+                setEditingQuickTask(task);
+            }, []);
+
+            const handleCloseQuickTaskEditor = useCallback(() => {
+                setEditingQuickTask(null);
+            }, []);
+
+            const handleCloseUnlockModal = useCallback(() => {
+                setUnlockingNote(null);
+                if (window.history.state && window.history.state.modal === 'unlock') {
+                    window.history.back();
+                }
+            }, []);
+
             const handleCloseCreator = () => {
                 setEditingNote(null);
                 setIsCreatorOpen(false);
@@ -7735,104 +8301,170 @@
                 }
             };
 
+            // Fires as soon as Google popup/native sign-in resolves — before onAuthStateChanged in some browsers.
             useEffect(() => {
-                const unsubscribe = auth.onAuthStateChanged((u) => {
-                    // Clear stale data immediately upon auth change to trigger skeletons correctly
+                const onSignedIn = (e) => {
+                    const signedUser = e.detail;
+                    if (!signedUser) return;
                     setNotes([]);
                     setQuickTasks([]);
+                    setUser(signedUser);
+                    setIsAuthChecked(true);
+                    setIsTimerDone(true);
+                    setIsProbing(true);
+                };
+                window.addEventListener('faiora-signed-in', onSignedIn);
+                return () => window.removeEventListener('faiora-signed-in', onSignedIn);
+            }, []);
+
+            // APK / WebView: OAuth or resume can strip or break the hash — no Route match → blank screen.
+            useEffect(() => {
+                if (!user) return;
+                try {
+                    const h = window.location.hash;
+                    if (!h || h === '#' || !h.startsWith('#/')) {
+                        window.location.hash = '#/';
+                    }
+                } catch (e) { /* ignore */ }
+            }, [user]);
+
+            useEffect(() => {
+                const fixHashOnResume = () => {
+                    if (document.visibilityState !== 'visible') return;
+                    if (!auth.currentUser) return;
+                    try {
+                        const h = window.location.hash;
+                        if (!h || h === '#' || !h.startsWith('#/')) {
+                            window.location.hash = '#/';
+                        }
+                    } catch (e) { /* ignore */ }
+                };
+                document.addEventListener('visibilitychange', fixHashOnResume);
+                return () => document.removeEventListener('visibilitychange', fixHashOnResume);
+            }, []);
+
+            useEffect(() => {
+                const unsubscribe = auth.onAuthStateChanged((u) => {
+                    const nextUid = u?.uid ?? null;
+                    const prevUid = prevAuthUidRef.current;
+                    if (prevUid !== nextUid) {
+                        setNotes([]);
+                        setQuickTasks([]);
+                        prevAuthUidRef.current = nextUid;
+                    }
                     setUser(u);
                     setIsAuthChecked(true);
 
                     if (u) {
                         setIsProbing(true);
-                        // Ensure FCM token is refreshed/verified if permission already granted
-                        if (Notification.permission === 'granted') {
-                            FaioraNotifications.registerFCMToken();
-                        } else {
-                            FaioraNotifications.requestPermission();
+                        // Defer notifications + Firestore probe so this tick only updates auth state (fixes freeze / stuck login UI).
+                        setTimeout(() => {
+                        try {
+                            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                                FaioraNotifications.registerFCMToken();
+                            } else {
+                                FaioraNotifications.requestPermission().catch(() => {});
+                            }
+                        } catch (notifErr) {
+                            console.warn('[Faiora] notification bootstrap:', notifErr);
                         }
                         console.log("👤 [AUTH] User logged in, starting writable collection discovery...");
-                        // and immediately resolve if notes are found.
                         const tryProbe = async () => {
                             const lastColl = localStorage.getItem('faiora_active_collection');
                             let bestCollection = lastColl || 'tasks';
-                            
-                            // 1. INSTANT LOAD: Set cached collection immediately so UI starts loading data
-                            setActiveCollection(bestCollection);
-                            console.log("⚡ [PROBE] Instant load from cache:", bestCollection);
+                            try {
+                                // 1. INSTANT LOAD: Set cached collection immediately so UI starts loading data
+                                setActiveCollection(bestCollection);
+                                console.log("⚡ [PROBE] Instant load from cache:", bestCollection);
 
-                            const probeCollections = Array.from(new Set([bestCollection, 'tasks', 'users', 'userdata', 'notes', 'faiora_data', 'user_metadata']));
-                            
-                            const runProbe = async () => {
-                                console.log("🔍 [PROBE] Parallel discovery on:", probeCollections);
+                                const probeCollections = Array.from(new Set([bestCollection, 'tasks', 'users', 'userdata', 'notes', 'faiora_data', 'user_metadata']));
                                 
-                                // Check all collections simultaneously
-                                const results = await Promise.all(probeCollections.map(async (coll) => {
+                                const runProbe = async () => {
                                     try {
-                                        const doc = await db.collection(coll).doc(u.uid).get();
-                                        if (doc.exists) {
-                                            const data = doc.data();
-                                            const hasNotes = data && data.notes && Object.keys(data.notes).length > 0;
-                                            const hasTasks = data && (data.quickTasks && (Array.isArray(data.quickTasks) ? data.quickTasks.length > 0 : Object.keys(data.quickTasks).length > 0));
-                                            
-                                            // Score the collection
-                                            let score = (hasNotes ? 10 : 0) + (hasTasks ? 5 : 0);
-                                            return { coll, exists: true, score, data };
+                                        const quickSnap = await db.collection(bestCollection).doc(u.uid).get();
+                                        if (quickSnap.exists) {
+                                            const qd = quickSnap.data();
+                                            const hasNotes = qd?.notes && Object.keys(qd.notes).length > 0;
+                                            const hasTasks = qd?.quickTasks && (Array.isArray(qd.quickTasks) ? qd.quickTasks.length > 0 : Object.keys(qd.quickTasks || {}).length > 0);
+                                            if (hasNotes || hasTasks || qd?.profile || qd?.settings || (qd?.noteSections && qd.noteSections.length)) {
+                                                try {
+                                                    await db.collection(bestCollection).doc(u.uid).set({ _lastSync: Date.now() }, { merge: true });
+                                                    console.log('⚡ [PROBE] Fast path using', bestCollection);
+                                                    return bestCollection;
+                                                } catch (e) {
+                                                    console.warn('⚡ [PROBE] Fast path write check failed, full probe');
+                                                }
+                                            }
                                         }
-                                        
-                                        // If empty but writable, it's a fallback home
-                                        try {
-                                            await db.collection(coll).doc(u.uid).set({ _lastProbe: Date.now() }, { merge: true });
-                                            return { coll, exists: false, score: 0, writable: true };
-                                        } catch(e) {
-                                            return { coll, exists: false, score: 0, writable: false };
-                                        }
-                                    } catch (err) {
-                                        return { coll, exists: false, score: -1 };
-                                    }
-                                }));
-
-                                const candidates = results.filter(r => r.score > 0).sort((a, b) => b.score - a.score);
-                                
-                                if (candidates.length > 0) {
-                                    const richest = candidates[0];
-                                    
-                                    // Verify writability of richest
-                                    try {
-                                        await db.collection(richest.coll).doc(u.uid).set({ _lastSync: Date.now() }, { merge: true });
-                                        return richest.coll;
                                     } catch (e) {
-                                        console.warn(`🚑 [PROBE] Source '${richest.coll}' is Read-Only. Searching for writable home...`);
-                                        const writableHome = results.find(r => r.writable === true);
-                                        if (writableHome) {
-                                            console.log(`🚚 [MIGRATION] Migrating from read-only '${richest.coll}' to '${writableHome.coll}'`);
-                                            await db.collection(writableHome.coll).doc(u.uid).set(richest.data, { merge: true });
-                                            showToast("Data secured & permissions fixed!");
-                                            return writableHome.coll;
+                                        console.warn('⚡ [PROBE] Fast path read failed, full probe');
+                                    }
+
+                                    console.log("🔍 [PROBE] Parallel discovery on:", probeCollections);
+
+                                    const tryMigrateToWritable = async (richest) => {
+                                        for (const coll of probeCollections) {
+                                            if (coll === richest.coll) continue;
+                                            try {
+                                                console.log(`🚚 [MIGRATION] Trying writable home: '${coll}'`);
+                                                await db.collection(coll).doc(u.uid).set(richest.data, { merge: true });
+                                                showToast("Data secured & permissions fixed!");
+                                                return coll;
+                                            } catch (e2) { /* try next */ }
                                         }
                                         return richest.coll;
+                                    };
+
+                                    const results = await Promise.all(probeCollections.map(async (coll) => {
+                                        try {
+                                            const doc = await db.collection(coll).doc(u.uid).get();
+                                            if (doc.exists) {
+                                                const data = doc.data();
+                                                const hasNotes = data && data.notes && Object.keys(data.notes).length > 0;
+                                                const hasTasks = data && (data.quickTasks && (Array.isArray(data.quickTasks) ? data.quickTasks.length > 0 : Object.keys(data.quickTasks).length > 0));
+                                                const score = (hasNotes ? 10 : 0) + (hasTasks ? 5 : 0);
+                                                return { coll, exists: true, score, data };
+                                            }
+                                            return { coll, exists: false, score: 0, data: null };
+                                        } catch (err) {
+                                            return { coll, exists: false, score: -1, data: null };
+                                        }
+                                    }));
+
+                                    const candidates = results.filter(r => r.score > 0).sort((a, b) => b.score - a.score);
+
+                                    if (candidates.length > 0) {
+                                        const richest = candidates[0];
+                                        try {
+                                            await db.collection(richest.coll).doc(u.uid).set({ _lastSync: Date.now() }, { merge: true });
+                                            return richest.coll;
+                                        } catch (e) {
+                                            console.warn(`🚑 [PROBE] Source '${richest.coll}' is Read-Only. Searching for writable home...`);
+                                            return await tryMigrateToWritable(richest);
+                                        }
                                     }
+
+                                    return bestCollection;
+                                };
+
+                                const found = await runProbe();
+                                const result = found || bestCollection;
+                                
+                                if (result !== activeCollection) {
+                                    console.log(`📍 [PROBE] Redirecting to found collection: '${result}'`);
+                                    setActiveCollection(result);
+                                    localStorage.setItem('faiora_active_collection', result);
                                 }
+                                
+                                await new Promise(r => setTimeout(r, 200));
 
-                                // If no data, find first writable home
-                                const firstWritable = results.find(r => r.writable === true);
-                                return firstWritable ? firstWritable.coll : bestCollection;
-                            };
-
-                            const found = await runProbe();
-                            const result = found || bestCollection;
-                            
-                            if (result !== activeCollection) {
-                                console.log(`📍 [PROBE] Redirecting to found collection: '${result}'`);
-                                setActiveCollection(result);
-                                localStorage.setItem('faiora_active_collection', result);
+                                return result;
+                            } catch (err) {
+                                console.warn("Collection probe failed:", err?.message || err);
+                                return bestCollection;
+                            } finally {
+                                setIsProbing(false);
                             }
-                            
-                            // Ensure skeletons are visible for a minimum duration during discovery
-                            await new Promise(r => setTimeout(r, 600));
-
-                            setIsProbing(false);
-                            return result;
                         };
                         
                         tryProbe().then(async (finalColl) => {
@@ -7866,6 +8498,7 @@
                             localStorage.setItem('faiora_active_collection', name);
                             console.log(`🚀 Switched active collection to: ${name}. Re-syncing...`);
                         };
+                        }, 0);
                     } else {
                         setIsProbing(false);
                         console.log("👤 [AUTH] No user, skipping collection discovery.");
@@ -7897,24 +8530,9 @@
             }, []);
 
             useEffect(() => {
-                const handleBackButton = (e) => {
-                    if (closingViaCode.current) {
-                        closingViaCode.current = false;
-                        return;
-                    }
-                    if (isCreatorOpen) {
-                        setIsCreatorOpen(false);
-                        setEditingNote(null);
-                    }
-                    // Dispatch custom event for internal modal cleanups if needed
-                    window.dispatchEvent(new CustomEvent('faiora-close-popups'));
-                };
-                window.addEventListener('popstate', handleBackButton);
-
-                return () => {
-                    window.removeEventListener('popstate', handleBackButton);
-                };
-            }, [isCreatorOpen]);
+                const safety = setTimeout(() => setIsTransitioning(false), 1800);
+                return () => clearTimeout(safety);
+            }, [user]);
 
             useEffect(() => {
                 const timer = setTimeout(() => {
@@ -7947,16 +8565,32 @@
                 setIsTimerDone(true);
             }, []);
 
+            // FIX 2026-04-15: Removed LoadingPage/Loaders for direct fade-in launch
+            /* 
             if (!isTimerDone || !isAuthChecked) {
                 return <LoadingPage onComplete={handleLoadingComplete} />;
             }
+            */
+           
+            // Ensure ready signal is sent even if loaders are removed
+            useEffect(() => {
+                if (isAuthChecked) {
+                    window.dispatchEvent(new CustomEvent('faiora-app-ready'));
+                }
+            }, [isAuthChecked]);
 
-            // Public Share Redirection Logic
+            // Redirection logic for tokens...
             const hash = window.location.hash;
             if (hash.startsWith('#/share/')) {
                 const token = hash.replace('#/share/', '');
                 window.location.href = `share_note.html#/${token}`;
-                return <LoadingPage onComplete={() => {}} />;
+                return null; // Simplified from LoadingPage
+            }
+
+            // FIX 2026-04-15: Wait for auth check to finish before showing LoginModal
+            // This prevents the Google login prompt from flashing when the user is already logged in.
+            if (!isAuthChecked) {
+                return null;
             }
 
             if (!user) {
@@ -7967,6 +8601,7 @@
 
             return (
                 <HashRouter>
+                    <FaioraErrorBoundary>
                     <NotificationBanner user={user} />
                     <video 
                         ref={videoRef}
@@ -7982,8 +8617,8 @@
                             onTransitionStart={() => setIsTransitioning(true)}
                             onTransitionEnd={() => setIsTransitioning(false)}
                         >
-                         <Route path="/" element={<DashboardPage user={user} notes={notes} quickTasks={quickTasks} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} onRestoreDefaults={handleRestoreDefaults} onReorderPriorityNote={handleReorderPriorityNote} onToggleQuickTask={handleToggleQuickTask} onAddQuickTaskClick={() => { setIsQuickTaskModalOpen(true); }} onDeleteQuickTask={handleDeleteQuickTask} onUpdateQuickTask={handleUpdateQuickTask} onEditQuickTask={(task) => { setEditingQuickTask(task); }} editingQuickTask={editingQuickTask} setEditingQuickTask={setEditingQuickTask} isQuickTaskModalOpen={isQuickTaskModalOpen} setIsQuickTaskModalOpen={setIsQuickTaskModalOpen} onRemoveReminder={handleRemoveReminder} isProbing={isProbing} />} />
-                        <Route path="/notes" element={<NotesPage user={user} notes={notes} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} noteSections={noteSections} onAddSection={handleAddSection} onDeleteSection={handleDeleteSection} onMoveNote={handleMoveNoteToSection} onReorderNote={handleReorderNote} onRemoveReminder={handleRemoveReminder} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} isProbing={isProbing} />} />
+                         <Route path="/" element={<DashboardPage user={user} notes={notes} quickTasks={quickTasks} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} onRestoreDefaults={handleRestoreDefaults} onReorderPriorityNote={handleReorderPriorityNote} onToggleQuickTask={handleToggleQuickTask} onAddQuickTaskClick={() => { handleOpenQuickTaskModal(); }} onDeleteQuickTask={handleDeleteQuickTask} onUpdateQuickTask={handleUpdateQuickTask} onEditQuickTask={handleOpenQuickTaskEditor} editingQuickTask={editingQuickTask} setEditingQuickTask={setEditingQuickTask} isQuickTaskModalOpen={isQuickTaskModalOpen} setIsQuickTaskModalOpen={setIsQuickTaskModalOpen} onRemoveReminder={handleRemoveReminder} isProbing={isProbing} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
+                        <Route path="/notes" element={<NotesPage user={user} notes={notes} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} noteSections={noteSections} onAddSection={handleAddSection} onDeleteSection={handleDeleteSection} onMoveNote={handleMoveNoteToSection} onReorderNote={handleReorderNote} onRemoveReminder={handleRemoveReminder} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} isProbing={isProbing} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
                         <Route path="/calendar" element={
                             <CalendarPage 
                                 user={user} 
@@ -7992,37 +8627,31 @@
                                 onOpenCreator={handleOpenCreator} 
                                 onEditNote={handleRequestEditNote} 
                                 onToggleQuickTask={handleToggleQuickTask}
-                                 onEditQuickTask={(task) => {
-                                     setEditingQuickTask(task);
-                                     window.history.pushState({ modal: 'quicktask' }, '');
-                                 }}
-                                 onAddQuickTask={(date) => {
-                                     setPrefillDate(date);
-                                     setIsQuickTaskModalOpen(true);
-                                     window.history.pushState({ modal: 'quicktask' }, '');
-                                 }}
+                                 onEditQuickTask={handleOpenQuickTaskEditor}
+                                 onAddQuickTask={handleOpenQuickTaskModal}
+                                pomodoroTime={pomodoroTime}
+                                isPomodoroActive={isPomodoroActive}
                             />
                         } />
-                        <Route path="/stats" element={<StatsPage user={user} onOpenCreator={handleOpenCreator} quickTasks={quickTasks} />} />
-                        <Route path="/streak" element={<StreakPage user={user} onOpenCreator={handleOpenCreator} gamification={gamification} />} />
-                        <Route path="/clock" element={<ClockPage user={user} onOpenCreator={handleOpenCreator} alarms={alarms} onAddAlarm={handleAddAlarm} onToggleAlarm={handleToggleAlarm} onDeleteAlarm={handleDeleteAlarm} />} />
-                        <Route path="/profile" element={<ProfilePage user={user} onOpenCreator={handleOpenCreator} profileData={profileData} onSaveProfile={handleSaveProfile} />} />
-                        <Route path="/settings" element={<SettingsPage user={user} onOpenCreator={handleOpenCreator} settingsData={settingsData} onSaveSettings={handleSaveSettings} />} />
+                        <Route path="/stats" element={<StatsPage user={user} onOpenCreator={handleOpenCreator} quickTasks={quickTasks} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
+                        <Route path="/streak" element={<StreakPage user={user} onOpenCreator={handleOpenCreator} gamification={gamification} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
+                        <Route path="/clock" element={<ClockPage user={user} onOpenCreator={handleOpenCreator} alarms={alarms} onAddAlarm={handleAddAlarm} onToggleAlarm={handleToggleAlarm} onDeleteAlarm={handleDeleteAlarm} pomodoroTime={pomodoroTime} setPomodoroTime={setPomodoroTime} isPomodoroActive={isPomodoroActive} setIsPomodoroActive={setIsPomodoroActive} pomodoroSessions={pomodoroSessions} />} />
+                        <Route path="/profile" element={<ProfilePage user={user} onOpenCreator={handleOpenCreator} profileData={profileData} onSaveProfile={handleSaveProfile} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
+                        <Route path="/settings" element={<SettingsPage user={user} onOpenCreator={handleOpenCreator} settingsData={settingsData} onSaveSettings={handleSaveSettings} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
                         </TransitionManager>
                     </div>
-                     {isCreatorOpen && <TaskCreator onClose={handleCloseCreator} user={user} editingNote={editingNote} activeCollection={activeCollection} onUpdateNote={handleUpdateNoteLocal} onDeleteNote={handleDeleteNoteLocal} onSaveVersion={handleSaveVersion} showToast={showToast} notes={notes} onToggleLock={handleRemoveLock} onOpenLockSet={() => setIsSetLockModalOpen(true)} />}
-                     {isSetLockModalOpen && <SetLockModal onClose={() => setIsSetLockModalOpen(false)} showToast={showToast} onSet={handleSetLock} />}
+                     {isCreatorOpen && <TaskCreator onClose={handleCloseCreator} user={user} editingNote={editingNote} activeCollection={activeCollection} onUpdateNote={handleUpdateNoteLocal} onDeleteNote={handleDeleteNoteLocal} onSaveVersion={handleSaveVersion} showToast={showToast} notes={notes} onToggleLock={handleRemoveLock} onOpenLockSet={handleOpenSetLock} />}
+                     {isSetLockModalOpen && <SetLockModal onClose={handleCloseSetLock} showToast={showToast} onSet={handleSetLock} />}
                      {unlockingNote && (
                          <UnlockModal 
                             hint={unlockingNote.pinHint} 
                             showToast={showToast}
-                            onClose={() => setUnlockingNote(null)}
+                            onClose={handleCloseUnlockModal}
                             onUnlock={async (p) => {
                                 const hash = await hashPIN(p);
                                 if (hash === unlockingNote.pinHash) {
                                     const note = unlockingNote;
-                                    setUnlockingNote(null);
-                                    handleEditNote(note); // Use the original handleEditNote which opens the creator
+                                    setTimeout(() => handleEditNote(note), 220);
                                     return true;
                                 }
                                 return false;
@@ -8032,10 +8661,7 @@
                     {isQuickTaskModalOpen && (
                         <QuickTaskModal 
                             prefillDate={prefillDate}
-                            onClose={() => {
-                                setIsQuickTaskModalOpen(false);
-                                setPrefillDate(null);
-                            }} 
+                            onClose={handleCloseQuickTaskModal} 
                             onAdd={handleAddQuickTask} 
                             showToast={showToast} 
                         />
@@ -8043,11 +8669,11 @@
                     {editingQuickTask && (
                         <QuickTaskModal 
                             initialData={editingQuickTask}
-                            onClose={() => setEditingQuickTask(null)}
+                            onClose={handleCloseQuickTaskEditor}
                             showToast={showToast}
                             onAdd={(text, date, time) => {
                                 handleUpdateQuickTask(editingQuickTask.id, text, date, time);
-                                setEditingQuickTask(null);
+                                handleCloseQuickTaskEditor();
                             }}
                         />
                     )}
@@ -8102,6 +8728,7 @@
                             </div>
                         ))}
                     </div>
+                    </FaioraErrorBoundary>
                 </HashRouter>
             );
         };
