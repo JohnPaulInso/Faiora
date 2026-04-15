@@ -147,6 +147,68 @@ body {
     animation: startup-fallback-load 1.8s ease-in-out infinite alternate;
 }
 
+/* LABEL: SHIMMER-ANIMATION — High-fidelity shimmering effect for skeleton loaders */
+/* NEW 2026-04-16: Added for premium loading states on first login */
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.shimmer {
+    background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite linear;
+}
+
+.shimmer-orange {
+    background: linear-gradient(90deg, rgba(249,115,22,0.1) 25%, rgba(249,115,22,0.2) 50%, rgba(249,115,22,0.1) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite linear;
+}
+
+/* LABEL: SKELETON-PRIORITY-CARD — Skeleton state for Priority Note cards */
+/* NEW 2026-04-16: Matches NoteCard variant="priority" dimensions */
+.skeleton-priority-card {
+    height: 150px;
+    border-radius: 2rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1.25rem;
+    overflow: hidden;
+    position: relative;
+}
+
+@media (min-width: 768px) {
+    .skeleton-priority-card { height: 160px; }
+}
+
+.skeleton-priority-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite linear;
+}
+
+.skeleton-profile-circle {
+    background: rgba(255, 255, 255, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton-profile-circle::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(249,115,22,0.1), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
+}
+
 .startup-fallback__button {
     position: relative;
     display: none;
@@ -513,11 +575,18 @@ input:focus, textarea:focus, button:focus, select:focus, [contenteditable]:focus
     height: 100%;
     object-fit: cover;
     z-index: -1;
-    opacity: 0.4;
+    opacity: 0; /* Changed to 0 by default to fix broken placeholder icon on slow load */
     mix-blend-mode: screen;
     pointer-events: none;
     backface-visibility: hidden;
     transform: translateZ(0);
+    transition: opacity 1.5s ease-in-out; /* Smooth reveal when ready */
+}
+
+/* LABEL: FIRE-BG-READY — Revealed state for background video */
+/* NEW 2026-04-16: Prevents "play button" flickering on initial load */
+.fire-bg-video.is-ready {
+    opacity: 0.4;
 }
 
 .floating-toolbar-pill {

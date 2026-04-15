@@ -1006,13 +1006,20 @@
                 <div className="relative" ref={menuRef}>
                      <button 
                         onClick={toggleMenu}
-                        className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border border-white/10 ring-4 ring-black/20 hover:ring-primary/40 transition-all duration-300"
+                        className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border border-white/10 ring-4 ring-black/20 hover:ring-primary/40 transition-all duration-300 skeleton-profile-circle"
                     >
-                        <img 
-                            alt={user.displayName || "User"} 
-                            className="w-full h-full object-cover bg-primary/20" 
-                            src={user.photoURL || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y"}
-                        />
+                        {/* FIX 2026-04-16: Added loading check to prevent broken/empty profile icon on first login */}
+                        {user.photoURL ? (
+                            <img 
+                                alt={user.displayName || "User"} 
+                                className="w-full h-full object-cover bg-primary/20" 
+                                src={user.photoURL}
+                            />
+                        ) : (
+                            <div className="w-full h-full bg-primary/20 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-white/20 text-xl">person</span>
+                            </div>
+                        )}
                     </button>
 
                     {isOpen && (
@@ -3866,6 +3873,20 @@
             </div>
         );
 
+        /* LABEL: PRIORITY-NOTE-SKELETON — Loading state for Priority Note cards */
+        /* NEW 2026-04-16: Matches NoteCard variant="priority" dimensions for smooth transition */
+        const PriorityNoteSkeleton = ({ index }) => {
+            return (
+                <div className={`skeleton-priority-card sticky-note-${(index % 5) + 1} overflow-hidden shadow-lg`}>
+                    <div className="w-8 h-8 rounded-xl shimmer opacity-20 mb-4"></div>
+                    <div className="mt-auto space-y-2">
+                        <div className="w-12 h-2 rounded shimmer opacity-10"></div>
+                        <div className="w-3/4 h-5 rounded-lg shimmer opacity-20"></div>
+                    </div>
+                </div>
+            );
+        };
+
         const NoteCard = React.memo(({ note, onClick, index, variant = 'full', onRemoveReminder, isSelected = false }) => {
             const theme = getThemeClasses(note.noteTheme);
             const isLocked = !!note.isLocked;
@@ -3987,7 +4008,7 @@
 
         // --- Page Components ---
 
-        const DashboardPage = ({ user, notes, quickTasks, onOpenCreator, onEditNote, onRestoreDefaults, onReorderPriorityNote, onToggleQuickTask, onAddQuickTaskClick, onDeleteQuickTask, onUpdateQuickTask, onEditQuickTask, editingQuickTask, setEditingQuickTask, isQuickTaskModalOpen, setIsQuickTaskModalOpen, onRemoveReminder, isProbing, pomodoroTime, isPomodoroActive }) => {
+        const DashboardPage = ({ user, notes, quickTasks, onOpenCreator, onEditNote, onRestoreDefaults, onReorderPriorityNote, onToggleQuickTask, onAddQuickTaskClick, onDeleteQuickTask, onUpdateQuickTask, onEditQuickTask, editingQuickTask, setEditingQuickTask, isQuickTaskModalOpen, setIsQuickTaskModalOpen, onRemoveReminder, isProbing, isFirstSyncDone, pomodoroTime, isPomodoroActive }) => {
             const navigate = useNavigate();
             const { search } = useLocation();
             const queryParams = new URLSearchParams(search);
@@ -4053,6 +4074,8 @@
                 });
                 return tasks;
             }, [quickTasks]);
+
+            const isLoading = isProbing || !isFirstSyncDone;
 
             const groupedQuickTasks = useMemo(() => {
                 const today = new Date();
@@ -4333,9 +4356,10 @@
                                 </Link>
                             </div>
                             
-                            {(isProbing && sortedPriorityNotes.length === 0) ? (
+                            {/* FIX 2026-04-16: Use isFirstSyncDone to keep skeletons visible until initial snapshots are ready */}
+                            {(isProbing || !isFirstSyncDone) ? (
                                 <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 md:gap-6 px-0 md:px-2 mb-16 md:mb-20">
-                                    {[...Array(6)].map((_, i) => <SkeletonNoteCard key={i} index={i} variant="priority" />) }
+                                    {[...Array(6)].map((_, i) => <PriorityNoteSkeleton key={i} index={i} />) }
                                 </div>
                             ) : sortedPriorityNotes.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center p-20 glass-panel rounded-3xl border-dashed border-white/10 text-center">
@@ -4467,7 +4491,8 @@
             );
         };
 
-        const NotesPage = React.memo(({ user, notes, onOpenCreator, onEditNote, noteSections, onAddSection, onDeleteSection, onMoveNote, onReorderNote, onRemoveReminder, onBulkUpdate, onBulkDelete, isProbing }) => {
+        /* FIX 2026-04-16: Added pomodoroTime and isPomodoroActive to NotesPage signature for global sync */
+        const NotesPage = React.memo(({ user, notes, onOpenCreator, onEditNote, noteSections, onAddSection, onDeleteSection, onMoveNote, onReorderNote, onRemoveReminder, onBulkUpdate, onBulkDelete, isProbing, pomodoroTime, isPomodoroActive }) => {
             const navigate = useNavigate();
             const pinnedNotes = notes.filter(n => n.isPinned);
             const [labelFilter, setLabelFilter] = useState('');
@@ -5649,7 +5674,7 @@
                                                 <span className={`text-xs font-sans ${todayMatch ? 'font-bold text-primary' : ''} ${selectedMatch && !todayMatch ? 'font-semibold text-cream-light' : ''}`}>{cell.day}</span>
                                                 {todayMatch && <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-primary glow-orange"></div>}
                                                 {reminders.length > 0 && (
-                                                    <div className="flex flex-col gap-1 mt-2">
+                                                    <div className="flex flex-col mt-2">
                                                         {reminders.slice(0, 3).map((r, ri) => (
                                                             <div key={ri} className={`w-full line-clamp-2 overflow-hidden text-[9px] md:text-[10px] font-bold rounded-lg px-1.5 py-1 flex items-center gap-1.5 ${r.type === 'quickTask' ? 'bg-white/10 text-cream-light/80' : 'bg-primary/15 text-primary/90'} border border-white/5`}>
                                                                 <span className="text-white/30"></span>
@@ -5949,7 +5974,8 @@
 
             return (
                 /* FIX 2026-04-15: Added showFab={false} to disable Floating Action Button on ClockPage as requested */
-                <Layout onOpenCreator={onOpenCreator} showFab={false}>
+                /* FIX 2026-04-16: Added pomodoroTime and isPomodoroActive to Layout call for global sync consistency */
+                <Layout onOpenCreator={onOpenCreator} showFab={false} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
                     {/* FIX 2026-04-15: Increased to pt-[110px] for better header separation */}
                     <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-[110px] md:pt-12 pb-12">
                         <Header user={user} subtitle="Clock & Notifications" />
@@ -7075,6 +7101,9 @@
             const [isTimerDone, setIsTimerDone] = useState(false);
             const [activeCollection, setActiveCollection] = useState(() => localStorage.getItem('faiora_active_collection') || 'tasks');
             const [isProbing, setIsProbing] = useState(true);
+            /* FIX 2026-04-16: Added states for tracking first data sync and video ready status */
+            const [isFirstSyncDone, setIsFirstSyncDone] = useState(false);
+            const [isVideoReady, setIsVideoReady] = useState(false);
             const [isAuthChecked, setIsAuthChecked] = useState(false);
             const [isCreatorOpen, setIsCreatorOpen] = useState(false);
             const [editingNote, setEditingNote] = useState(null);
@@ -7533,6 +7562,7 @@
 
                 // 2. Active Sync from Firestore (Background)
                 const unsubscribe = db.collection(activeCollection).doc(user.uid).onSnapshot(doc => {
+                    setIsFirstSyncDone(true); // [FIX 2026-04-16] Marks first data sync as complete for skeleton logic
                     if (doc.exists) {
                         const data = doc.data();
                         const fetchedNotesMap = data && data.notes ? data.notes : {};
@@ -8605,11 +8635,13 @@
                     <NotificationBanner user={user} />
                     <video 
                         ref={videoRef}
-                        className="fire-bg-video"
+                        className={`fire-bg-video ${isVideoReady ? 'is-ready' : ''}`}
                         autoPlay 
                         loop 
                         muted 
                         playsInline
+                        onPlaying={() => setIsVideoReady(true)}
+                        onError={() => setIsVideoReady(false)}
                         src="fire_bg_video.mp4"
                     />
                     <div className={isTransitioning ? 'page-transitioning' : ''}>
@@ -8617,7 +8649,7 @@
                             onTransitionStart={() => setIsTransitioning(true)}
                             onTransitionEnd={() => setIsTransitioning(false)}
                         >
-                         <Route path="/" element={<DashboardPage user={user} notes={notes} quickTasks={quickTasks} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} onRestoreDefaults={handleRestoreDefaults} onReorderPriorityNote={handleReorderPriorityNote} onToggleQuickTask={handleToggleQuickTask} onAddQuickTaskClick={() => { handleOpenQuickTaskModal(); }} onDeleteQuickTask={handleDeleteQuickTask} onUpdateQuickTask={handleUpdateQuickTask} onEditQuickTask={handleOpenQuickTaskEditor} editingQuickTask={editingQuickTask} setEditingQuickTask={setEditingQuickTask} isQuickTaskModalOpen={isQuickTaskModalOpen} setIsQuickTaskModalOpen={setIsQuickTaskModalOpen} onRemoveReminder={handleRemoveReminder} isProbing={isProbing} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
+                         <Route path="/" element={<DashboardPage user={user} notes={notes} quickTasks={quickTasks} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} onRestoreDefaults={handleRestoreDefaults} onReorderPriorityNote={handleReorderPriorityNote} onToggleQuickTask={handleToggleQuickTask} onAddQuickTaskClick={() => { handleOpenQuickTaskModal(); }} onDeleteQuickTask={handleDeleteQuickTask} onUpdateQuickTask={handleUpdateQuickTask} onEditQuickTask={handleOpenQuickTaskEditor} editingQuickTask={editingQuickTask} setEditingQuickTask={setEditingQuickTask} isQuickTaskModalOpen={isQuickTaskModalOpen} setIsQuickTaskModalOpen={setIsQuickTaskModalOpen} onRemoveReminder={handleRemoveReminder} isProbing={isProbing} isFirstSyncDone={isFirstSyncDone} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
                         <Route path="/notes" element={<NotesPage user={user} notes={notes} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} noteSections={noteSections} onAddSection={handleAddSection} onDeleteSection={handleDeleteSection} onMoveNote={handleMoveNoteToSection} onReorderNote={handleReorderNote} onRemoveReminder={handleRemoveReminder} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} isProbing={isProbing} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
                         <Route path="/calendar" element={
                             <CalendarPage 
