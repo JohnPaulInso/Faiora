@@ -88,9 +88,9 @@
 
             window.addEventListener('faiora-app-ready', trigger);
 
-            // SAFETY FALLBACK: If React/Auth takes > 2s, force show the app anyway
-            // FIX 2026-04-15: Reduced from 5s to 2s for faster start.
-            setTimeout(trigger, 2000);
+            // SAFETY FALLBACK: If React/Auth takes too long, force show the app anyway
+            // FIX 2026-04-16: Increased to 6s to allow more time for Firestore sync
+            setTimeout(trigger, 6000); // setupStartupFallback — Safety timeout for app reveal [FIX 2026-04-16]
         })();
     </script>
 
@@ -738,6 +738,7 @@
                     <nav className="faiora-mobile-nav fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-2xl border-t border-white/5 flex justify-around items-center py-3 z-50 px-4 md:hidden transition-opacity duration-300">
                         <NavLink to="/" icon="home" label="Home" />
                         <NavLink to="/notes" icon="grid_view" label="Notes" />
+                        <NavLink to="/trash" icon="delete" label="Trash" />
                         <NavLink to="/calendar" icon="calendar_month" label="Calendar" />
                         <NavLink to="/streak" icon="local_fire_department" label="Streak" fillOnActive={true} />
                         <NavLink to="/stats" icon="leaderboard" label="Analysis" />
@@ -751,6 +752,7 @@
                         </div>
                         <NavLink to="/" icon="home" label="Home" />
                         <NavLink to="/notes" icon="grid_view" label="Notes" />
+                        <NavLink to="/trash" icon="delete" label="Trash" />
                         <NavLink to="/calendar" icon="calendar_month" label="Calendar" />
                         <NavLink to="/streak" icon="local_fire_department" label="Streak" fillOnActive={true} />
                         <NavLink to="/stats" icon="leaderboard" label="Analysis" />
@@ -6129,20 +6131,115 @@
         const SettingsPage = ({ user, onOpenCreator, settingsData, onSaveSettings, pomodoroTime, isPomodoroActive }) => {
             const [compactMode, setCompactMode] = useState(!!settingsData?.compactMode);
             const [dailyReminders, setDailyReminders] = useState(settingsData?.dailyReminders !== false);
+            const navigate = useNavigate();
             useEffect(() => {
                 setCompactMode(!!settingsData?.compactMode);
                 setDailyReminders(settingsData?.dailyReminders !== false);
             }, [settingsData]);
             return (
                 <Layout onOpenCreator={onOpenCreator} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
-                    {/* FIX 2026-04-15: Added pt-20 (80px) to compensate for fixed absolute-top mobile header */}
                     <div className="max-w-3xl mx-auto w-full px-4 md:px-8 pt-20 md:pt-12 pb-12">
                         <Header user={user} subtitle="Settings" />
-                        <div className="glass-panel rounded-3xl p-6 space-y-4">
-                            <label className="flex items-center justify-between text-sm text-cream-light/80"><span>Compact task cards</span><input type="checkbox" checked={compactMode} onChange={(e) => setCompactMode(e.target.checked)} /></label>
-                            <label className="flex items-center justify-between text-sm text-cream-light/80"><span>Daily reminder nudges</span><input type="checkbox" checked={dailyReminders} onChange={(e) => setDailyReminders(e.target.checked)} /></label>
-                            <button onClick={() => onSaveSettings({ compactMode, dailyReminders })} className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider">Save Settings</button>
+                        <div className="space-y-6">
+                            <div className="glass-panel rounded-3xl p-6 space-y-4">
+                                <h3 className="text-xs font-bold text-primary uppercase tracking-widest mb-2">Preferences</h3>
+                                <label className="flex items-center justify-between text-sm text-cream-light/80"><span>Compact task cards</span><input type="checkbox" checked={compactMode} onChange={(e) => setCompactMode(e.target.checked)} /></label>
+                                <label className="flex items-center justify-between text-sm text-cream-light/80"><span>Daily reminder nudges</span><input type="checkbox" checked={dailyReminders} onChange={(e) => setDailyReminders(e.target.checked)} /></label>
+                                <button onClick={() => onSaveSettings({ compactMode, dailyReminders })} className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider">Save Settings</button>
+                            </div>
+                            
+                            <div className="glass-panel rounded-3xl p-6 space-y-4">
+                                <h3 className="text-xs font-bold text-primary uppercase tracking-widest mb-2">Data Management</h3>
+                                <p className="text-xs text-cream-light/40 mb-4">Manage your deleted notes and recovery settings.</p>
+                                <button 
+                                    onClick={() => navigate('/trash')}
+                                    className="flex items-center justify-between w-full p-4 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="material-symbols-outlined text-rose-400 group-hover:rotate-12 transition-transform">delete</span>
+                                        <span className="text-sm font-medium text-cream-light/90">Trash Folder</span>
+                                    </div>
+                                    <span className="material-symbols-outlined text-slate-500">chevron_right</span>
+                                </button>
+                            </div>
                         </div>
+                    </div>
+                </Layout>
+            );
+        };
+
+        /* TrashPage Component: View and recover deleted notes */
+        const TrashPage = ({ user, onOpenCreator, trashNotes, onRestoreNote, onPermanentDelete, onEmptyTrash, pomodoroTime, isPomodoroActive }) => {
+            const [showConfirmEmpty, setShowConfirmEmpty] = useState(false);
+
+            return (
+                <Layout onOpenCreator={onOpenCreator} showFab={false} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
+                    <div className="max-w-7xl mx-auto w-full px-4 md:px-16 pt-[110px] md:pt-12 pb-12">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                            <Header user={user} subtitle="Trash" />
+                            {trashNotes.length > 0 && (
+                                <button 
+                                    onClick={() => setShowConfirmEmpty(true)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border border-rose-500/20 self-start"
+                                >
+                                    <span className="material-symbols-outlined text-sm">delete_forever</span>
+                                    Empty Trash
+                                </button>
+                            )}
+                        </div>
+
+                        {trashNotes.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-center">
+                                <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-6">
+                                    <span className="material-symbols-outlined text-4xl text-slate-600">delete_outline</span>
+                                </div>
+                                <h3 className="text-xl font-bold text-cream-light mb-2">Trash is empty</h3>
+                                <p className="text-sm text-slate-500 max-w-xs">Notes you delete will stay here for 30 days before being permanently removed.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {[...trashNotes].sort((a,b) => new Date(b.deletedAt) - new Date(a.deletedAt)).map(note => (
+                                    <div key={note.id} className="glass-panel p-5 rounded-3xl flex flex-col gap-4 relative group border border-white/5 hover:border-white/10 transition-all">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <span className="material-symbols-outlined text-primary">{note.noteIcon || 'description'}</span>
+                                                <h4 className="font-bold text-cream-light/90 truncate max-w-[150px]">{note.title || 'Untitled'}</h4>
+                                            </div>
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase">{new Date(note.deletedAt).toLocaleDateString()}</span>
+                                        </div>
+                                        
+                                        <div className="text-xs text-slate-400 line-clamp-3 min-h-[45px]" dangerouslySetInnerHTML={{ __html: note.content || 'No content' }}></div>
+                                        
+                                        <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                                            <button 
+                                                onClick={() => onRestoreNote(note.id)}
+                                                className="flex-1 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all"
+                                            >
+                                                Restore
+                                            </button>
+                                            <button 
+                                                onClick={() => onPermanentDelete(note.id)}
+                                                className="p-2 text-slate-500 hover:text-rose-400 transition-colors"
+                                                title="Delete Permanently"
+                                            >
+                                                <span className="material-symbols-outlined text-lg">delete_forever</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {showConfirmEmpty && (
+                            <ConfirmationModal 
+                                title="Empty Trash?"
+                                message="This will permanently delete all notes in the trash. This action cannot be undone."
+                                onConfirm={() => { onEmptyTrash(); setShowConfirmEmpty(false); }}
+                                onCancel={() => setShowConfirmEmpty(false)}
+                                confirmText="Empty All"
+                                danger={true}
+                            />
+                        )}
                     </div>
                 </Layout>
             );
@@ -7109,6 +7206,7 @@
             const [editingNote, setEditingNote] = useState(null);
             const [user, setUser] = useState(null);
             const [notes, setNotes] = useState([]);
+            const [trashNotes, setTrashNotes] = useState([]);
             const [noteSections, setNoteSections] = useState(() => {
                 try { return JSON.parse(localStorage.getItem('faiora_sections') || '[]'); } catch(e) { return []; }
             });
@@ -7543,6 +7641,9 @@
             useEffect(() => {
                 if (!user || !activeCollection) return;
 
+                // FIX 2026-04-16: Reset sync status when collection changes
+                setIsFirstSyncDone(false); // [FIX 2026-04-16]
+
                 // 1. Initial Load from LocalStorage (Instant)
                 const lsKey = 'faiora_notes_' + user.uid;
                 const qtKey = 'faiora_quick_tasks_' + user.uid;
@@ -7565,8 +7666,13 @@
                     setIsFirstSyncDone(true); // [FIX 2026-04-16] Marks first data sync as complete for skeleton logic
                     if (doc.exists) {
                         const data = doc.data();
-                        const fetchedNotesMap = data && data.notes ? data.notes : {};
+                        // Deep Field Mapping: Check for legacy field names if 'notes' is missing
+                        const fetchedNotesMap = data.notes || data.allNotes || data.noteList || data.items || {};
                         const fetchedNotes = Object.values(fetchedNotesMap);
+                        
+                        const fetchedTrashMap = data.trash || {};
+                        const fetchedTrash = Object.values(fetchedTrashMap);
+                        setTrashNotes(fetchedTrash);
                         
                         // Sync Quick Tasks — handle both Map (new) and Array (legacy) formats
                         let fetchedQuickTasks = [];
@@ -7754,6 +7860,34 @@
                 });
             }, [user]);
 
+            // LABEL: TRASH-CLEANUP - Periodically purges notes deleted > 30 days ago
+            useEffect(() => {
+                const cleanup = async () => {
+                    if (!user || !activeCollection || trashNotes.length === 0) return;
+                    
+                    const now = Date.now();
+                    const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+                    const itemsToPurge = trashNotes.filter(n => {
+                        const deletedAt = n.deletedAt ? new Date(n.deletedAt).getTime() : 0;
+                        return (now - deletedAt) > thirtyDaysInMs;
+                    });
+
+                    if (itemsToPurge.length > 0) {
+                        console.log(`🧹 [TRASH] Purging ${itemsToPurge.length} expired items from Trash...`);
+                        const updates = {};
+                        itemsToPurge.forEach(n => {
+                            updates[`trash.${n.id}`] = firebase.firestore.FieldValue.delete();
+                        });
+                        try {
+                            await db.collection(activeCollection).doc(user.uid).update(updates);
+                        } catch (e) {
+                            console.warn('Auto-purge sync failed', e.message);
+                        }
+                    }
+                };
+                cleanup();
+            }, [user, activeCollection, trashNotes]);
+
             // Bulk update: partially update a note by id (or create if isNew)
             const handleBulkUpdate = useCallback((noteId, updates, isNew = false) => {
                 if (isProbing) {
@@ -7787,19 +7921,59 @@
                 }
             }, [user, activeCollection, isProbing]);
 
-            // Bulk delete: delete note and sync to Firestore
+            // Bulk delete: move note to Trash and sync to Firestore
             const handleBulkDelete = useCallback((noteId) => {
                 if (isProbing) {
                     console.warn('⚠️ [SYNC] Note delete paused while discovering writable collection...');
                     return;
                 }
+                const noteToTrash = notes.find(n => n.id === noteId);
                 handleDeleteNoteLocal(noteId);
                 if (user && activeCollection) {
-                    db.collection(activeCollection).doc(user.uid).update({
+                    const deletePayload = {
                         [`notes.${noteId}`]: firebase.firestore.FieldValue.delete()
-                    }).catch(e => console.warn('Bulk delete sync fail', e));
+                    };
+                    if (noteToTrash) {
+                        deletePayload[`trash.${noteId}`] = {
+                            ...noteToTrash,
+                            deletedAt: new Date().toISOString(),
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        };
+                    }
+                    db.collection(activeCollection).doc(user.uid).update(deletePayload).catch(e => console.warn('Soft-delete sync fail', e));
+                    showToast('Note moved to Trash');
                 }
-            }, [user, activeCollection, handleDeleteNoteLocal, isProbing]);
+            }, [user, activeCollection, handleDeleteNoteLocal, isProbing, notes, showToast]);
+
+            const handleRestoreNote = useCallback((noteId) => {
+                const noteToRestore = trashNotes.find(n => n.id === noteId);
+                if (!noteToRestore || !user || !activeCollection) return;
+                
+                // Cleanup deletedAt before restoring
+                const { deletedAt, ...restored } = noteToRestore;
+                
+                db.collection(activeCollection).doc(user.uid).update({
+                    [`trash.${noteId}`]: firebase.firestore.FieldValue.delete(),
+                    [`notes.${noteId}`]: { ...restored, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }
+                }).catch(e => console.warn('Restore sync fail', e));
+                showToast('Note restored');
+            }, [user, activeCollection, trashNotes, showToast]);
+
+            const handlePermanentDelete = useCallback((noteId) => {
+                if (!user || !activeCollection) return;
+                db.collection(activeCollection).doc(user.uid).update({
+                    [`trash.${noteId}`]: firebase.firestore.FieldValue.delete()
+                }).catch(e => console.warn('Permanent delete sync fail', e));
+                showToast('Permanently deleted');
+            }, [user, activeCollection, showToast]);
+
+            const handleEmptyTrash = useCallback(() => {
+                if (!user || !activeCollection) return;
+                db.collection(activeCollection).doc(user.uid).update({
+                    trash: firebase.firestore.FieldValue.delete()
+                }).catch(e => console.warn('Empty trash fail', e));
+                showToast('Trash emptied');
+            }, [user, activeCollection, showToast]);
 
             const handleRestoreDefaults = useCallback(() => {
                 if (!user || !activeCollection || isProbing) return;
@@ -8407,7 +8581,12 @@
                                 setActiveCollection(bestCollection);
                                 console.log("⚡ [PROBE] Instant load from cache:", bestCollection);
 
-                                const probeCollections = Array.from(new Set([bestCollection, 'tasks', 'users', 'userdata', 'notes', 'faiora_data', 'user_metadata']));
+                                const probeCollections = Array.from(new Set([
+                                    bestCollection, 
+                                    'tasks', 'users', 'userdata', 'notes', 
+                                    'faiora_data', 'user_metadata', 
+                                    'faiora', 'planner', 'data', 'my_data', 'user_notes', 'planner_data'
+                                ]));
                                 
                                 const runProbe = async () => {
                                     try {
@@ -8465,12 +8644,20 @@
 
                                     if (candidates.length > 0) {
                                         const richest = candidates[0];
+                                        console.log(`💎 [PROBE] Richest source found: '${richest.coll}' with score ${richest.score}`);
                                         try {
                                             await db.collection(richest.coll).doc(u.uid).set({ _lastSync: Date.now() }, { merge: true });
                                             return richest.coll;
                                         } catch (e) {
                                             console.warn(`🚑 [PROBE] Source '${richest.coll}' is Read-Only. Searching for writable home...`);
                                             return await tryMigrateToWritable(richest);
+                                        }
+                                    } else {
+                                        const errorColls = results.filter(r => r.score === -1).map(r => r.coll);
+                                        if (errorColls.length > 0) {
+                                            console.warn(`⚠️ [PROBE] Some collections were unreachable due to permissions/errors: ${errorColls.join(', ')}`);
+                                        } else {
+                                            console.log("ℹ️ [PROBE] No data found in any of the probed collections.");
                                         }
                                     }
 
@@ -8502,6 +8689,13 @@
                             try {
                                 const doc = await db.collection(finalColl).doc(u.uid).get();
                                 if (!doc.exists) {
+                                    // FIX 2026-04-16: Final sanity check - don't seed if we know data exists elsewhere or was recently seen
+                                    const lsNotes = localStorage.getItem('faiora_notes_' + u.uid);
+                                    if (lsNotes && lsNotes !== '[]' && lsNotes !== 'null') {
+                                        console.log("🚫 [SEED] Skipping sample note creation: local data detected.");
+                                        return;
+                                    }
+                                    
                                     const sampleNote = { 
                                         id: 'note_priority_welcome', 
                                         title: 'Your First Priority Note', 
@@ -8522,11 +8716,101 @@
                         });
 
                         localStorage.setItem('faiora_logged_in', 'true');
-                        // Manual Override Command for User Support
+                        // Manual Override & Recovery Help
                         window.faiora_switch_coll = (name) => {
                             setActiveCollection(name);
                             localStorage.setItem('faiora_active_collection', name);
                             console.log(`🚀 Switched active collection to: ${name}. Re-syncing...`);
+                        };
+                        
+                        window.faiora_deep_scan = async () => {
+                            console.log("🕵️ [DEEP SCAN] Starting exhaustive recovery scan...");
+                            const collections = ['tasks', 'users', 'userdata', 'notes', 'faiora_data', 'user_metadata', 'faiora', 'planner', 'data', 'my_data', 'user_notes', 'planner_data'];
+                            for (const c of collections) {
+                                try {
+                                    const snap = await db.collection(c).doc(u.uid).get();
+                                    if (snap.exists) {
+                                        const d = snap.data();
+                                        const notesField = d.notes || d.allNotes || d.noteList || d.items || {};
+                                        const count = Object.keys(notesField).length;
+                                        console.log(`✅ [FOUND] '${c}': ${count} notes found. Fields:`, Object.keys(d));
+                                        if (count > 0) console.log("   Data preview (first note):", Object.values(notesField)[0]);
+                                    } else {
+                                        console.log(`❌ [EMPTY] '${c}': No document for this UID.`);
+                                    }
+                                } catch(e) { console.warn(`⚠️ [ERROR] '${c}':`, e.message); }
+                            }
+                            console.log("🏁 [DEEP SCAN] Scan complete. Use faiora_switch_coll('name') to switch if needed.");
+                        };
+
+                        window.faiora_seed_samples = async () => {
+                            console.log("🌱 [SEED] Planting sample data for a real-app feel...");
+                            const sampleNotes = {
+                                "note_seed_1": {
+                                    id: "note_seed_1",
+                                    title: "🚀 Project Faiora",
+                                    content: "<div>Building a powerful productivity suite with React and Firestore. Focus on <b>premium design</b> and <b>fluid UI</b>.</div>",
+                                    noteIcon: "rocket_launch",
+                                    noteTheme: "warm4",
+                                    labels: ["PRIORITY"],
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                },
+                                "note_seed_2": {
+                                    id: "note_seed_2",
+                                    title: "🛒 Shopping List",
+                                    content: "<div><ul><li>Coffee beans (Medium Roast)</li><li>Oat milk</li><li>Avocados</li><li>Sourdough bread</li></ul></div>",
+                                    noteIcon: "shopping_cart",
+                                    noteTheme: "cool1",
+                                    labels: ["PERSONAL"],
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                },
+                                "note_seed_3": {
+                                    id: "note_seed_3",
+                                    title: "💡 Morning Routine",
+                                    content: "<div>1. Meditation (10m)<br>2. Journaling<br>3. High-intensity workout<br>4. Cold shower</div>",
+                                    noteIcon: "wb_sunny",
+                                    noteTheme: "warm1",
+                                    labels: ["ROUTINE"],
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                }
+                            };
+
+                            const sampleTasks = {
+                                "task_seed_1": {
+                                    id: "task_seed_1",
+                                    text: "Finalize Trash System UI",
+                                    completed: false,
+                                    priority: "high",
+                                    date: new Date().toISOString(),
+                                    createdAt: Date.now()
+                                },
+                                "task_seed_2": {
+                                    id: "task_seed_2",
+                                    text: "Sync changes to Android build",
+                                    completed: true,
+                                    priority: "medium",
+                                    date: new Date().toISOString(),
+                                    createdAt: Date.now()
+                                },
+                                "task_seed_3": {
+                                    id: "task_seed_3",
+                                    text: "Plan feature roadmap v1.2",
+                                    completed: false,
+                                    priority: "low",
+                                    date: new Date(Date.now() + 86400000).toISOString(),
+                                    createdAt: Date.now()
+                                }
+                            };
+
+                            try {
+                                await db.collection(activeCollection).doc(u.uid).set({
+                                    notes: sampleNotes,
+                                    quickTasks: sampleTasks
+                                }, { merge: true });
+                                console.log("✨ [SUCCESS] Account seeded with sample data! Please refresh to see changes.");
+                            } catch(e) {
+                                console.error("❌ [ERROR] Seeding failed:", e.message);
+                            }
                         };
                         }, 0);
                     } else {
@@ -8602,12 +8886,14 @@
             }
             */
            
-            // Ensure ready signal is sent even if loaders are removed
-            useEffect(() => {
+            // Ensure ready signal is sent only after auth check AND first sync (wait for notes)
+            useEffect(() => { // faiora-app-ready signal — Only reveals app when data is synced [FIX 2026-04-16]
                 if (isAuthChecked) {
-                    window.dispatchEvent(new CustomEvent('faiora-app-ready'));
+                    if (!user || (!isProbing && isFirstSyncDone)) {
+                        window.dispatchEvent(new CustomEvent('faiora-app-ready'));
+                    }
                 }
-            }, [isAuthChecked]);
+            }, [isAuthChecked, isProbing, isFirstSyncDone, user]);
 
             // Redirection logic for tokens...
             const hash = window.location.hash;
@@ -8670,6 +8956,7 @@
                         <Route path="/clock" element={<ClockPage user={user} onOpenCreator={handleOpenCreator} alarms={alarms} onAddAlarm={handleAddAlarm} onToggleAlarm={handleToggleAlarm} onDeleteAlarm={handleDeleteAlarm} pomodoroTime={pomodoroTime} setPomodoroTime={setPomodoroTime} isPomodoroActive={isPomodoroActive} setIsPomodoroActive={setIsPomodoroActive} pomodoroSessions={pomodoroSessions} />} />
                         <Route path="/profile" element={<ProfilePage user={user} onOpenCreator={handleOpenCreator} profileData={profileData} onSaveProfile={handleSaveProfile} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
                         <Route path="/settings" element={<SettingsPage user={user} onOpenCreator={handleOpenCreator} settingsData={settingsData} onSaveSettings={handleSaveSettings} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
+                        <Route path="/trash" element={<TrashPage user={user} onOpenCreator={handleOpenCreator} trashNotes={trashNotes} onRestoreNote={handleRestoreNote} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
                         </TransitionManager>
                     </div>
                      {isCreatorOpen && <TaskCreator onClose={handleCloseCreator} user={user} editingNote={editingNote} activeCollection={activeCollection} onUpdateNote={handleUpdateNoteLocal} onDeleteNote={handleDeleteNoteLocal} onSaveVersion={handleSaveVersion} showToast={showToast} notes={notes} onToggleLock={handleRemoveLock} onOpenLockSet={handleOpenSetLock} />}
