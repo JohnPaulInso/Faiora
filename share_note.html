@@ -880,6 +880,19 @@
                 document.addEventListener('touchmove', onMove, { passive: false }); document.addEventListener('touchend', onEnd, true);
             };
 
+            const handleEditorClick = (e) => { // handleEditorClick — Handle checklist checkbox clicks in the shared note editor. [FIX 2026-04-16]
+                const target = e.target;
+                if (target.classList.contains('checklist-checkbox')) {
+                    const li = target.closest('.checklist-item');
+                    if (li && canEdit) {
+                        li.classList.toggle('checked');
+                        setHasChanges(true);
+                        hasChangesRef.current = true;
+                        saveState();
+                    }
+                }
+            };
+
             const handleEditorKeyDown = (e) => {
                 if (!note || !note.allowPublicEdit) return;
                 const selection = window.getSelection();

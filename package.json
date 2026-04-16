@@ -4,7 +4,10 @@
   "description": "",
   "main": "clean_tools.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "powershell -ExecutionPolicy Bypass -File scratch/build.ps1",
+    "sync-android": "npm run build && npx cap sync android",
+    "_comment": "Scripts added to resolve 'outdated APK' issue by ensuring root assets are moved to www (Fixed 2026-04-16)."
   },
   "keywords": [],
   "author": "",
