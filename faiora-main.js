@@ -1,155 +1,3 @@
-﻿<!DOCTYPE html>
-<html class="dark" lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <title>Faiora - Modern Notetaker</title>
-  
-    <script id="faiora-console-purifier-nuclear">
-        (function() {
-            const forbidden = [
-                "Cross-Origin-Opener-Policy", "window.closed", "runtime.lastError",
-                "cdn.tailwindcss.com", "in-browser Babel", "deoptimised", "[BABEL]",
-                "enableMultiTabIndexedDbPersistence", "message port closed",
-                "Notification permission", "permission-denied", "Missing or insufficient permissions",
-                "capacitor.js", "applogo.png", "[SYNC]", "[AUTH]", "[FIREBASE]", "[FAIORA]",
-                "FCM token", "SW registered", "Persistent storage",
-                "AdUnit", "Feature is disabled", "content-script.js"
-            ];
-            const handler = {
-                get(target, prop) {
-                    const original = target[prop];
-                    if (typeof original === 'function') {
-                        return (...args) => {
-                            const msg = args.map(a => String(a || '')).join(" ");
-                            if (forbidden.some(f => msg.includes(f))) return;
-                            return original.apply(target, args);
-                        };
-                    }
-                    return original;
-                }
-            };
-            window.console = new Proxy(window.console, handler);
-            window.onunhandledrejection = (e) => {
-                const msg = String(e.reason?.message || '');
-                if (forbidden.some(f => msg.includes(f))) { e.preventDefault(); return false; }
-            };
-        })();
-    </script>
-    <link rel="icon" href="logo.png">
-    <link rel="manifest" href="manifest.json">
-    
-    <meta name="description" content="Ignite your productivity with Faiora Digital Planner. Sync tasks and goals with Google.">
-    <meta property="og:title" content="Faiora Digital Planner">
-    <meta property="og:description" content="A fiery approach to digital planning.">
-    <meta property="og:image" content="https://zeamarae.github.io/Faiora/#/logo.png">
-    <meta property="og:url" content="https://zeamarae.github.io/Faiora/#/">
-    <meta name="google-site-verification" content="googled6ec6ba0775bed83" />
-
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/history@5/umd/history.development.js"></script>
-    <script src="https://unpkg.com/react-router@6.3.0/umd/react-router.development.js"></script>
-    <script src="https://unpkg.com/react-router-dom@6.3.0/umd/react-router-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js"></script>
-
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#f97316",
-                        "primary-dark": "#ea580c",
-                        "burnt-orange": "#7c2d12",
-                        "charcoal": "#0a0a0a",
-                        "cream-light": "#fff7ed",
-                        "pastel-orange": "#ffedd5",
-                        "pastel-peach": "#fed7aa",
-                        "pastel-amber": "#fef3c7",
-                        "pastel-yellow": "#fef9c3",
-                        "gold-glow": "#fbbf24",
-                    },
-                    fontFamily: {
-                        "display": ["Newsreader", "serif"],
-                        "sans": ["Inter", "system-ui", "sans-serif"],
-                        "montserrat": ["Montserrat", "sans-serif"]
-                    },
-                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "3xl": "2rem", "full": "9999px" },
-                },
-            },
-        }
-    </script>
-
-    <link rel="stylesheet" href="style.css">
-  </head>
-<body class="dark-gradient-bg font-montserrat text-slate-100 min-h-screen selection:bg-primary/30 overflow-hidden" style="overscroll-behavior-y: contain;">
-    <div id="root"></div>
-    
-    <audio
-        id="faiora_alarm_audio_element"
-        src="alarm_ringtone.mp3"
-        data-fallback-src="alarm_ringtone.ogg"
-        preload="auto"
-        playsinline
-        style="display:none;"
-    >
-        <source src="alarm_ringtone.mp3" type="audio/mpeg">
-        <source src="alarm_ringtone.ogg" type="audio/ogg">
-    </audio>
-
-    <script>
-        (function setupStartupFallback() {
-            let fired = false;
-            const trigger = () => {
-                if (fired) return;
-                fired = true;
-                document.body.classList.add('faiora-react-ready');
-                document.documentElement.classList.add('faiora-app-loaded');
-            };
-
-            window.addEventListener('faiora-app-ready', trigger);
-            setTimeout(trigger, 1400);
-            setTimeout(trigger, 2500);
-
-            const unlockAudio = () => {
-                const el = document.getElementById('faiora_alarm_audio_element');
-                if (el) {
-                    const prime = () => {
-                        el.pause();
-                        el.currentTime = 0;
-                        window._faiora_alarm_audio_primed = true;
-                    };
-                    const playPromise = el.play();
-                    if (playPromise && typeof playPromise.then === 'function') {
-                        playPromise.then(prime).catch(() => {});
-                    } else {
-                        prime();
-                    }
-                }
-
-                document.removeEventListener('click', unlockAudio);
-                document.removeEventListener('touchstart', unlockAudio);
-                document.removeEventListener('keydown', unlockAudio);
-            };
-
-            document.addEventListener('click', unlockAudio);
-            document.addEventListener('touchstart', unlockAudio);
-            document.addEventListener('keydown', unlockAudio);
-        })();
-    </script>
-
-    <script type="text/babel" data-presets="env,react">
         const { useState, useEffect, useRef, useMemo, useCallback } = React;
         const { createRoot } = ReactDOM;
         const { HashRouter, Routes, Route, Link, useNavigate, useLocation, Navigate } = ReactRouterDOM;
@@ -266,8 +114,6 @@
                 const remMin = diffMin % 60;
                 return `Alarm in ${diffHrs} hour${diffHrs > 1 ? 's' : ''} ${remMin > 0 ? `and ${remMin} minute${remMin > 1 ? 's' : ''}` : ''}`;
             }
-            // FIX 2026-04-22: Improved text for countdowns under 1 minute - changed from "0 minute" to "less than a minute"
-            if (diffMin === 0) return 'Alarm in less than a minute';
             return `Alarm in ${diffMin} minute${diffMin > 1 ? 's' : ''}`;
         };
 
@@ -294,42 +140,70 @@
                 isOverdue = true;
             }
 
-            const weekdayShort = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-            const monthDayLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
-            const timeLabel = time ? ` • ${formatTime(time).toUpperCase()}` : '';
-            const diffMs = target - now;
-            const diffHours = diffMs / (1000 * 60 * 60);
             let isDueTomorrow = false;
-            const isNearDeadline = !isOverdue && diffHours > 0 && diffHours <= 4;
-
             if (date === today) {
-                return {
-                    label: `${isOverdue ? 'PAST DUE' : 'DUE TODAY'} • ${weekdayShort}${timeLabel}`,
-                    isOverdue,
-                    isNearDeadline,
-                    isDueTomorrow
-                };
+                let label = isOverdue ? 'Past due' : 'Due Today';
+                let isNearDeadline = false;
+                if (time) {
+                    const [h, m] = time.split(':');
+                    const diffMs = target - now;
+                    const diffHours = diffMs / (1000 * 60 * 60);
+                    
+                    if (diffHours > 0 && diffHours < 1) {
+                        const mins = Math.max(1, Math.ceil(diffHours * 60));
+                        isNearDeadline = true;
+                        label = `Due in ${mins} MINS`;
+                    } else if (diffHours > 0 && diffHours <= 4) {
+                        isNearDeadline = true;
+                        label = `Due in ${Math.ceil(diffHours)}${Math.ceil(diffHours) === 1 ? ' HR' : ' HRS'}`;
+                    } else if (diffHours > 0 && diffHours <= 8) {
+                        label = `Due in ${Math.ceil(diffHours)}${Math.ceil(diffHours) === 1 ? ' HR' : ' HRS'}`;
+                    }
+                    
+                    const hours = parseInt(h);
+                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                    const h12 = hours % 12 || 12;
+                    label += ` â€¢ ${h12}:${m} ${ampm}`;
+                }
+                return { label, isOverdue, isNearDeadline, isDueTomorrow };
             }
             
             if (date === tomorrowStr) {
+                let label = isOverdue ? 'Past due' : 'Due Tomorrow';
+                let isNearDeadline = false;
+                if (time) {
+                    const [h, m] = time.split(':');
+                    const tgt = parseDateString(date);
+                    tgt.setHours(parseInt(h), parseInt(m), 0, 0);
+                    const diffMs = tgt - now;
+                    const diffHours = diffMs / (1000 * 60 * 60);
+                    if (diffHours > 0 && diffHours < 1) {
+                        const mins = Math.max(1, Math.ceil(diffHours * 60));
+                        isNearDeadline = true;
+                        label = `Due in ${mins} MINS`;
+                    } else if (diffHours > 0 && diffHours <= 4) {
+                        isNearDeadline = true;
+                        label = `Due in ${Math.ceil(diffHours)}${Math.ceil(diffHours) === 1 ? ' HR' : ' HRS'}`;
+                    }
+                    const hours = parseInt(h);
+                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                    const h12 = hours % 12 || 12;
+                    label += ` â€¢ ${h12}:${m} ${ampm}`;
+                }
                 isDueTomorrow = true;
-                return {
-                    label: `${isOverdue ? 'PAST DUE' : 'DUE TOMORROW'} • ${weekdayShort}${timeLabel}`,
-                    isOverdue,
-                    isNearDeadline,
-                    isDueTomorrow
-                };
+                return { label, isOverdue, isNearDeadline, isDueTomorrow };
             }
 
-            const startOfToday = parseDateString(today);
-            const diffDays = Math.round((d.getTime() - startOfToday.getTime()) / (24 * 60 * 60 * 1000));
-            const futureLabel = diffDays > 1 && diffDays <= 7 ? `DUE NEXT ${weekdayShort}` : `${monthDayLabel} • ${weekdayShort}`;
-            return {
-                label: isOverdue ? `PAST DUE • ${weekdayShort}${timeLabel}` : `${futureLabel}${timeLabel}`,
-                isOverdue,
-                isNearDeadline: false,
-                isDueTomorrow: false
-            };
+            const options = { month: 'short', day: 'numeric' };
+            let str = d.toLocaleDateString('en-US', options);
+            if (time) {
+                const [h, m] = time.split(':');
+                const hours = parseInt(h);
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                const h12 = hours % 12 || 12;
+                str += ` â€¢ ${h12}:${m} ${ampm}`;
+            }
+            return { label: isOverdue ? `Past due â€¢ ${str}` : str, isOverdue, isNearDeadline: false, isDueTomorrow: false };
         };
 
         // --- GLOBAL UTILITY ---
@@ -342,307 +216,6 @@
             const ampm = hours >= 12 ? 'PM' : 'AM';
             const h12 = hours % 12 || 12;
             return `${h12}:${m} ${ampm}`;
-        };
-
-        const getLaterTiming = () => {
-            const now = new Date();
-            const hour = now.getHours();
-            
-            // 6PM - 6AM -> Tomorrow 10AM
-            if (hour >= 18 || hour < 6) {
-                const target = new Date(now);
-                if (hour >= 18) target.setDate(target.getDate() + 1);
-                return {
-                    date: formatDateLocal(target),
-                    time: '10:00'
-                };
-            }
-            
-            // 6AM - 6PM -> 4 Hours later
-            const future = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-            return {
-                date: formatDateLocal(future),
-                time: future.getHours().toString().padStart(2, '0') + ':' + future.getMinutes().toString().padStart(2, '0')
-            };
-        };
-
-        const parseSpokenQuantity = (rawValue = '') => {
-            const normalized = String(rawValue || '')
-                .toLowerCase()
-                .replace(/-/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-
-            if (!normalized) return null;
-            if (['few', 'a few', 'several'].includes(normalized)) return 3;
-            if (['couple', 'a couple', 'couple of', 'a couple of'].includes(normalized)) return 2;
-            if (['half', 'half a', 'half an'].includes(normalized)) return 0.5;
-
-            const wordValues = {
-                a: 1,
-                an: 1,
-                one: 1,
-                two: 2,
-                three: 3,
-                four: 4,
-                five: 5,
-                six: 6,
-                seven: 7,
-                eight: 8,
-                nine: 9,
-                ten: 10,
-                eleven: 11,
-                twelve: 12,
-                thirteen: 13,
-                fourteen: 14,
-                fifteen: 15,
-                sixteen: 16,
-                seventeen: 17,
-                eighteen: 18,
-                nineteen: 19,
-                twenty: 20,
-                thirty: 30,
-                forty: 40,
-                fifty: 50,
-                sixty: 60
-            };
-
-            if (Object.prototype.hasOwnProperty.call(wordValues, normalized)) {
-                return wordValues[normalized];
-            }
-
-            const tokens = normalized.split(' ').filter(token => token !== 'of');
-            if (!tokens.length) return null;
-
-            let total = 0;
-            let hasMatch = false;
-            tokens.forEach(token => {
-                if (Object.prototype.hasOwnProperty.call(wordValues, token)) {
-                    total += wordValues[token];
-                    hasMatch = true;
-                }
-            });
-
-            return hasMatch ? total : null;
-        };
-
-        const extractDateFromText = (input) => {
-            let lower = input.toLowerCase();
-            let cleanText = input;
-            const now = new Date();
-            let newDate = null;
-            let newTime = null;
-
-            // 1. Detect Times first to prevent date parsing interference (e.g. 10am)
-            // Patterns: 2pm, 10:30am, 14:00, 2 pm
-            const timeRegex = /\b(\d{1,2})(?:(?::|\s+)(\d{2}))?\s*(am|pm)\b|\b([01]\d|2[0-3]):([0-5]\d)\b/gi;
-            let timeMatch;
-            if ((timeMatch = timeRegex.exec(lower)) !== null) {
-                let h, m = '00';
-                if (timeMatch[1]) { // am/pm format
-                    h = parseInt(timeMatch[1]);
-                    if (timeMatch[2]) m = timeMatch[2];
-                    const ampm = timeMatch[3].toLowerCase();
-                    if (ampm === 'pm' && h < 12) h += 12;
-                    if (ampm === 'am' && h === 12) h = 0;
-                } else { // 24h format
-                    h = parseInt(timeMatch[4]);
-                    m = timeMatch[5];
-                }
-                newTime = `${h.toString().padStart(2, '0')}:${m}`;
-                // FIX 2026-04-22: Improved text replacement to be case-insensitive and index-accurate
-                cleanText = cleanText.substring(0, timeMatch.index) + cleanText.substring(timeMatch.index + timeMatch[0].length);
-                lower = cleanText.toLowerCase();
-            }
-
-                // 2. Detect Specific Dates (e.g. mar 1, march 10, this 15)
-            const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-            const fullMonthNames = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
-            
-            // Generic date like "march 15", "mar 15", or "mar15"
-            const dateRegex = new RegExp(`\\b(${monthNames.join('|')}|${fullMonthNames.join('|')})\\s*(\\d{1,2})\\b`, 'i');
-            let dateMatch = dateRegex.exec(lower);
-            
-            // "this 15" format
-            const thisDateRegex = /\bthis\s+(\d{1,2})\b/i;
-            let thisDateMatch = thisDateRegex.exec(lower);
-
-            if (dateMatch) {
-                const monthText = dateMatch[1].toLowerCase();
-                let monthIdx = monthNames.findIndex(m => monthText.startsWith(m));
-                if (monthIdx === -1) monthIdx = fullMonthNames.findIndex(m => m.startsWith(monthText));
-                const day = parseInt(dateMatch[2]);
-                
-                const targetDate = new Date(now.getFullYear(), monthIdx, day);
-                const matchIdx = dateMatch.index;
-                const fullMatch = dateMatch[0];
-                const nextChar = lower[matchIdx + fullMatch.length];
-
-                // Refinement: only commit if:
-                // 1. Next char exists (e.g. user typed a space after "mar 1 ")
-                // 2. OR the day is > 3 (e.g. "mar 4" is definitely not "mar 40")
-                // 3. OR it's a 2-digit day (handled by day > 3 mostly, but explicit check for 10-31)
-                if (day >= 1 && day <= 31) {
-                    const targetDateStr = formatDateLocal(targetDate);
-                    const tempCleanText = cleanText.substring(0, dateMatch.index) + cleanText.substring(dateMatch.index + dateMatch[0].length);
-                    if (nextChar || day > 3) {
-                        if (targetDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
-                            targetDate.setFullYear(now.getFullYear() + 1);
-                        }
-                        newDate = formatDateLocal(targetDate);
-                        cleanText = tempCleanText;
-                        lower = cleanText.toLowerCase();
-                    } else {
-                        // Pending single digit
-                        return { date: targetDateStr, time: newTime || '10:00', cleanText: tempCleanText, isPending: true };
-                    }
-                }
-            } else if (thisDateMatch) {
-                const day = parseInt(thisDateMatch[1]);
-                let targetDate = new Date(now.getFullYear(), now.getMonth(), day);
-                // If 15th of this month has passed, move to next month
-                if (targetDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
-                    targetDate = new Date(now.getFullYear(), now.getMonth() + 1, day);
-                }
-                newDate = formatDateLocal(targetDate);
-                cleanText = cleanText.substring(0, thisDateMatch.index) + cleanText.substring(thisDateMatch.index + thisDateMatch[0].length);
-                lower = cleanText.toLowerCase();
-            }
-
-            // 3. Detect Relative Entities (tomorrow, next week, wed, thu, thur)
-            // FIX 2026-04-22: Added Bisaya/Cebuano and Tagalog natural language date support
-            const relativePatterns = [
-                // English
-                { regex: /\btomorrow\b/i, offset: 1 },
-                { regex: /\btoday\b/i, offset: 0 },
-                { regex: /\bnext week\b/i, offset: 7 },
-                { regex: /\bnext month\b/i, offsetMonth: 1 },
-                // Bisaya / Cebuano
-                { regex: /\bsunod\s+ugma\b/i, offset: 2 },           // day after tomorrow
-                { regex: /\bugma\b/i, offset: 1 },                    // tomorrow
-                { regex: /\bsunod\s*semana\b/i, offset: 7 },          // next week
-                { regex: /\bsunod\s*buwan\b/i, offsetMonth: 1 },      // next month
-                { regex: /\bkarong\s*adlaw\b/i, offset: 0 },          // today
-                // Tagalog
-                { regex: /\bbukas\b/i, offset: 1 },                   // tomorrow
-                { regex: /\bsusunod\s*na\s*linggo\b/i, offset: 7 },   // next week
-                { regex: /\bsusunod\s*na\s*buwan\b/i, offsetMonth: 1 },// next month
-                { regex: /\bngayon\b/i, offset: 0 },                  // today
-                // Weekdays (English)
-                { regex: /\b(?:next\s+)?(monday|mon|tuesday|tue|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun)\b/i }
-            ];
-
-            // FIX 2026-04-22: Bisaya/Cebuano & Tagalog time-of-day keywords â†’ mapped to specific times
-            const timeOfDayPatterns = [
-                // Bisaya / Cebuano
-                { regex: /\bunyang\s*gabie\b/i, offset: 0, time: '20:00' },  // tonight 8pm
-                { regex: /\bgabie\b/i, offset: 0, time: '20:00' },           // tonight 8pm
-                { regex: /\budto\b/i, offset: 0, time: '12:00' },            // noon 12pm
-                { regex: /\bbuntag\b/i, offset: 0, time: '10:00' },          // morning 10am
-                { regex: /\bunya\b/i, offset: 0, time: null, useLater: true }, // later (uses getLaterTiming)
-                { regex: /\bhapon\b/i, offset: 0, time: '15:00' },           // afternoon 3pm
-                // Tagalog
-                { regex: /\bmamayang\s*gabi\b/i, offset: 0, time: '20:00' }, // tonight 8pm
-                { regex: /\bmamaya\b/i, offset: 0, time: null, useLater: true }, // later
-                { regex: /\btanghali\b/i, offset: 0, time: '12:00' },        // noon 12pm
-                { regex: /\bumaga\b/i, offset: 0, time: '10:00' },           // morning 10am
-                // English
-                { regex: /\btonight\b/i, offset: 0, time: '20:00' },         // tonight 8pm
-                { regex: /\blater\b/i, offset: 0, time: null, useLater: true },
-                { regex: /\bnoon\b/i, offset: 0, time: '12:00' },
-                { regex: /\bmorning\b/i, offset: 0, time: '10:00' },
-                { regex: /\bafternoon\b/i, offset: 0, time: '15:00' },
-                { regex: /\bevening\b/i, offset: 0, time: '20:00' },
-            ];
-
-            // Process time-of-day keywords first (they set both date + time)
-            for (const p of timeOfDayPatterns) {
-                let match = p.regex.exec(lower);
-                if (match) {
-                    const target = new Date();
-                    target.setDate(now.getDate() + (p.offset || 0));
-                    if (p.useLater) {
-                        // Use the existing "later" logic
-                        const laterTiming = getLaterTiming();
-                        newDate = laterTiming.date;
-                        newTime = laterTiming.time;
-                    } else {
-                        // If the specified time has already passed today, push to tomorrow
-                        if (p.time && p.offset === 0) {
-                            const [th, tm] = p.time.split(':').map(Number);
-                            if (now.getHours() > th || (now.getHours() === th && now.getMinutes() >= tm)) {
-                                target.setDate(target.getDate() + 1);
-                            }
-                        }
-                        newDate = formatDateLocal(target);
-                        newTime = p.time || '10:00';
-                    }
-                    cleanText = cleanText.substring(0, match.index) + cleanText.substring(match.index + match[0].length);
-                    lower = cleanText.toLowerCase();
-                    break;
-                }
-            }
-
-            // Process relative date patterns (only if no time-of-day match set a date)
-            if (!newDate) {
-                for (const p of relativePatterns) {
-                    let match = p.regex.exec(lower);
-                    if (match) {
-                        const target = new Date();
-                        if (p.offsetMonth) {
-                            // "next month" / "sunod buwan" â€” go to the 1st of next month
-                            target.setMonth(now.getMonth() + p.offsetMonth, 1);
-                        } else if (p.offset !== undefined) {
-                            target.setDate(now.getDate() + p.offset);
-                        } else {
-                            const weekdays = { 
-                                sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, thur: 4, thurs: 4, fri: 5, sat: 6, 
-                                sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 
-                            };
-                            const targetDay = weekdays[match[1].toLowerCase()];
-                            let diff = (targetDay + 7 - now.getDay()) % 7;
-                            if (diff === 0) diff = 7;
-                            target.setDate(now.getDate() + diff);
-                        }
-                    newDate = formatDateLocal(target);
-                    cleanText = cleanText.substring(0, match.index) + cleanText.substring(match.index + match[0].length);
-                    lower = cleanText.toLowerCase();
-                        break;
-                    }
-                }
-            }
-
-            // 4. Relative Offsets (e.g. 5 min, 2 hrs, in 10m)
-            const relativeTimeRegex = /\b(?:in\s+|after\s+)?(\d+|a few|few|a couple of|couple of|a couple|couple|an|a|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty)\s+(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|day|days|week|weeks)\b/i;
-            let relTimeMatch;
-            if ((relTimeMatch = relativeTimeRegex.exec(lower)) !== null) {
-                const rawValue = relTimeMatch[1].toLowerCase();
-                const value = /^\d+$/.test(rawValue) ? parseInt(rawValue, 10) : parseSpokenQuantity(rawValue);
-                const unit = relTimeMatch[2].toLowerCase();
-                const target = new Date(now);
-
-                if (value !== null) {
-                    if (unit.startsWith('m')) {
-                        target.setTime(now.getTime() + (value * 60 * 1000));
-                    } else if (unit.startsWith('h')) {
-                        target.setTime(now.getTime() + (value * 60 * 60 * 1000));
-                    } else if (unit.startsWith('day')) {
-                        target.setTime(now.getTime() + (value * 24 * 60 * 60 * 1000));
-                    } else if (unit.startsWith('week')) {
-                        target.setTime(now.getTime() + (value * 7 * 24 * 60 * 60 * 1000));
-                    }
-
-                    newDate = formatDateLocal(target);
-                    newTime = target.getHours().toString().padStart(2, '0') + ':' + target.getMinutes().toString().padStart(2, '0');
-                    cleanText = cleanText.substring(0, relTimeMatch.index) + cleanText.substring(relTimeMatch.index + relTimeMatch[0].length);
-                    lower = cleanText.toLowerCase();
-                }
-            }
-
-            // 4. Fallback shared logic
-            if (newDate && !newTime) newTime = '10:00';
-            
-            return { date: newDate, time: newTime, cleanText, isPending: false };
         };
 
         const sortQuickTasksList = (quickTasks = []) => {
@@ -706,13 +279,6 @@
                 } else {
                     groups.upcoming.push(task);
                 }
-            });
-
-            // FIX 2026-04-22: Sort finished tasks from latest completed to oldest
-            groups.completed.sort((a, b) => {
-                const aTime = a.completedAt || a.createdAt || 0;
-                const bTime = b.completedAt || b.createdAt || 0;
-                return bTime - aTime; // newest first
             });
 
             return groups;
@@ -889,7 +455,8 @@
             // ------------------------------------------------------------------
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
-                    // FIX 2026-04-22: Keep a short delay for extension stability, but warm the cache sooner.
+                    // FIX 2026-04-22: Deep 2000ms delay to satisfy Chrome Extensions (AdBlock, etc.)
+                    // This prevents the "Unchecked runtime.lastError: message port closed" console spam.
                     setTimeout(() => {
                         navigator.serviceWorker.register('sw.js').then(reg => {
                             swRegistration = reg;
@@ -910,7 +477,7 @@
                                 console.warn('SW registration failed:', err);
                             }
                         });
-                    }, 300);
+                    }, 2000);
                 });
             }
 
@@ -932,12 +499,8 @@
             const nativeAlarmBridge = () => window.FaioraNativeAlarmBridge || null;
             const hasNativeAlarmBridge = () => !!nativeAlarmBridge()?.scheduleAlarm;
             const QUICK_TASK_CHANNEL_ID = 'faiora-quick-tasks-v2';
-            const ALARM_CHANNEL_ID = 'faiora-alarms-v3';
+            const ALARM_CHANNEL_ID = 'faiora-alarms-v2';
             const NATIVE_NOTIFICATION_SOUND = 'fire_transition_sfx.mp3';
-            const NATIVE_ALARM_SOUND = 'alarm_ringtone_mp3.mp3';
-            const NATIVE_SMALL_ICON = 'ic_notification_logo';
-            const NATIVE_LARGE_ICON = 'applogo';
-            const normalizeNativeNotificationBody = (value = '') => String(value || '').replace(/\n+$/g, '');
             const hashNotificationId = (seed) => {
                 const str = String(seed || 'faiora');
                 let hash = 0;
@@ -1016,7 +579,7 @@
                         vibration: true,
                         lights: true,
                         lightColor: '#fb923c',
-                        sound: NATIVE_ALARM_SOUND
+                        sound: NATIVE_NOTIFICATION_SOUND
                     });
                     nativeChannelsReady = true;
                 } catch (error) {
@@ -1103,10 +666,6 @@
             const getTaskReminderId = (taskId, stage) => hashNotificationId(getTaskReminderTag(taskId, stage));
             const getAlarmNotificationTag = (alarmId) => `faiora-alarm-${alarmId}`;
             const getAlarmNotificationId = (alarmId) => hashNotificationId(getAlarmNotificationTag(alarmId));
-
-            // FIX 2026-04-22: Added helper for note reminder tags and IDs for unified tracking
-            const getNoteReminderTag = (noteId) => `faiora-note-${noteId}`;
-            const getNoteReminderId = (noteId) => hashNotificationId(getNoteReminderTag(noteId));
             const hasAlarmOverlayPermission = () => {
                 try {
                     return !!nativeAlarmBridge()?.hasOverlayPermission?.();
@@ -1120,20 +679,6 @@
                     nativeAlarmBridge()?.requestOverlayPermission?.();
                 } catch (error) {
                     console.warn('Native overlay permission request failed', error);
-                }
-            };
-            const dismissNativeAlarmPlayback = () => {
-                try {
-                    nativeAlarmBridge()?.dismissActiveAlarm?.();
-                } catch (error) {
-                    console.warn('Native alarm playback dismiss failed', error);
-                }
-            };
-            const startNativeAlarmPlayback = () => {
-                try {
-                    nativeAlarmBridge()?.startActiveAlarm?.();
-                } catch (error) {
-                    console.warn('Native alarm playback start failed', error);
                 }
             };
             const consumeNativeAlarmEvents = () => {
@@ -1188,11 +733,9 @@
                         notifications: entries.map(entry => ({
                             id: entry.id,
                             title: entry.title,
-                            body: normalizeNativeNotificationBody(entry.body),
+                            body: entry.body,
                             channelId: QUICK_TASK_CHANNEL_ID,
-                            smallIcon: NATIVE_SMALL_ICON,
-                            largeIcon: NATIVE_LARGE_ICON,
-                            iconColor: '#f97316',
+                            smallIcon: 'ic_launcher', // Fix 2026-04-22: Standardize branding across all notifications
                             schedule: { at: new Date(entry.at), allowWhileIdle: true },
                             extra: {
                                 type: 'quick-task',
@@ -1200,7 +743,7 @@
                                 taskId: task.id,
                                 tag: entry.tag,
                                 title: entry.title,
-                                body: normalizeNativeNotificationBody(entry.body),
+                                body: entry.body,
                                 dueDate: task.dueDate || '',
                                 dueTime: task.dueTime || '',
                                 taskText: formatTaskText(task.text || task.title || 'Task')
@@ -1222,8 +765,6 @@
                 ]);
             };
             /* MOVED: getAlarmScheduleDate 2026-04-20 â€” Now a global utility for UI and Notification consistency */
-            // LABEL: SCHEDULE-ALARM-NOTIF -- Schedule alarm via native bridge only (overlay handles ringing UI)
-            // [FIX 2026-04-22] Removed local notification fallback for alarms -- overlay is the primary mechanism
             const scheduleAlarmNotification = async (alarm) => {
                 const bridge = nativeAlarmBridge();
                 if (bridge?.scheduleAlarm && alarm?.enabled && alarm?.time) {
@@ -1245,10 +786,44 @@
                         }
                     }
                 }
-                // [REMOVED 2026-04-22] Local notification fallback for alarms disabled -- overlay/bridge handles it
-                return true;
+                const plugin = nativeLocalNotifications();
+                if (!plugin || !alarm || !alarm.enabled || !alarm.time) return false;
+                const hasPermission = await hasNativeNotificationPermission();
+                if (!hasPermission) return false;
+
+                const target = getAlarmScheduleDate(alarm);
+                if (!target) return false;
+
+                try {
+                    await plugin.schedule({
+                        notifications: [{
+                            id: getAlarmNotificationId(alarm.id),
+                            title: 'Alarm Ringing',
+                            body: `${alarm.label || 'Alarm'} â€¢ ${alarm.time}`,
+                            channelId: ALARM_CHANNEL_ID,
+                            actionTypeId: 'FAIORA_ALARM_ACTIONS',
+                            ongoing: true,
+                            autoCancel: false,
+                            smallIcon: 'ic_launcher', // Fix 2026-04-22: Using actual app launcher icon for branding
+                            schedule: { at: target, allowWhileIdle: true },
+                            extra: {
+                                type: 'alarm',
+                                alarmId: alarm.id,
+                                label: alarm.label || 'Alarm',
+                                time: alarm.time,
+                                repeatDaily: !!alarm.repeatDaily,
+                                tag: getAlarmNotificationTag(alarm.id),
+                                title: 'Alarm Ringing',
+                                body: `${alarm.label || 'Alarm'} â€¢ ${alarm.time}`
+                            }
+                        }]
+                    });
+                    return true;
+                } catch (error) {
+                    console.warn('Native alarm scheduling failed', error);
+                    return false;
+                }
             };
-            // LABEL: CANCEL-ALARM-NOTIF -- Cancel a scheduled alarm notification
             const cancelAlarmNotification = async (alarmId = '') => {
                 if (!alarmId) return;
                 try {
@@ -1258,98 +833,6 @@
                 }
                 await cancelNativeNotifications([getAlarmNotificationId(alarmId)]);
                 await removeDeliveredAlarmNotifications(alarmId);
-            };
-
-            // FIX 2026-04-22: Schedule push notifications for notes â€” supports both native APK and web browser
-            const scheduleNoteNotification = async (note) => {
-                if (!note || !note.reminderDate) return false;
-                
-                // Cancel any existing notification for this note first
-                cancelNoteNotification(note.id);
-
-                const target = parseDateString(note.reminderDate);
-                if (!target || Number.isNaN(target.getTime())) return false;
-                
-                const targetMs = target.getTime();
-                const now = Date.now();
-                // If reminder is in the past, skip scheduling
-                if (targetMs <= now) return true;
-
-                const noteTitle = note.title || 'Untitled';
-                const notifTitle = 'Note Reminder! \ud83d\udd25';
-                const notifBody = `\ud83d\udccc Note: ${noteTitle}\n`;
-                const notifTag = getNoteReminderTag(note.id);
-
-                // PATH 1: Native APK (Capacitor LocalNotifications)
-                const plugin = nativeLocalNotifications();
-                if (plugin) {
-                    const hasPermission = await hasNativeNotificationPermission();
-                    if (!hasPermission) return false;
-                    try {
-                        await plugin.schedule({
-                            notifications: [{
-                                id: getNoteReminderId(note.id),
-                                title: notifTitle,
-                                body: normalizeNativeNotificationBody(notifBody),
-                                channelId: QUICK_TASK_CHANNEL_ID,
-                                smallIcon: NATIVE_SMALL_ICON,
-                                largeIcon: NATIVE_LARGE_ICON,
-                                iconColor: '#f97316',
-                                schedule: { at: target, allowWhileIdle: true },
-                                extra: {
-                                    type: 'note',
-                                    noteId: note.id,
-                                    tag: notifTag,
-                                    title: notifTitle,
-                                    body: normalizeNativeNotificationBody(notifBody)
-                                }
-                            }]
-                        });
-                        return true;
-                    } catch (error) {
-                        console.warn('Native note reminder scheduling failed', error);
-                        return false;
-                    }
-                }
-
-                // PATH 2: Web browser fallback (setTimeout + Service Worker)
-                const permitted = hasNotificationApi && Notification.permission === 'granted';
-                if (!permitted) return false;
-
-                const timerId = setTimeout(() => {
-                    sendNotification(notifTitle, notifBody, notifTag, { type: 'note', noteId: note.id });
-                    // Persist for offline catch-up
-                    const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                    scheduled[notifTag] = { title: notifTitle, body: notifBody, timestamp: targetMs };
-                    localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
-                }, targetMs - now);
-
-                // Store timer ID for cancellation â€” reuse the existing timers Map with a note-prefixed key
-                timers.set(`note_${note.id}`, [timerId]);
-                return true;
-            };
-
-            // FIX 2026-04-22: Cancel specific note reminders â€” handles both native and web timers
-            const cancelNoteNotification = async (noteId = '') => {
-                if (!noteId) return;
-                // Cancel native scheduled notifications
-                await cancelNativeNotifications([getNoteReminderId(noteId)]);
-                // Cancel web setTimeout timers
-                const existing = timers.get(`note_${noteId}`);
-                if (existing) {
-                    existing.forEach(id => clearTimeout(id));
-                    timers.delete(`note_${noteId}`);
-                }
-                // Clean up localStorage scheduled record
-                const tag = getNoteReminderTag(noteId);
-                if (swRegistration) {
-                    swRegistration.getNotifications({ tag }).then(notifs => {
-                        notifs.forEach(n => n.close());
-                    }).catch(() => {});
-                }
-                const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                delete scheduled[tag];
-                localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
             };
 
             // ------------------------------------------------------------------
@@ -1413,13 +896,10 @@
                         notifications: [{
                             id: hashNotificationId('faiora-test'),
                             title,
-                            body: normalizeNativeNotificationBody(body),
+                            body,
                             channelId: 'faiora-quick-tasks',
-                            smallIcon: NATIVE_SMALL_ICON,
-                            largeIcon: NATIVE_LARGE_ICON,
-                            iconColor: '#f97316',
                             schedule: { at: new Date(Date.now() + 250), allowWhileIdle: true },
-                            extra: { type: 'generic', tag: 'faiora-test', title, body: normalizeNativeNotificationBody(body) }
+                            extra: { type: 'generic', tag: 'faiora-test', title, body }
                         }]
                     });
                     return;
@@ -1530,141 +1010,59 @@
 
             // LABEL: ALARM-AUDIO-ENGINE â€” Manages sound playback with desktop support and anti-doubling
             // FIX 2026-04-22: Implemented singleton check and interaction fallback for PC browsers
-            const getAlarmAudioElement = () => {
-                const player = document.getElementById('faiora_alarm_audio_element');
-                if (!player) return null;
-                const primarySrc = player.getAttribute('src') || 'alarm_ringtone.mp3';
-                if (!player.currentSrc || !String(player.currentSrc).trim()) {
-                    player.src = primarySrc;
-                }
-                return player;
-            };
-
-            const previewAlarmSFX = () => {
-                try {
-                    stopAlarmSFX();
-                    const player = getAlarmAudioElement();
-                    if (!player) {
-                        console.warn('🔊 [ALARM TEST] Audio element not found in DOM.');
-                        return;
-                    }
-                    window._faiora_alarm_audio = player;
-                    player.loop = false;
-                    player.volume = 1.0;
-                    player.muted = false;
-                    try { player.setAttribute('playsinline', 'true'); } catch (error) {}
-                    player.onerror = () => {
-                        console.warn('🔊 [ALARM TEST] Audio element failed to load alarm ringtone.');
-                    };
-                    player.onended = () => {
-                        if (window._faiora_alarm_audio === player) {
-                            window._faiora_alarm_audio = null;
-                        }
-                        player.onended = null;
-                        player.onerror = null;
-                    };
-                    player.pause();
-                    player.currentTime = 0;
-                    player.load();
-                    const playPromise = player.play();
-                    if (playPromise && typeof playPromise.catch === 'function') {
-                        playPromise.catch((err) => {
-                            console.warn('🔊 [ALARM TEST] Preview playback blocked:', err?.message || err);
-                        });
-                        playPromise.then(() => {
-                            window._faiora_alarm_audio_primed = true;
-                        }).catch(() => {});
-                    }
-                } catch (e) { console.warn('🔊 [ALARM TEST] Preview failed:', e); }
-            };
-
             const playAlarmSFX = () => {
                 try {
-                    stopAlarmSFX();
-
-                    const armResumeHandler = (playFn) => {
-                        if (window._faiora_audio_resume_fn) return;
-                        window._faiora_audio_resume_fn = () => {
-                            playFn();
-                            document.removeEventListener('click', window._faiora_audio_resume_fn);
-                            document.removeEventListener('keydown', window._faiora_audio_resume_fn);
-                            window._faiora_audio_resume_fn = null;
-                        };
-                        document.addEventListener('click', window._faiora_audio_resume_fn);
-                        document.addEventListener('keydown', window._faiora_audio_resume_fn);
-                    };
-
-                    const player = getAlarmAudioElement();
-                    if (!player) {
-                        console.warn('🔊 [ALARM] Audio element not found in DOM.');
+                    if (window._faiora_alarm_audio) {
+                        if (window._faiora_alarm_audio.paused) {
+                            window._faiora_alarm_audio.play().catch(() => {
+                                // FALLBACK: Resume on next user interaction if blocked by PC browser
+                                if (!window._faiora_audio_resume_fn) {
+                                    window._faiora_audio_resume_fn = () => {
+                                        if (window._faiora_alarm_audio) window._faiora_alarm_audio.play().catch(() => {});
+                                        document.removeEventListener('click', window._faiora_audio_resume_fn);
+                                        document.removeEventListener('keydown', window._faiora_audio_resume_fn);
+                                        window._faiora_audio_resume_fn = null;
+                                    };
+                                    document.addEventListener('click', window._faiora_audio_resume_fn);
+                                    document.addEventListener('keydown', window._faiora_audio_resume_fn);
+                                }
+                            });
+                        }
                         return;
                     }
-
-                    let playCount = 0;
-                    window._faiora_alarm_audio = player;
-
-                    const playOnce = () => {
-                        if (window._faiora_alarm_audio !== player) return;
-                        player.loop = false;
-                        player.volume = 1.0;
-                        player.muted = false;
-                        try { player.setAttribute('playsinline', 'true'); } catch (error) {}
-                        player.pause();
-                        player.currentTime = 0;
-                        const playPromise = player.play();
-                        if (playPromise && typeof playPromise.then === 'function') {
-                            playPromise
-                                .then(() => {
-                                    playCount += 1;
-                                    window._faiora_alarm_audio_primed = true;
-                                })
-                                .catch((err) => {
-                                    console.warn('🔊 [ALARM] Sequence playback blocked:', err?.message || err);
-                                    armResumeHandler(playOnce);
-                                });
-                        } else {
-                            playCount += 1;
+                    const alarmUrl = 'https://assets.mixkit.co/music/preview/mixkit-morning-sun-wake-up-alarm-2688.mp3';
+                    const audio = new Audio(alarmUrl);
+                    audio.loop = true;
+                    audio.volume = 0.9;
+                    window._faiora_alarm_audio = audio; // SINGLETON: Set before play attempt to prevent doubling
+                    
+                    audio.play().catch(() => {
+                        if (!window._faiora_audio_resume_fn) {
+                            window._faiora_audio_resume_fn = () => {
+                                if (window._faiora_alarm_audio) window._faiora_alarm_audio.play().catch(() => {});
+                                document.removeEventListener('click', window._faiora_audio_resume_fn);
+                                document.removeEventListener('keydown', window._faiora_audio_resume_fn);
+                                window._faiora_audio_resume_fn = null;
+                            };
+                            document.addEventListener('click', window._faiora_audio_resume_fn);
+                            document.addEventListener('keydown', window._faiora_audio_resume_fn);
                         }
-                    };
-
-                    player.onerror = () => {
-                        console.warn('🔊 [ALARM] Audio element failed to load alarm ringtone.');
-                    };
-                    player.onended = () => {
-                        if (window._faiora_alarm_audio !== player) return;
-                        if (playCount >= 2) {
-                            player.onended = null;
-                            player.onerror = null;
-                            return;
-                        }
-                        window._faiora_alarm_sequence_timer = setTimeout(() => {
-                            playOnce();
-                        }, 2000);
-                    };
-
-                    console.log('🔊 [ALARM] Attempting playback via HTML audio element');
-                    playOnce();
-                } catch (e) { console.warn('ðŸ”Š [ALARM] SFX engine error:', e); }
+                    });
+                } catch (e) { console.warn('Alarm SFX failed', e); }
             };
 
-             const stopAlarmSFX = () => {
-                 if (window._faiora_alarm_sequence_timer) {
-                     clearTimeout(window._faiora_alarm_sequence_timer);
-                     window._faiora_alarm_sequence_timer = null;
-                 }
-                 if (window._faiora_audio_resume_fn) {
-                     document.removeEventListener('click', window._faiora_audio_resume_fn);
-                     document.removeEventListener('keydown', window._faiora_audio_resume_fn);
-                     window._faiora_audio_resume_fn = null;
-                 }
-                 if (window._faiora_alarm_audio) {
-                     window._faiora_alarm_audio.onended = null;
-                     window._faiora_alarm_audio.onerror = null;
-                     window._faiora_alarm_audio.pause();
-                     window._faiora_alarm_audio.currentTime = 0;
-                     window._faiora_alarm_audio = null;
-                 }
-             };
+            const stopAlarmSFX = () => {
+                if (window._faiora_audio_resume_fn) {
+                    document.removeEventListener('click', window._faiora_audio_resume_fn);
+                    document.removeEventListener('keydown', window._faiora_audio_resume_fn);
+                    window._faiora_audio_resume_fn = null;
+                }
+                if (window._faiora_alarm_audio) {
+                    window._faiora_alarm_audio.pause();
+                    window._faiora_alarm_audio.currentTime = 0;
+                    window._faiora_alarm_audio = null;
+                }
+            };
 
             const playCheckSFX = () => {
                 try {
@@ -1714,15 +1112,12 @@
                         notifications: [{
                             id: hashNotificationId(tag),
                             title,
-                            body: normalizeNativeNotificationBody(body),
+                            body,
                             channelId: extra.type === 'alarm' ? ALARM_CHANNEL_ID : QUICK_TASK_CHANNEL_ID,
                             schedule: { at: new Date(Date.now() + 200), allowWhileIdle: true },
                             ongoing: extra.type === 'alarm',
                             autoCancel: extra.type !== 'alarm',
-                            smallIcon: NATIVE_SMALL_ICON,
-                            largeIcon: NATIVE_LARGE_ICON,
-                            iconColor: '#f97316',
-                            extra: { ...extra, tag, title, body: normalizeNativeNotificationBody(body) }
+                            extra: { ...extra, tag, title, body }
                         }]
                     });
                     return;
@@ -1864,16 +1259,6 @@
                 tasks.filter(t => t.dueDate && !t.completed).forEach(t => scheduleForTask(t));
             };
 
-            // FIX 2026-04-22: Added batch rescheduling for note notifications
-            const rescheduleAllNotes = async (notes) => {
-                if (!notes || !Array.isArray(notes)) return;
-                for (const note of notes) {
-                    if (note.reminderDate) {
-                        await scheduleNoteNotification(note);
-                    }
-                }
-            };
-
             const checkCloudHealth = async () => {
                 try {
                     const userId = auth.currentUser ? auth.currentUser.uid : null;
@@ -1922,10 +1307,8 @@
                 scheduleForTask,
                 cancelForTask,
                 rescheduleAll,
-                rescheduleAllNotes, // FIX 2026-04-22: Exported for hydrateFromDoc usage
                 playCheckSFX,
                 playNotifSFX,
-                previewAlarmSFX,
                 playAlarmSFX,
                 stopAlarmSFX, // FIX 2026-04-22: Exported stopAlarmSFX to avoid ReferenceError in App core
                 checkCloudHealth,
@@ -1936,13 +1319,9 @@
                 hasNativeAlarmBridge,
                 hasAlarmOverlayPermission,
                 requestAlarmOverlayPermission,
-                startNativeAlarmPlayback,
-                dismissNativeAlarmPlayback,
                 consumeNativeAlarmEvents,
                 scheduleAlarmNotification,
                 cancelAlarmNotification,
-                scheduleNoteNotification, // FIX 2026-04-22: Exported for note reminder scheduling from App
-                cancelNoteNotification, // FIX 2026-04-22: Exported for note reminder cancellation from App
                 removeDeliveredAlarmNotifications,
                 getDeliveredNotifications,
                 show: (title, body, tag = 'faiora-generic', extra = {}) => notifyNow(title, body, tag, extra)
@@ -2139,7 +1518,7 @@
 
         // LABEL: Layout â€” The main shell of the application including sidebar, navigation, and pull-to-refresh
         // FIX 2026-04-20: Added labels and IDs for easier tracking
-        const Layout = ({ children, onOpenCreator, onFabClick, onRefresh, noPadding = false, showFab = true, pomodoroTime, isPomodoroActive, selectedDate }) => {
+        const Layout = ({ children, onOpenCreator, onFabClick, onRefresh, noPadding = false, showFab = true, pomodoroTime, isPomodoroActive }) => {
             const handleFabClick = onFabClick || onOpenCreator;
             
             const location = useLocation();
@@ -2186,14 +1565,8 @@
                                                 icon: 'description', 
                                                 color: 'bg-primary', 
                                                 onClick: () => { 
-                                                    // FIX 2026-04-22: If on calendar, prefill the note reminder with the selected date automatically
-                                                    if (location.pathname === '/calendar' && selectedDate) {
-                                                        onOpenCreator(formatDateLocal(selectedDate));
-                                                    } else if (location.pathname === '/calendar') {
-                                                        navigate('/notes');
-                                                    } else {
-                                                        onOpenCreator(); 
-                                                    }
+                                                    if (location.pathname === '/calendar') navigate('/notes');
+                                                    else onOpenCreator(); 
                                                     setIsFabMenuOpen(false); 
                                                 } 
                                             },
@@ -2202,11 +1575,7 @@
                                                 icon: 'check_circle', 
                                                 color: 'bg-burnt-orange', 
                                                 onClick: () => { 
-                                                    // FIX 2026-04-22: Pass selected calendar date to quick task creator via event detail
-                                                    const detail = (location.pathname === '/calendar' && selectedDate) 
-                                                        ? { prefillDate: formatDateLocal(selectedDate) } 
-                                                        : {};
-                                                    window.dispatchEvent(new CustomEvent('faiora-open-task-creator', { detail })); 
+                                                    window.dispatchEvent(new CustomEvent('faiora-open-task-creator')); 
                                                     setIsFabMenuOpen(false); 
                                                 } 
                                             },
@@ -2215,12 +1584,7 @@
                                                 icon: 'alarm', 
                                                 color: 'bg-slate-700', 
                                                 onClick: () => { 
-                                                    // FIX 2026-04-22: Redirect to alarm page with prefillDate when initiated from calendar
-                                                    if (location.pathname === '/calendar' && selectedDate) {
-                                                        navigate(`/alarms?prefillDate=${formatDateLocal(selectedDate)}`);
-                                                    } else {
-                                                        navigate('/alarms'); 
-                                                    }
+                                                    navigate('/alarms'); 
                                                     setIsFabMenuOpen(false); 
                                                 } 
                                             }
@@ -2230,8 +1594,8 @@
                                                 onClick={item.onClick}
                                                 className="flex items-center gap-4 group"
                                             >
-                                                {/* FIX 2026-04-22: Labels always visible â€” removed hover-only opacity */}
-                                                <span className="text-[10px] font-black text-white px-4 py-2 bg-white/5 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl uppercase tracking-[0.25em]">{item.label}</span>
+                                                {/* FIX 2026-04-22: Added text labels to FAB menu as requested */}
+                                                <span className="text-[10px] font-black text-white px-4 py-2 bg-white/5 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-[0.25em]">{item.label}</span>
                                                 <div className={`w-14 h-14 md:w-16 md:h-16 ${item.color} rounded-[1.25rem] md:rounded-3xl flex items-center justify-center text-white shadow-2xl hover:scale-110 transition-transform active:scale-95 border border-white/10`}>
                                                     <span className="material-symbols-outlined text-2xl md:text-3xl">{item.icon}</span>
                                                 </div>
@@ -2694,7 +2058,7 @@
         // ==========================================================================
         // LABEL: TASK CREATOR â€” The main modal for creating/editing notes
         // ==========================================================================
-        const TaskCreator = ({ onClose, user, editingNote, prefillData, activeCollection, onUpdateNote, onDeleteNote, onSaveVersion, showToast, notes = [], onToggleLock, onOpenLockSet }) => {
+        const TaskCreator = ({ onClose, user, editingNote, activeCollection, onUpdateNote, onDeleteNote, onSaveVersion, showToast, notes = [], onToggleLock, onOpenLockSet }) => {
             const noteId = useMemo(() => editingNote ? editingNote.id : 'note_' + Date.now(), [editingNote]);
             const [title, setTitle] = useState(editingNote ? editingNote.title || '' : '');
             const [content, setContent] = useState(editingNote ? editingNote.content || '' : '');
@@ -2717,7 +2081,7 @@
             const [activePopup, setActivePopup] = useState(null);
             const isLocked = editingNote ? !!editingNote.isLocked : false;
             const [hasChanges, setHasChanges] = useState(false);
-            const [reminderDate, setReminderDate] = useState(editingNote ? editingNote.reminderDate || '' : (prefillData?.reminderDate || ''));
+            const [reminderDate, setReminderDate] = useState(editingNote ? editingNote.reminderDate || '' : '');
             const [showCustomReminder, setShowCustomReminder] = useState(false);
             const [activeSubPopup, setActiveSubPopup] = useState(null);
              
@@ -5423,60 +4787,18 @@
             );
         });
 
-        // FIX 2026-04-22: Added touch-based long press â€” fires edit immediately during hold, not after release
         const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit }) => {
             const { label: dueDateStr, isOverdue, isNearDeadline, isDueTomorrow } = formatDueDate(task.dueDate, task.dueTime);
-            const longPressRef = useRef(null);
-            const didLongPressRef = useRef(false);
-
-            const handleTouchStart = useCallback((e) => {
-                didLongPressRef.current = false;
-                longPressRef.current = setTimeout(() => {
-                    didLongPressRef.current = true;
-                    longPressRef.current = null;
-                    // Vibrate for haptic feedback if available
-                    if (navigator.vibrate) navigator.vibrate(30);
-                    onEdit(task);
-                }, 500); // 500ms hold threshold
-            }, [task, onEdit]);
-
-            const handleTouchEnd = useCallback(() => {
-                if (longPressRef.current) {
-                    clearTimeout(longPressRef.current);
-                    longPressRef.current = null;
-                }
-            }, []);
-
-            const handleTouchMove = useCallback(() => {
-                // Cancel long press if user moves finger (scrolling)
-                if (longPressRef.current) {
-                    clearTimeout(longPressRef.current);
-                    longPressRef.current = null;
-                }
-            }, []);
-
-            const handleClick = useCallback(() => {
-                // Prevent toggle if long press just fired
-                if (didLongPressRef.current) {
-                    didLongPressRef.current = false;
-                    return;
-                }
-                onToggle(task.id);
-            }, [task.id, onToggle]);
 
             return (
                 <div 
                     className={`glass-panel rounded-[2rem] p-4 md:p-5 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 transition-all duration-200 cursor-pointer border border-white/5 shadow-lg hover:shadow-primary/5 ${task.completed ? 'opacity-40 grayscale-[0.5]' : ''} ${isOverdue && !task.completed ? 'border-red-500/30' : ''} ${isNearDeadline && !task.completed ? 'near-deadline-glow' : ''} ${isDueTomorrow && !task.completed ? 'tomorrow-glow' : ''}`}
                     style={{ minHeight: window.innerWidth < 768 ? '64px' : 'auto', touchAction: 'pan-y' }}
-                    onClick={handleClick}
+                    onClick={() => onToggle(task.id)}
                     onContextMenu={(e) => {
                         e.preventDefault();
                         onEdit(task);
                     }}
-                    onTouchStart={handleTouchStart}
-                    onTouchEnd={handleTouchEnd}
-                    onTouchCancel={handleTouchEnd}
-                    onTouchMove={handleTouchMove}
                 >
                     <div className="flex items-center gap-5 pointer-events-none">
                         <div className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${task.completed ? 'bg-primary border-primary text-white scale-110 shadow-lg shadow-primary/20' : 'border-white/10 text-transparent group-hover:border-primary/40'}`}>
@@ -5778,7 +5100,7 @@
             return (
                 <Layout onOpenCreator={onOpenCreator} onFabClick={onAddQuickTaskClick} onRefresh={handleRefresh} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
                     <div className="max-w-7xl mx-auto w-full px-0 md:px-12 pt-0 pb-12">
-                        <div className="sticky md:static top-0 z-[100] py-4 px-4 md:px-12 mb-6">
+                        <div className="sticky top-0 z-[100] py-4 px-4 md:px-12 mb-6">
                             <Header user={user} />
                         </div>
                         <section className="mt-20 md:mt-8 mb-12 md:mb-16 px-4 md:px-0">
@@ -5812,7 +5134,7 @@
                                             <p className="text-white/40 font-medium mb-4 font-montserrat">No priority notes found</p>
                                             <p className="text-white/20 text-xs mb-8 uppercase tracking-widest font-bold">Tag a note with "PRIORITY" to see it here</p>
                                             <button 
-                                                onClick={() => onOpenCreator()}
+                                                onClick={onOpenCreator}
                                                 className="px-6 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-xl text-xs font-bold uppercase tracking-widest transition-all font-montserrat"
                                             >
                                                 Add New Note
@@ -5850,7 +5172,7 @@
 
                                         {sortedPriorityNotes.length < 6 && (
                                             <button 
-                                                onClick={() => onOpenCreator()}
+                                                onClick={onOpenCreator}
                                                 className="sticky-note-add h-[150px] md:h-[160px] border-2 border-dashed border-primary/40 rounded-[2rem] p-6 flex flex-col items-center justify-center group cursor-pointer hover:bg-primary/5 transition-colors"
                                             >
                                                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3">
@@ -5872,13 +5194,12 @@
                             <div className="flex items-center gap-4 mb-6 md:mb-10">
                             <h2 className="text-lg md:text-2xl font-bold text-cream-light/90 uppercase tracking-[0.2em] md:tracking-[0.3em] font-display">QUICK TASKS</h2>
                             <div className="h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
-                            <button
-                                onClick={onAddQuickTaskClick}
-                                className="text-[10px] font-bold text-primary/70 uppercase tracking-widest hover:text-primary transition-colors flex items-center gap-1"
-                                type="button"
+                            <Link 
+                                to="/quick-tasks"
+                                className="text-[10px] font-bold text-primary/60 uppercase tracking-widest hover:text-primary transition-colors"
                             >
-                                + ADD QUICK TASK
-                            </button>
+                                View All
+                            </Link>
                         </div>
 
                         <section className="space-y-16 mb-32">
@@ -5924,7 +5245,7 @@
                             </div>
                             
                         {/* Alarm Summary Section */}
-                        <div className="px-2 md:px-0 mt-20">
+                        <div className="px-4 md:px-0 mt-20">
                             <div className="flex items-center gap-4 mb-6 md:mb-10">
                                 {/* FIX 2026-04-22: Moved Alarm Summary header outside of card for professional layout consistency */}
                                 <h2 className="text-lg md:text-2xl font-bold text-cream-light/90 uppercase tracking-[0.2em] md:tracking-[0.3em] font-display">ALARMS</h2>
@@ -5953,14 +5274,8 @@
                                                     </div>
                                                     {/* homepage_alarm_time_compact â€” Short Summary: Large time display adjacent to icon */}
                                                     <div className="flex items-baseline gap-2">
-                                                        {/* FIX 2026-04-22: Extract numeric time and AM/PM separately from formatTime to avoid "PM AM" double labels */}
-                                                        <p className="text-3xl md:text-4xl font-display font-medium text-cream-light tracking-tighter tabular-nums leading-none">
-                                                            {formatTime(alarm.time).replace(/\s?(AM|PM)$/i, '')}
-                                                        </p>
-                                                        {/* FIX 2026-04-22: Increased AM/PM font size for better visibility on dashboard */}
-                                                        <p className="text-[16px] font-black text-primary uppercase tracking-widest leading-none opacity-80">
-                                                            {formatTime(alarm.time).split(' ').pop()}
-                                                        </p>
+                                                        <p className="text-3xl md:text-4xl font-display font-medium text-cream-light tracking-tighter tabular-nums leading-none">{formatTime(alarm.time)}</p>
+                                                        <p className="text-[10px] font-black text-primary uppercase tracking-widest leading-none opacity-80">{alarm.time?.includes('PM') ? 'PM' : 'AM'}</p>
                                                     </div>
                                                 </div>
                                                 {/* homepage_alarm_details â€” Short Summary: Label and relative time indicator */}
@@ -7100,8 +6415,7 @@
         // Path: /calendar
         // Includes: Monthly View, Detailed Day View
         // ==========================================================================
-        // FIX 2026-04-22: Added onDeleteQuickTask prop to support QuickTaskItem delete action in daily agenda
-        const CalendarPage = ({ user, notes, quickTasks = [], onOpenCreator, onEditNote, onToggleQuickTask, onDeleteQuickTask, onEditQuickTask, onAddQuickTask, pomodoroTime, isPomodoroActive }) => {
+        const CalendarPage = ({ user, notes, quickTasks = [], onOpenCreator, onEditNote, onToggleQuickTask, onEditQuickTask, onAddQuickTask, pomodoroTime, isPomodoroActive }) => {
             const [currentDate, setCurrentDate] = useState(new Date());
             const [selectedDate, setSelectedDate] = useState(new Date());
             const [taskSearchQuery, setTaskSearchQuery] = useState('');
@@ -7251,21 +6565,18 @@
                     cells.push({ day: i, current: false });
                 }
             }
-            const calendarWeekCount = Math.max(4, Math.ceil(cells.length / 7));
 
             return (
                 /* 2026-04-15: Ensured FAB is enabled for CalendarPage */
                 <Layout 
-                    onOpenCreator={onOpenCreator} // FIX 2026-04-22: Pass onOpenCreator so FAB 'NEW NOTE' can create notes with prefilled date
                     onFabClick={() => onAddQuickTask && onAddQuickTask(formatDateLocal(selectedDate))} 
                     noPadding={true} 
                     pomodoroTime={pomodoroTime} 
                     isPomodoroActive={isPomodoroActive}
-                    selectedDate={selectedDate} // FIX 2026-04-22: Bridge current calendar selection to FAB menu
                 >
                     <div className="flex-1 flex flex-col md:flex-row md:h-full md:overflow-hidden">
-                        <div className="flex-1 md:flex md:flex-col md:overflow-hidden px-0 md:px-10 pt-0 pb-8">
-                            <div className="sticky top-0 z-[100] py-4 px-4 md:hidden mb-2">
+                        <div className="flex-1 md:overflow-y-auto no-scrollbar px-0 md:px-10 pt-0 pb-8">
+                            <div className="sticky top-0 z-[100] py-4 px-4 md:px-12 mb-2">
                                 <Header
                                     user={user}
                                     searchValue={taskSearchQuery}
@@ -7274,7 +6585,7 @@
                                     searchPlaceholder="Search quick task"
                                 />
                             </div>
-                            <div className="px-4 md:px-0 mt-24 md:mt-10 md:flex md:flex-col md:h-full md:min-h-0">
+                            <div className="px-4 md:px-0 mt-24 md:mt-10">
                                 <div className="flex items-center justify-between mb-8 md:mb-12">
                                     <div className="flex items-center justify-between w-full">
                                         <button onClick={prevMonth} className="w-10 h-10 glass-panel rounded-full text-cream-light/60 hover:text-primary transition-all flex items-center justify-center border border-white/5 hover:border-primary/20"><span className="material-symbols-outlined text-lg">chevron_left</span></button>
@@ -7287,13 +6598,13 @@
                                         <button onClick={nextMonth} className="w-10 h-10 glass-panel rounded-full text-cream-light/60 hover:text-primary transition-all flex items-center justify-center border border-white/5 hover:border-primary/20"><span className="material-symbols-outlined text-lg">chevron_right</span></button>
                                     </div>
                                 </div>
-                            <div className="glass-panel rounded-xl md:rounded-2xl overflow-hidden border-white/5 shadow-2xl md:flex md:flex-col md:flex-1 md:min-h-0 md:h-[clamp(520px,68vh,760px)]">
+                            <div className="glass-panel rounded-xl md:rounded-2xl overflow-hidden border-white/5 shadow-2xl">
                                 <div className="grid grid-cols-7 bg-white/5 text-center border-b border-white/5 py-2.5">
                                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
                                         <div key={day} className="text-[9px] font-bold text-primary/60 uppercase tracking-widest">{day}</div>
                                     ))}
                                 </div>
-                                <div className="grid grid-cols-7 md:flex-1" style={calendarWeekCount ? { gridTemplateRows: `repeat(${calendarWeekCount}, minmax(0, 1fr))` } : undefined}>
+                                <div className="grid grid-cols-7">
                                     {cells.map((cell, i) => {
                                         const reminders = cell.current ? getRemindersForDay(cell.day) : [];
                                         const todayMatch = cell.current && isToday(cell.day);
@@ -7302,15 +6613,14 @@
                                             <div 
                                                 key={i} 
                                                 onClick={() => cell.current && setSelectedDate(new Date(year, month, cell.day))}
-                                                className={`border-r border-b border-white/5 p-2 min-h-[100px] md:min-h-0 md:h-full relative transition-colors cursor-pointer ${cell.current ? 'hover:bg-white/5' : 'opacity-25'} ${todayMatch ? 'bg-primary/10' : ''} ${selectedMatch && !todayMatch ? 'bg-white/5' : ''}`}
+                                                className={`border-r border-b border-white/5 p-2 min-h-[100px] md:min-h-[110px] relative transition-colors cursor-pointer ${cell.current ? 'hover:bg-white/5' : 'opacity-25'} ${todayMatch ? 'bg-primary/10' : ''} ${selectedMatch && !todayMatch ? 'bg-white/5' : ''}`}
                                             >
                                                 <span className={`text-xs font-sans ${todayMatch ? 'font-bold text-primary' : ''} ${selectedMatch && !todayMatch ? 'font-semibold text-cream-light' : ''}`}>{cell.day}</span>
                                                 {todayMatch && <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-primary glow-orange"></div>}
                                                 {reminders.length > 0 && (
                                                     <div className="flex flex-col mt-2">
-                                                        {/* FIX 2026-04-22: Single-line truncated chips â€” was line-clamp-2 causing multi-line overflow */}
                                                         {reminders.slice(0, 3).map((r, ri) => (
-                                                            <div key={ri} className={`w-full truncate text-[8px] md:text-[9px] leading-tight font-bold rounded-md px-0.5 py-0.5 flex items-center gap-1 ${r.type === 'quickTask' ? 'bg-white/10 text-cream-light/80' : 'bg-primary/15 text-primary/90'} border border-white/5`}>
+                                                            <div key={ri} className={`w-full line-clamp-2 overflow-hidden text-[8px] md:text-[9px] leading-tight font-bold rounded-md px-1 py-0.5 flex items-center gap-1 ${r.type === 'quickTask' ? 'bg-white/10 text-cream-light/80' : 'bg-primary/15 text-primary/90'} border border-white/5`}>
                                                                 <span className="text-white/30"></span>
                                                                 {r.type === 'quickTask' ? formatTaskText(r.text) : (r.title || 'Note')}
                                                             </div>
@@ -7325,97 +6635,59 @@
                                 </div>
                             </div>
                         </div>
-                        {/* FIX 2026-04-22: Added pb-32 bottom padding for scroll breathing room */}
-                        <aside className="w-full md:w-96 border-t md:border-t-0 md:border-l border-white/5 bg-black/20 backdrop-blur-md p-6 pb-32 overflow-y-auto no-scrollbar flex-shrink-0 md:rounded-none rounded-[2.5rem] mt-6 md:mt-0">
-                            <form
-                                onSubmit={(e) => {
-                                    e.preventDefault();
-                                    handleQuickTaskSearchSubmit(taskSearchQuery);
-                                }}
-                                className="hidden md:block mb-6"
-                            >
-                                <div className="flex items-center justify-between gap-3 mb-3">
-                                    <label className="text-[10px] font-black uppercase tracking-[0.24em] text-cream-light/35">Search Quick Tasks</label>
-                                    {taskSearchQuery.trim() && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setTaskSearchQuery('')}
-                                            className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/65 hover:text-primary transition-colors"
-                                        >
-                                            Clear
-                                        </button>
-                                    )}
-                                </div>
-
-                                <div className="rounded-[1.6rem] border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm px-3 py-2.5 flex items-center gap-2.5 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
-                                    <div className="w-9 h-9 rounded-[0.95rem] bg-primary/8 text-primary/65 flex items-center justify-center">
-                                        <span className="material-symbols-outlined text-[18px]">search</span>
+                        <aside className="w-full md:w-96 border-t md:border-t-0 md:border-l border-white/5 bg-black/20 backdrop-blur-md p-6 overflow-y-auto no-scrollbar flex-shrink-0 md:rounded-none rounded-[2.5rem] mt-6 md:mt-0">
+                            <div ref={quickTaskMatchesRef} className="mb-6 glass-panel rounded-[2rem] p-4 border border-white/5">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <span className="material-symbols-outlined text-primary">search</span>
+                                    <div>
+                                        <h3 className="text-[11px] font-bold text-cream-light/60 uppercase tracking-[0.24em]">
+                                            {normalizedTaskSearch ? 'Matches' : 'Task Search'}
+                                        </h3>
+                                        <p className="text-[9px] text-white/20 font-bold uppercase tracking-[0.16em] mt-1">
+                                            {normalizedTaskSearch ? 'Select a result to jump' : 'Search tasks from the header'}
+                                        </p>
                                     </div>
-                                    <input
-                                        value={taskSearchQuery}
-                                        onChange={(e) => setTaskSearchQuery(e.target.value)}
-                                        placeholder="Search tasks, dates, today, tomorrow"
-                                        className="flex-1 min-w-0 bg-transparent text-[13px] text-cream-light/88 placeholder:text-white/18 outline-none border-0 focus:ring-0"
-                                    />
-                                    <button
-                                        type="submit"
-                                        className="shrink-0 px-3.5 h-9 rounded-[0.95rem] bg-primary/10 text-primary/85 text-[10px] font-black uppercase tracking-[0.18em] hover:bg-primary/16 transition-all"
-                                    >
-                                        Go
-                                    </button>
                                 </div>
-                            </form>
-                            {/* FIX 2026-04-22: Redesigned search card â€” cleaner, minimal, no heavy glass-panel wrapper */}
-                            <div ref={quickTaskMatchesRef} className="mb-6">
                                 {normalizedTaskSearch ? (
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="material-symbols-outlined text-primary text-lg">search</span>
-                                            <h3 className="text-[10px] font-bold text-cream-light/50 uppercase tracking-[0.24em]">
-                                                {quickTaskSearchResults.length} {quickTaskSearchResults.length === 1 ? 'Match' : 'Matches'}
-                                            </h3>
-                                            <div className="h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent"></div>
-                                        </div>
+                                    <div className="space-y-2">
                                         {quickTaskSearchResults.length > 0 ? (
                                             quickTaskSearchResults.map(task => (
                                                 <button
                                                     key={task.id}
                                                     type="button"
                                                     onClick={() => jumpToQuickTaskDate(task)}
-                                                    className="calendar-search-result-item w-full text-left glass-panel rounded-[1.5rem] px-5 py-4 flex items-center gap-4 group hover:bg-white/[0.07] hover:border-primary/30 transition-all duration-200 cursor-pointer border border-white/5 shadow-lg hover:shadow-primary/10"
+                                                    className="w-full text-left rounded-2xl border border-white/5 bg-white/5 px-4 py-3 hover:bg-white/10 hover:border-primary/20 transition-all"
                                                 >
-                                                    <div className="w-7 h-7 rounded-xl border-2 border-white/10 flex items-center justify-center flex-shrink-0 group-hover:border-primary/40 transition-colors">
-                                                        <span className="material-symbols-outlined text-white/30 text-[1rem] group-hover:text-primary transition-colors">check_circle</span>
-                                                    </div>
-                                                    <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                                                        <p className="text-sm font-montserrat font-bold text-cream-light/90 line-clamp-2 group-hover:text-primary transition-colors">{formatTaskText(task.text)}</p>
-                                                        <p className="text-[9px] font-montserrat font-bold uppercase tracking-[0.15em] text-primary/60 group-hover:text-primary/90 flex items-center gap-1.5 transition-colors">
-                                                            <span className="material-symbols-outlined text-[9px]">event</span>
-                                                            {task.dueTime ? `${formatDateMinimal(task.dueDate)} @ ${formatTime(task.dueTime)}` : formatReminderDate(task.dueDate)}
-                                                        </p>
-                                                    </div>
-                                                    <span className="material-symbols-outlined text-white/10 text-lg group-hover:text-primary/50 transition-colors flex-shrink-0">arrow_forward</span>
+                                                    <p className="text-sm font-bold text-cream-light/90 line-clamp-2">{formatTaskText(task.text)}</p>
+                                                    <p className="text-[10px] font-bold text-primary/70 uppercase tracking-[0.18em] mt-2">
+                                                        {task.dueTime ? `${formatDateMinimal(task.dueDate)} @ ${task.dueTime}` : formatReminderDate(task.dueDate)}
+                                                    </p>
                                                 </button>
                                             ))
                                         ) : (
-                                            <div className="glass-panel rounded-[1.5rem] border border-white/5 px-5 py-5 text-xs text-white/30 leading-relaxed font-medium">
-                                                No quick tasks matched. Try a task word, <span className="text-primary/50">today</span>, <span className="text-primary/50">tomorrow</span>, or a date.
+                                            <div className="rounded-2xl border border-white/5 bg-white/5 px-4 py-4 text-xs text-white/35">
+                                                No quick tasks matched that search. Try a task word, `today`, `tomorrow`, or a date like `Apr 24`.
                                             </div>
                                         )}
                                     </div>
                                 ) : (
-                                    <div className="md:hidden flex items-center gap-3 text-white/20 text-[10px] font-bold uppercase tracking-[0.2em]">
-                                        <span className="material-symbols-outlined text-white/10 text-base">search</span>
-                                        Search tasks from the header
+                                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-4 text-xs text-white/35 leading-relaxed">
+                                        Search from the header with a task word or date. Press Enter to jump to the first match.
                                     </div>
                                 )}
                             </div>
-                            {/* FIX 2026-04-22: Removed redundant + button â€” FAB already handles add actions */}
                             <div className="mb-6">
-                                <div className="flex items-center gap-3 mb-1.5">
+                                <div className="flex items-center gap-3 mb-1.5 justify-between">
                                     <h3 className="text-xl font-display font-bold text-cream-light">Daily Agenda</h3>
-                                    <div className="h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent"></div>
+                                    <button 
+                                        onClick={() => onAddQuickTask && onAddQuickTask(formatDateLocal(selectedDate))}
+                                        className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-lg active:scale-95"
+                                        title="Add Task for this day"
+                                    >
+                                        <span className="material-symbols-outlined text-xl">add</span>
+                                    </button>
                                 </div>
+                                <div className="h-px w-full bg-gradient-to-r from-primary/30 to-transparent mb-4"></div>
                                 <p className="text-cream-light/40 text-[10px] font-sans uppercase tracking-[0.2em] font-bold">{selectedDayLabel}</p>
                             </div>
                             {dayReminders.length > 0 ? (
@@ -7432,15 +6704,25 @@
                                                 </div>
                                             );
                                         } else {
-                                            // FIX 2026-04-22: Replaced custom inline card with standard QuickTaskItem for uniform design
+                                            /* REMOVED: formatTime 2026-04-20 - Now uses global utility */
                                             return (
-                                                <QuickTaskItem
-                                                    key={idx}
-                                                    task={item}
-                                                    onToggle={onToggleQuickTask}
-                                                    onDelete={onDeleteQuickTask}
-                                                    onEdit={onEditQuickTask}
-                                                />
+                                                <div key={idx} onClick={() => onEditQuickTask && onEditQuickTask(item)} className={`glass-panel rounded-[2rem] p-5 border-l-4 ${item.completed ? 'border-l-green-500/50 opacity-60' : 'border-l-primary shadow-lg shadow-primary/5'} hover:bg-white/5 transition-all cursor-pointer group`}>
+                                                    <div className="flex items-center gap-4">
+                                                        <div onClick={(e) => { e.stopPropagation(); onToggleQuickTask && onToggleQuickTask(item.id); }} className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${item.completed ? 'bg-green-500/20 border-green-500 text-green-500' : 'border-white/20 text-transparent group-hover:border-primary/50'}`}>
+                                                            {item.completed && <span className="material-symbols-outlined text-sm font-bold">check</span>}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <h4 className={`text-sm font-bold transition-all line-clamp-2 overflow-hidden ${item.completed ? 'text-cream-light/40 line-through' : 'text-cream-light'}`}>{formatTaskText(item.text)}</h4>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <span className="material-symbols-outlined text-[10px] text-primary/60">schedule</span>
+                                                                                                                                <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest leading-none">
+                                                                    {item.dueTime ? formatDateMinimal(item.dueDate) : formatReminderDate(item.dueDate)}
+                                                                    {item.dueTime ? ` @ ${formatTime(item.dueTime)}` : ''}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             );
                                         }
                                     })}
@@ -7451,7 +6733,25 @@
                                     <p className="text-white/20 text-xs font-sans">No reminders this day</p>
                                 </div>
                             )}
-                            {/* FIX 2026-04-22: Removed 'Upcoming' section â€” daily agenda now shows only the selected date's tasks */}
+                            {upcomingReminders.length > 0 && (
+                                <div>
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <h4 className="text-xs font-bold text-cream-light/60 uppercase tracking-[0.2em]">Upcoming</h4>
+                                        <div className="h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent"></div>
+                                    </div>
+                                    <div className="space-y-2.5">
+                                        {upcomingReminders.map((item, idx) => (
+                                                                                        <div key={idx} onClick={() => item.type === 'note' ? onEditNote(item) : onEditQuickTask(item)} className="flex items-start gap-3 p-3 rounded-2xl hover:bg-white/5 transition-colors cursor-pointer group">
+                                                <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${item.type === 'quickTask' ? 'bg-cream-light/40' : 'bg-primary'}`}></div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-semibold text-cream-light/80 truncate">{item.type === 'quickTask' ? formatTaskText(item.text) : (item.title || 'Untitled')}</p>
+                                                    <p className="text-[9px] text-cream-light/30 font-sans mt-0.5">{item.type === 'note' ? formatReminderDate(item.reminderDate) : item.dueDate}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </aside>
                     </div>
                 </Layout>
@@ -7481,7 +6781,7 @@
             return (
                 <Layout onOpenCreator={onOpenCreator} onFabClick={onAddQuickTaskClick} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
                     <div className="max-w-6xl mx-auto w-full px-4 md:px-8 pt-0 pb-24">
-                        <div className="sticky md:static top-0 z-[100] py-4 px-4 md:px-8 mb-6">
+                        <div className="sticky top-0 z-[100] py-4 px-4 md:px-8 mb-6">
                             <Header user={user} subtitle="All quick tasks" showSearch={true} desktopSearchPlaceholder="Search tasks..." mobileSearchPlaceholder="Search tasks..." />
                         </div>
                         <div className="flex items-center gap-4 mt-24 md:mt-10 mb-10 md:mb-16">
@@ -7917,7 +7217,6 @@
             const [snoozeTime, setSnoozeTime] = useState(5);
             const [editingAlarmId, setEditingAlarmId] = useState(null);
             const [isFormOpen, setIsFormOpen] = useState(false);
-            const [deletingAlarm, setDeletingAlarm] = useState(null); // FIX 2026-04-22: Track alarm for delete confirmation
 
             // Wheel Picker Helpers
             const hoursArr = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -7971,30 +7270,6 @@
             const secondDeg = seconds * 6;
             const minuteDeg = minutes * 6 + seconds * 0.1;
             const hourDeg = (hours % 12) * 30 + minutes * 0.5;
-            // FIX 2026-04-22: Auto-open alarm form when redirected from Calendar with prefillDate
-            // Detects ?prefillDate=YYYY-MM-DD and pre-selects the matching day of the week
-            useEffect(() => {
-                const params = new URLSearchParams(location.search);
-                const prefillDate = params.get('prefillDate');
-                if (!prefillDate) return;
-                const parsed = parseDateString(prefillDate);
-                if (!parsed || Number.isNaN(parsed.getTime())) return;
-                
-                const dayOfWeek = parsed.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-                const dateLabel = parsed.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-                
-                // Pre-fill the alarm form with the selected calendar date's day
-                const timer = setTimeout(() => {
-                    setEditingAlarmId(null);
-                    setLabel(`Alarm for ${dateLabel}`);
-                    setAlarmTime('07:00');
-                    setSelectedDays([dayOfWeek]);
-                    setSnoozeTime(5);
-                    setIsFormOpen(true);
-                }, 300); // Slight delay to let the page render first
-                
-                return () => clearTimeout(timer);
-            }, [location.search]);
 
             const handleStartAdd = () => {
                 setEditingAlarmId(null);
@@ -8036,12 +7311,12 @@
             return (
                 <Layout onOpenCreator={onOpenCreator} showFab={true} onFabClick={handleStartAdd} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
                     <div className={`${alarmsOnly ? 'max-w-4xl' : 'max-w-7xl'} mx-auto w-full px-4 md:px-16 pt-0 pb-96`}>
-                        <div className="sticky md:static top-0 z-[100] py-4 px-4 md:px-16 mb-6">
+                        <div className="sticky top-0 z-[100] py-4 px-4 md:px-16 mb-6">
                             <Header user={user} subtitle={alarmsOnly ? 'Manage every alarm' : 'Manage your alarms'} showSearch={true} desktopSearchPlaceholder="Search alarms..." mobileSearchPlaceholder="Search alarms..." />
                         </div>
                         
                         {/* FIX 2026-04-22: Standardized spacing between Header and Page Title for uniformity */}
-                        <div className="flex items-center mt-24 md:mt-10 mb-10 gap-4 flex-wrap">
+                        <div className="flex items-center mt-24 md:mt-10 mb-10 gap-4">
                             <h1 className="text-xl md:text-3xl font-display font-bold text-cream-light tracking-[0.15em] md:tracking-[0.25em] uppercase">{alarmsOnly ? 'Alarms' : 'Clock'}</h1>
                             <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
                             
@@ -8105,13 +7380,15 @@
                             </div>}
 
                             {/* Alarms Section (Samsung-style) */}
-                            <div className="space-y-4">
-                                {searchQuery && (
-                                    <div className="flex items-center justify-between">
-                                        {/* FIX 2026-04-22: Only render alarms subheader when search is active to avoid empty vertical gap */}
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    {/* FIX 2026-04-21: Standardized Alarms list header style when searching */}
+                                    {searchQuery ? (
                                         <h2 className="text-xs md:text-sm font-bold uppercase tracking-[0.28em] text-primary/75">Search Results ({filteredAlarms.length})</h2>
-                                    </div>
-                                )}
+                                    ) : (
+                                        <h2 className="text-xs md:text-sm font-bold uppercase tracking-[0.28em] text-primary/75">Your Alarms</h2>
+                                    )}
+                                </div>
 
                                 {/* MODAL: Samsung-style Add/Edit Form */}
                                 {/* FIX 2026-04-20: Implemented scrollable wheel picker & day selection as requested */}
@@ -8204,17 +7481,7 @@
                                                             <div className="px-1">
                                                                 <input 
                                                                     value={label} 
-                                                                    onChange={(e) => {
-                                                                        const val = e.target.value;
-                                                                        // FIX 2026-04-22: Smart time detection for alarms (matches QuickTask logic)
-                                                                        const nlp = extractDateFromText(val);
-                                                                        if (nlp.time) {
-                                                                            setAlarmTime(nlp.time);
-                                                                            setLabel(nlp.cleanText);
-                                                                        } else {
-                                                                            setLabel(val);
-                                                                        }
-                                                                    }} 
+                                                                    onChange={(e) => setLabel(e.target.value)} 
                                                                     placeholder="Add Title"
                                                                     className="w-full bg-transparent text-lg font-medium text-cream-light placeholder:text-white/10 outline-none border-b border-white/5 pb-2 focus:border-primary/40 transition-colors"
                                                                 />
@@ -8274,7 +7541,7 @@
                                                     {getWaitTimeText(next.date)}
                                                 </p>
                                                 <p className="text-[10px] font-bold text-cream-light/30 uppercase tracking-widest mt-1">
-                                                    {next.label || 'TITLE'} • {next.date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+                                                    {next.label || 'TITLE'} â€¢ {next.date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
                                                 </p>
                                             </div>
                                         );
@@ -8312,11 +7579,7 @@
                                             <div className="flex items-center gap-4">
                                                 {/* Delete Button (visible on hover) */}
                                                 <button 
-                                                    onClick={(e) => { 
-                                                        e.stopPropagation(); 
-                                                        // FIX 2026-04-22: Set alarm to delete to trigger confirmation modal
-                                                        setDeletingAlarm(a); 
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); onDeleteAlarm(a.id); }}
                                                     className="w-10 h-10 rounded-xl bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all flex items-center justify-center hover:bg-red-500/20"
                                                 >
                                                     <span className="material-symbols-outlined text-lg">delete</span>
@@ -8336,20 +7599,6 @@
 
                             </div>
                         </div>
-                        {/* FIX 2026-04-22: Added ConfirmationModal for alarm deletion */}
-                        {deletingAlarm && (
-                            <ConfirmationModal 
-                                title="Delete Alarm?"
-                                message={`Are you sure you want to delete the ${formatTime(deletingAlarm.time)} alarm (${deletingAlarm.label || 'Alarm'})?`}
-                                confirmText="Delete"
-                                onConfirm={() => {
-                                    onDeleteAlarm(deletingAlarm.id);
-                                    setDeletingAlarm(null);
-                                }}
-                                onCancel={() => setDeletingAlarm(null)}
-                                type="danger"
-                            />
-                        )}
                     </div>
                 </Layout>
             );
@@ -8436,7 +7685,7 @@
                 <Layout onOpenCreator={onOpenCreator} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
                     <div className="flex flex-col h-full bg-charcoal/50">
                         {/* FIX 2026-04-22: Header is now sticky to fulfill the 'fixed header' requirement on the profile page */}
-                        <div className="sticky md:static top-0 z-[100] bg-charcoal/80 backdrop-blur-xl border-b border-white/5 py-4 px-4 md:px-12">
+                        <div className="sticky top-0 z-[100] bg-charcoal/80 backdrop-blur-xl border-b border-white/5 py-4 px-4 md:px-12">
                             <Header user={user} subtitle="Profile Dashboard" showSearch={false} />
                         </div>
                         
@@ -9412,9 +8661,169 @@
                 d.setDate(d.getDate() + (1 + 7 - d.getDay()) % 7 || 7);
                 return formatDateLocal(d);
             };
+             const extractDateFromText = (input) => {
+                let lower = input.toLowerCase();
+                let cleanText = input;
+                const now = new Date();
+                let newDate = null;
+                let newTime = null;
+
+                // 1. Detect Times first to prevent date parsing interference (e.g. 10am)
+                // Patterns: 2pm, 10:30am, 14:00, 2 pm
+                const timeRegex = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b|\b([01]\d|2[0-3]):([0-5]\d)\b/gi;
+                let timeMatch;
+                if ((timeMatch = timeRegex.exec(lower)) !== null) {
+                    let h, m = '00';
+                    if (timeMatch[1]) { // am/pm format
+                        h = parseInt(timeMatch[1]);
+                        if (timeMatch[2]) m = timeMatch[2];
+                        const ampm = timeMatch[3].toLowerCase();
+                        if (ampm === 'pm' && h < 12) h += 12;
+                        if (ampm === 'am' && h === 12) h = 0;
+                    } else { // 24h format
+                        h = parseInt(timeMatch[4]);
+                        m = timeMatch[5];
+                    }
+                    newTime = `${h.toString().padStart(2, '0')}:${m}`;
+                    cleanText = cleanText.replace(timeMatch[0], '');
+                    lower = cleanText.toLowerCase();
+                }
+
+                 // 2. Detect Specific Dates (e.g. mar 1, march 10, this 15)
+                const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+                const fullMonthNames = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+                
+                // Generic date like "march 15", "mar 15", or "mar15"
+                const dateRegex = new RegExp(`\\b(${monthNames.join('|')}|${fullMonthNames.join('|')})\\s*(\\d{1,2})\\b`, 'i');
+                let dateMatch = dateRegex.exec(lower);
+                
+                // "this 15" format
+                const thisDateRegex = /\bthis\s+(\d{1,2})\b/i;
+                let thisDateMatch = thisDateRegex.exec(lower);
+
+                if (dateMatch) {
+                    const monthText = dateMatch[1].toLowerCase();
+                    let monthIdx = monthNames.findIndex(m => monthText.startsWith(m));
+                    if (monthIdx === -1) monthIdx = fullMonthNames.findIndex(m => m.startsWith(monthText));
+                    const day = parseInt(dateMatch[2]);
+                    
+                    const targetDate = new Date(now.getFullYear(), monthIdx, day);
+                    const matchIdx = dateMatch.index;
+                    const fullMatch = dateMatch[0];
+                    const nextChar = lower[matchIdx + fullMatch.length];
+
+                    // Refinement: only commit if:
+                    // 1. Next char exists (e.g. user typed a space after "mar 1 ")
+                    // 2. OR the day is > 3 (e.g. "mar 4" is definitely not "mar 40")
+                    // 3. OR it's a 2-digit day (handled by day > 3 mostly, but explicit check for 10-31)
+                    if (day >= 1 && day <= 31) {
+                        const targetDateStr = formatDateLocal(targetDate);
+                        const tempCleanText = cleanText.replace(dateMatch[0], '');
+                        if (nextChar || day > 3) {
+                           if (targetDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+                               targetDate.setFullYear(now.getFullYear() + 1);
+                           }
+                           newDate = formatDateLocal(targetDate);
+                           cleanText = tempCleanText;
+                           lower = cleanText.toLowerCase();
+                        } else {
+                           // Pending single digit
+                           return { date: targetDateStr, time: newTime || '10:00', cleanText: tempCleanText, isPending: true };
+                        }
+                    }
+                } else if (thisDateMatch) {
+                    const day = parseInt(thisDateMatch[1]);
+                    let targetDate = new Date(now.getFullYear(), now.getMonth(), day);
+                    // If 15th of this month has passed, move to next month
+                    if (targetDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+                        targetDate = new Date(now.getFullYear(), now.getMonth() + 1, day);
+                    }
+                    newDate = formatDateLocal(targetDate);
+                    cleanText = cleanText.replace(thisDateMatch[0], '');
+                    lower = cleanText.toLowerCase();
+                }
+
+                // 3. Detect Relative Entities (tomorrow, next week, wed, thu, thur)
+                const relativePatterns = [
+                    { regex: /\btomorrow\b/i, offset: 1 },
+                    { regex: /\bnext week\b/i, offset: 7 },
+                    { regex: /\b(?:next\s+)?(monday|mon|tuesday|tue|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun)\b/i }
+                ];
+
+                for (const p of relativePatterns) {
+                    let match = p.regex.exec(lower);
+                    if (match) {
+                        const target = new Date();
+                        if (p.offset) {
+                            target.setDate(now.getDate() + p.offset);
+                        } else {
+                            const weekdays = { 
+                                sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, thur: 4, thurs: 4, fri: 5, sat: 6, 
+                                sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 
+                            };
+                            const targetDay = weekdays[match[1].toLowerCase()];
+                            // Calculate days until next occurrence
+                            let diff = (targetDay + 7 - now.getDay()) % 7;
+                            // If it's today, move to next week for "closest future"
+                            if (diff === 0) diff = 7;
+                            target.setDate(now.getDate() + diff);
+                        }
+                        newDate = formatDateLocal(target);
+                        cleanText = cleanText.replace(match[0], '');
+                        lower = cleanText.toLowerCase();
+                        break; // Only one date per task description
+                    }
+                }
+
+                // 4. Relative Offsets (e.g. 5 min, 2 hrs, in 10m)
+                const relativeTimeRegex = /\b(?:in\s+)?(\d+)\s*(m|min|mins|minutes|h|hr|hrs|hour|hours)\b/i;
+                let relTimeMatch;
+                if ((relTimeMatch = relativeTimeRegex.exec(lower)) !== null) {
+                    const value = parseInt(relTimeMatch[1]);
+                    const unit = relTimeMatch[2].toLowerCase();
+                    const target = new Date(now);
+                    
+                    if (unit.startsWith('m')) {
+                        target.setMinutes(now.getMinutes() + value);
+                    } else if (unit.startsWith('h')) {
+                        target.setHours(now.getHours() + value);
+                    }
+                    
+                    newDate = formatDateLocal(target);
+                    newTime = target.getHours().toString().padStart(2, '0') + ':' + target.getMinutes().toString().padStart(2, '0');
+                    cleanText = cleanText.replace(relTimeMatch[0], '');
+                    lower = cleanText.toLowerCase();
+                }
+
+                // 4. Fallback shared logic
+                if (newDate && !newTime) newTime = '10:00';
+                
+                return { date: newDate, time: newTime, cleanText, isPending: false };
+            };
 
 
 
+             const getLaterTiming = () => {
+                const now = new Date();
+                const hour = now.getHours();
+                
+                // 6PM - 6AM -> Tomorrow 10AM
+                if (hour >= 18 || hour < 6) {
+                    const target = new Date(now);
+                    if (hour >= 18) target.setDate(target.getDate() + 1);
+                    return {
+                        date: formatDateLocal(target),
+                        time: '10:00'
+                    };
+                }
+                
+                // 6AM - 6PM -> 4 Hours later
+                const future = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+                return {
+                    date: formatDateLocal(future),
+                    time: future.getHours().toString().padStart(2, '0') + ':' + future.getMinutes().toString().padStart(2, '0')
+                };
+            };
 
             const initialLater = getLaterTiming();
 
@@ -9432,89 +8841,9 @@
             const [isDropdownOpen, setIsDropdownOpen] = useState(false);
             const [pendingExtraction, setPendingExtraction] = useState(null);
             const dropdownRef = useRef(null);
-            const speechRecognitionRef = useRef(null);
-            const SpeechRecognitionCtor = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition || null) : null;
-            const [isListening, setIsListening] = useState(false);
-            const [speechError, setSpeechError] = useState('');
-            const [lineSchedules, setLineSchedules] = useState([]);
 
             // Ref to track if a history state was pushed by this modal
             const historyPushedRef = useRef(false);
-            const normalizeTaskLines = useCallback((value = '') => {
-                return String(value || '')
-                    .split(/\r?\n/)
-                    .map(line => line.trim())
-                    .filter(Boolean);
-            }, []);
-            const cleanQuickTaskLine = useCallback((value = '') => {
-                let cleaned = String(value || '').replace(/\s+/g, ' ').trim();
-                cleaned = cleaned.replace(/^(?:and|then|please|okay|ok)\s+/i, '');
-                cleaned = cleaned.replace(/\bpay\s+for\s+/gi, 'pay ');
-                cleaned = cleaned.replace(/\banswer\s+to\s+/gi, 'answer ');
-                cleaned = cleaned.replace(/\b(?:for|the)\s+the\b/gi, '$1 ');
-                cleaned = cleaned.replace(/\s+\b(?:on|at|in|for|by|around)\s*$/i, '');
-                return cleaned.replace(/\s+/g, ' ').trim();
-            }, []);
-            const splitSpeechIntoTasks = useCallback((spokenText = '') => {
-                const raw = String(spokenText || '').trim().replace(/\s+/g, ' ');
-                if (!raw) return [];
-
-                const taskStarterWords = ['clean', 'fix', 'buy', 'call', 'send', 'finish', 'paint', 'wash', 'check', 'reply', 'deliver', 'print', 'prepare', 'update', 'review', 'plan', 'feed', 'pay', 'answer', 'submit', 'pick', 'drop', 'message', 'text', 'email', 'book', 'schedule'];
-                const starterPattern = taskStarterWords.join('|');
-                const explicitSegments = raw
-                    .replace(/\b(new line|line break|next task|new task|next item)\b/gi, '\n')
-                    .replace(/\b(and then|after that|then)\b/gi, '\n')
-                    .replace(/\bcomma\b/gi, '\n')
-                    .replace(/[;,]+/g, '\n')
-                    .split(/\n+/)
-                    .map(part => part.trim())
-                    .filter(Boolean);
-
-                return explicitSegments
-                    .flatMap(part => part.split(new RegExp(`\\s+and\\s+(?=(?:${starterPattern})\\b)`, 'i')))
-                    .map(part => part.trim())
-                    .filter(Boolean);
-            }, []);
-            const parseSpeechTaskEntry = useCallback((spokenText = '') => {
-                const parsed = extractDateFromText(spokenText);
-                const cleanedText = cleanQuickTaskLine(parsed.cleanText || spokenText);
-                return {
-                    text: cleanedText || cleanQuickTaskLine(spokenText),
-                    dueDate: parsed.date || '',
-                    dueTime: parsed.time || '',
-                    hasSchedule: !!(parsed.date || parsed.time)
-                };
-            }, [cleanQuickTaskLine]);
-            const appendSpeechEntries = useCallback((entries = []) => {
-                const validEntries = entries.filter(entry => entry?.text);
-                if (!validEntries.length) return;
-
-                const existingLines = normalizeTaskLines(text);
-                setText([...existingLines, ...validEntries.map(entry => entry.text)].join('\n'));
-                setLineSchedules(prev => {
-                    const aligned = existingLines.map((_, index) => prev[index] || null);
-                    return [
-                        ...aligned,
-                        ...validEntries.map(entry => entry.hasSchedule ? {
-                            dueDate: entry.dueDate || '',
-                            dueTime: entry.dueTime || ''
-                        } : null)
-                    ];
-                });
-
-                if (!existingLines.length && validEntries.length === 1 && validEntries[0].hasSchedule) {
-                    if (validEntries[0].dueDate) setDueDate(validEntries[0].dueDate);
-                    if (validEntries[0].dueTime) setDueTime(validEntries[0].dueTime);
-                    setShowCustom(true);
-                    setSelectedPreset('custom');
-                }
-            }, [normalizeTaskLines, text]);
-            const handleSpeechTranscript = useCallback((spokenText = '') => {
-                const nextEntries = splitSpeechIntoTasks(spokenText)
-                    .map(parseSpeechTaskEntry)
-                    .filter(entry => entry.text);
-                appendSpeechEntries(nextEntries);
-            }, [appendSpeechEntries, parseSpeechTaskEntry, splitSpeechIntoTasks]);
 
             // Effect to manage browser history for this modal
             useEffect(() => {
@@ -9539,109 +8868,8 @@
                 document.addEventListener('mousedown', handler);
                 return () => document.removeEventListener('mousedown', handler);
             }, []);
-            useEffect(() => {
-                return () => {
-                    try {
-                        speechRecognitionRef.current?.stop?.();
-                    } catch (error) {}
-                };
-            }, []);
-
-            const requestMicrophoneAccess = useCallback(async () => {
-                if (!navigator.mediaDevices?.getUserMedia) {
-                    return true;
-                }
-
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    stream.getTracks().forEach(track => {
-                        try { track.stop(); } catch (error) {}
-                    });
-                    return true;
-                } catch (error) {
-                    const errorName = error?.name || '';
-                    if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError' || errorName === 'SecurityError') {
-                        setSpeechError('Microphone permission is off. Enable microphone access to use speech input.');
-                    } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
-                        setSpeechError('No microphone was found on this device.');
-                    } else {
-                        setSpeechError('Microphone access failed. Check microphone permission and try again.');
-                    }
-                    return false;
-                }
-            }, []);
-
-            const toggleSpeechRecognition = useCallback(async () => {
-                if (!SpeechRecognitionCtor) {
-                    setSpeechError('Speech input is not available on this device.');
-                    return;
-                }
-
-                if (isListening) {
-                    try {
-                        speechRecognitionRef.current?.stop?.();
-                    } catch (error) {}
-                    setIsListening(false);
-                    return;
-                }
-
-                const hasMicAccess = await requestMicrophoneAccess();
-                if (!hasMicAccess) {
-                    setIsListening(false);
-                    return;
-                }
-
-                try {
-                    const recognition = new SpeechRecognitionCtor();
-                    recognition.lang = navigator.language || 'en-PH';
-                    recognition.interimResults = false;
-                    recognition.maxAlternatives = 1;
-                    recognition.continuous = true;
-                    recognition.onstart = () => {
-                        setSpeechError('');
-                        setIsListening(true);
-                    };
-                    recognition.onresult = (event) => {
-                        const transcript = Array.from(event.results || [])
-                            .slice(event.resultIndex || 0)
-                            .filter(result => result?.isFinal !== false)
-                            .map(result => result?.[0]?.transcript || '')
-                            .join(' ')
-                            .trim();
-                        if (transcript) {
-                            handleSpeechTranscript(transcript);
-                        }
-                    };
-                    recognition.onerror = (event) => {
-                        if (event?.error && event.error !== 'no-speech' && event.error !== 'aborted') {
-                            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                                setSpeechError('Microphone permission is off. Enable microphone access to use speech input.');
-                            } else {
-                                setSpeechError('Could not capture speech clearly. Try again.');
-                            }
-                        }
-                    };
-                    recognition.onend = () => {
-                        setIsListening(false);
-                    };
-                    speechRecognitionRef.current = recognition;
-                    recognition.start();
-                } catch (error) {
-                    setIsListening(false);
-                    setSpeechError('Speech input is not available on this device.');
-                }
-            }, [SpeechRecognitionCtor, handleSpeechTranscript, isListening, requestMicrophoneAccess]);
 
               const handleTextChange = (val) => {
-                const nextLines = normalizeTaskLines(val);
-                const previousLines = normalizeTaskLines(text);
-                if (val.includes('\n') || nextLines.length > 1) {
-                    setText(val);
-                    setPendingExtraction(null);
-                    setLineSchedules(prev => nextLines.map((line, index) => previousLines[index] === line ? (prev[index] || null) : null));
-                    return;
-                }
-
                 const { date, time, cleanText, isPending } = extractDateFromText(val);
                 if (isPending) {
                     setText(val);
@@ -9649,7 +8877,6 @@
                 } else {
                     setText(cleanText);
                     setPendingExtraction(null);
-                    setLineSchedules(date || time ? [{ dueDate: date || '', dueTime: time || '' }] : []);
                     if (date) { setDueDate(date); setShowCustom(true); setSelectedPreset('custom'); }
                     if (time) { setDueTime(time); setShowCustom(true); setSelectedPreset('custom'); }
                 }
@@ -9660,7 +8887,6 @@
                     const timer = setTimeout(() => {
                         const { date, time, cleanText } = pendingExtraction;
                         setText(cleanText);
-                        setLineSchedules(date || time ? [{ dueDate: date || '', dueTime: time || '' }] : []);
                         if (date) { setDueDate(date); setShowCustom(true); setSelectedPreset('custom'); }
                         if (time) { setDueTime(time); setShowCustom(true); setSelectedPreset('custom'); }
                         setPendingExtraction(null);
@@ -9677,43 +8903,8 @@
             const handleSubmit = (e) => {
                 e.preventDefault();
                 if (text.trim() && !isSubmitting) {
-                    const lines = normalizeTaskLines(text);
-                    const entries = (initialData ? [text.trim()] : lines).map((line, index) => {
-                        const parsed = extractDateFromText(line);
-                        const cleanedText = cleanQuickTaskLine(parsed.cleanText || line);
-                        const explicitSchedule = lineSchedules[index] || null;
-                        if (initialData) {
-                            return {
-                                text: cleanedText || line.trim(),
-                                dueDate: explicitSchedule?.dueDate || parsed.date || dueDate,
-                                dueTime: explicitSchedule?.dueTime || parsed.time || dueTime
-                            };
-                        }
-                        if (lines.length > 1) {
-                            return {
-                                text: cleanedText || line.trim(),
-                                dueDate: explicitSchedule?.dueDate || parsed.date || '',
-                                dueTime: explicitSchedule?.dueTime || parsed.time || ''
-                            };
-                        }
-                        return {
-                            text: cleanedText || line.trim(),
-                            dueDate: explicitSchedule?.dueDate || parsed.date || dueDate,
-                            dueTime: explicitSchedule?.dueTime || parsed.time || dueTime
-                        };
-                    }).filter(entry => entry.text);
-
-                    if (!entries.length) return;
                     setIsSubmitting(true);
-                    if (initialData) {
-                        const first = entries[0];
-                        onAdd(first.text, first.dueDate, first.dueTime);
-                    } else if (entries.length === 1) {
-                        const first = entries[0];
-                        onAdd(first.text, first.dueDate, first.dueTime);
-                    } else {
-                        onAdd(entries);
-                    }
+                    onAdd(text.trim(), dueDate, dueTime);
                     if (showToast) showToast(initialData ? "Task updated!" : "Quick task added!");
                     // Close through the parent immediately so APK/WebView does not get stuck with the modal still mounted.
                     if (typeof onClose === 'function') onClose();
@@ -9803,19 +8994,7 @@
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="space-y-3">
-                                <div className="flex items-center justify-between gap-3 px-1">
-                                    <label className="text-[10px] font-bold text-cream-light/40 uppercase tracking-[0.2em] font-montserrat">Task Description</label>
-                                    {SpeechRecognitionCtor && (
-                                        <button
-                                            type="button"
-                                            onClick={toggleSpeechRecognition}
-                                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.18em] transition-all ${isListening ? 'border-primary/30 bg-primary/15 text-primary' : 'border-white/10 bg-white/5 text-cream-light/45 hover:text-primary hover:border-primary/20'}`}
-                                        >
-                                            <span className="material-symbols-outlined text-sm">{isListening ? 'radio_button_checked' : 'mic'}</span>
-                                            {isListening ? 'Listening' : 'Speak'}
-                                        </button>
-                                    )}
-                                </div>
+                                <label className="text-[10px] font-bold text-cream-light/40 uppercase tracking-[0.2em] px-1 font-montserrat">Task Description</label>
                                 <textarea
                                     autoFocus
                                     value={text}
@@ -9826,12 +9005,6 @@
                                     style={{ textTransform: 'capitalize', resize: 'none' }}
                                     disabled={isSubmitting}
                                 />
-                                {SpeechRecognitionCtor && (
-                            <p className="text-[10px] text-white/25 px-1 font-medium">Say task names with pauses, commas, or simple time phrases like later, tomorrow, or 5:30 PM and Faiora will sort them into quick tasks.</p>
-                                )}
-                                {speechError && (
-                                    <p className="text-[10px] text-rose-300/80 px-1 font-medium">{speechError}</p>
-                                )}
                             </div>
                             <div className="space-y-3 relative" ref={dropdownRef}>
                                 <label className="text-[10px] font-bold text-cream-light/40 uppercase tracking-[0.2em] px-1 font-montserrat">Schedule Task</label>
@@ -10185,10 +9358,6 @@
             const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
             const [isDragging, setIsDragging] = useState(false);
             const threshold = 140; 
-            const overlayFormattedTime = formatTime(alarm.time) || '12:00 AM';
-            const overlayTimeParts = overlayFormattedTime.split(' ');
-            const overlayMainTime = overlayTimeParts[0] || '12:00';
-            const overlayMeridiem = overlayTimeParts[1] || 'AM';
             
             const handlePointerMove = (e) => {
                 if (!isDragging) return;
@@ -10196,14 +9365,8 @@
                 const clientY = e.clientY || (e.touches && e.touches[0].clientY);
                 if (clientX === undefined) return;
 
-                // FIX 2026-04-22: Improved center calculation for swiping to reach the entire circle size accurately
-                const triggerElement = document.getElementById('alarm_swipe_trigger');
-                const rect = triggerElement ? triggerElement.getBoundingClientRect() : null;
-                const centerX = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
-                const centerY = rect ? rect.top + rect.height / 2 : window.innerHeight * 0.75;
-
-                const dx = clientX - centerX;
-                const dy = clientY - centerY;
+                const dx = clientX - window.innerWidth / 2;
+                const dy = clientY - (window.innerHeight * 0.75); // Moved interaction center lower
                 setDragPos({ x: dx, y: dy });
             };
 
@@ -10219,8 +9382,7 @@
 
             const dist = Math.sqrt(dragPos.x ** 2 + dragPos.y ** 2);
             const isTargetReached = dist > threshold;
-            // FIX 2026-04-22: Adjusted fill scale to perfectly cover the guidance ring (threshold * 2.2 / 80px = ~3.85)
-            const currentFillScale = (Math.min(dist, threshold) / threshold) * 3.85;
+            const currentFillScale = (Math.min(dist, threshold) / threshold) * 3.5;
 
             return (
                 <div id="faiora_alarm_ringing_overlay" className="fixed inset-0 z-[2000] bg-black flex flex-col items-center justify-start overflow-hidden">
@@ -10233,14 +9395,9 @@
                         <p id="alarm_overlay_status" className="text-primary font-black uppercase tracking-[0.4em] text-[12px] mb-6 animate-pulse">Alarm Ringing</p>
                         
                         {/* overlay_time_display â€” Short Summary: Large high-contrast time readout */}
-                        <div id="alarm_overlay_time" className="mb-4 flex items-start justify-center gap-2 text-cream-light">
-                            <span className="text-8xl font-display font-light tracking-tight scale-x-105 leading-none">
-                                {overlayMainTime}
-                            </span>
-                            <span className="text-lg font-black uppercase tracking-[0.18em] text-cream-light/70 leading-none pt-3">
-                                {overlayMeridiem}
-                            </span>
-                        </div>
+                        <h1 id="alarm_overlay_time" className="text-8xl font-display font-light text-cream-light tracking-tight mb-4 scale-x-105">
+                            {alarm.time || '00:00'}
+                        </h1>
                         
                         {/* overlay_alarm_label â€” Short Summary: The custom name given to the alarm */}
                         <h2 id="alarm_overlay_label" className="text-3xl font-display italic text-white/50 tracking-wide">{alarm.label || 'Alarm'}</h2>
@@ -10272,18 +9429,13 @@
                             {/* Animated Ripples */}
                             {!isDragging && (
                                 <React.Fragment>
-                                    <div className="alarm-ripple-ring">
-                                        <div className="alarm-ripple-ring-pulse !border-primary/20 !w-24 !h-24" style={{ animationDelay: '0s' }} />
-                                    </div>
-                                    <div className="alarm-ripple-ring">
-                                        <div className="alarm-ripple-ring-pulse !border-primary/10 !w-24 !h-24" style={{ animationDelay: '0.8s' }} />
-                                    </div>
+                                    <div className="alarm-ripple-ring !border-primary/20 !w-24 !h-24" style={{ animationDelay: '0s' }} />
+                                    <div className="alarm-ripple-ring !border-primary/10 !w-24 !h-24" style={{ animationDelay: '0.8s' }} />
                                 </React.Fragment>
                             )}
 
                             {/* Main Interaction Trigger (Circular X) */}
                             <div 
-                                id="alarm_swipe_trigger"
                                 onPointerDown={() => setIsDragging(true)}
                                 onPointerMove={handlePointerMove}
                                 onPointerUp={handlePointerUp}
@@ -10354,36 +9506,14 @@
             /* FIX 2026-04-16: Added states for tracking first data sync and video ready status */
             const [isFirstSyncDone, setIsFirstSyncDone] = useState(false);
             const [isVideoReady, setIsVideoReady] = useState(false);
-            const [isAuthChecked, setIsAuthChecked] = useState(() => {
-                if (auth.currentUser) return true;
-                try {
-                    return localStorage.getItem('faiora_logged_in') === 'true' && !!localStorage.getItem('faiora_last_uid');
-                } catch (error) {
-                    return false;
-                }
-            });
+            const [isAuthChecked, setIsAuthChecked] = useState(false);
             const [cloudFieldsCount, setCloudFieldsCount] = useState(0); // [RESURRECTION 2026-04-20]
             const [isSyncHealthy, setIsSyncHealthy] = useState(true); // [NEW 2026-04-20] Network health status
             const [masterUidOverride, setMasterUidOverride] = useState(() => localStorage.getItem('faiora_uid_override') || '');
             const [lastDeepScan, setLastDeepScan] = useState(0);
             const [isCreatorOpen, setIsCreatorOpen] = useState(false);
             const [editingNote, setEditingNote] = useState(null);
-            const [user, setUser] = useState(() => {
-                if (auth.currentUser) return auth.currentUser;
-                try {
-                    const loggedIn = localStorage.getItem('faiora_logged_in') === 'true';
-                    const uid = localStorage.getItem('faiora_last_uid') || '';
-                    if (!loggedIn || !uid) return null;
-                    return {
-                        uid,
-                        displayName: localStorage.getItem('faiora_last_display_name') || '',
-                        photoURL: localStorage.getItem('faiora_last_photo_url') || '',
-                        email: localStorage.getItem('faiora_last_email') || ''
-                    };
-                } catch (error) {
-                    return null;
-                }
-            });
+            const [user, setUser] = useState(null);
             const [notes, setNotes] = useState([]);
             const [trashNotes, setTrashNotes] = useState([]);
             const [trashQuickTasks, setTrashQuickTasks] = useState([]);
@@ -10448,21 +9578,6 @@
                     setToasts(prev => prev.filter(t => t.id !== id));
                 }, 3000);
             }, []);
-            const persistLastUserIdentity = useCallback((nextUser) => {
-                try {
-                    if (!nextUser?.uid) {
-                        localStorage.removeItem('faiora_last_uid');
-                        localStorage.removeItem('faiora_last_display_name');
-                        localStorage.removeItem('faiora_last_photo_url');
-                        localStorage.removeItem('faiora_last_email');
-                        return;
-                    }
-                    localStorage.setItem('faiora_last_uid', nextUser.uid);
-                    localStorage.setItem('faiora_last_display_name', nextUser.displayName || '');
-                    localStorage.setItem('faiora_last_photo_url', nextUser.photoURL || '');
-                    localStorage.setItem('faiora_last_email', nextUser.email || '');
-                } catch (error) {}
-            }, []);
             const refreshAlarmOverlayPermission = useCallback(() => {
                 if (!FaioraNotifications.hasAlarmOverlayPermission) return false;
                 const granted = !!FaioraNotifications.hasAlarmOverlayPermission();
@@ -10479,18 +9594,6 @@
                 events.forEach(event => {
                     if (!event?.alarmId) return;
                     eventMap.set(String(event.alarmId), event);
-                    if (event.type === 'triggered') {
-                        const matchedAlarm = (alarmsRef.current || []).find(alarm => String(alarm.id) === String(event.alarmId));
-                        setActiveAlarmAlert({
-                            id: Date.now() + Math.random(),
-                            type: 'alarm',
-                            alarmId: String(event.alarmId),
-                            label: event.label || matchedAlarm?.label || 'Alarm',
-                            time: event.time || matchedAlarm?.time || '07:00',
-                            title: 'Alarm Ringing',
-                            body: event.label || matchedAlarm?.label || 'Alarm'
-                        });
-                    }
                 });
                 if (!eventMap.size) return;
                 const nextAlarms = (alarmsRef.current || []).map(alarm => {
@@ -10540,6 +9643,52 @@
                 });
             }, []);
 
+            const handleSnoozeAlarm = useCallback((alarmId) => {
+                const alarm = (alarmsRef.current || []).find(a => a.id === alarmId);
+                if (!alarm) return;
+                
+                const snoozeTime = 5; // minutes
+                const target = new Date(Date.now() + snoozeTime * 60000);
+                
+                // Temporary snooze alarm payload
+                const snoozePayload = {
+                    ...alarm,
+                    id: alarm.id + '_snooze',
+                    isSnoozeEntry: true,
+                    time: target.getHours().toString().padStart(2, '0') + ':' + target.getMinutes().toString().padStart(2, '0')
+                };
+
+                // Trigger in-app alert after 5 mins
+                const tid = setTimeout(() => {
+                    FaioraNotifications.emitInAppAlert({
+                        type: 'alarm',
+                        alarmId: alarm.id,
+                        isSnoozedCycle: true, // Marker for 'Missed' logic on next timeout
+                        label: alarm.label || 'Alarm',
+                        time: snoozePayload.time,
+                        title: 'Alarm Ringing (Snoozed)',
+                        body: `Snooze finished: ${alarm.label || 'Alarm'}`
+                    });
+                }, snoozeTime * 60000);
+
+                alarmTimersRef.current.set(alarm.id + '_snooze', [tid]);
+                showToast("Snoozed for 5 minutes");
+            }, [showToast]);
+
+            const handleMissedAlarm = useCallback((alarmId) => {
+                const alarm = (alarmsRef.current || []).find(a => a.id === alarmId);
+                const nextAlarms = (alarmsRef.current || []).map(a => 
+                    a.id === alarmId ? { ...a, status: 'missed', updatedAt: Date.now() } : a
+                );
+                setAlarms(nextAlarms);
+                showToast(`Missed alarm: ${alarm?.label || 'Alarm'}`);
+                
+                if (auth.currentUser) {
+                    const coll = quickTasksCollectionRef.current || activeCollectionRef.current;
+                    db.collection(coll).doc(auth.currentUser.uid).set({ alarms: nextAlarms }, { merge: true }).catch(() => {});
+                }
+            }, [showToast]);
+
             const dismissAlarmAlert = useCallback((alarmId = '') => {
                 setActiveAlarmAlert(current => {
                     if (!current) return null;
@@ -10553,29 +9702,42 @@
                 if (navigator.vibrate) {
                     try { navigator.vibrate(0); } catch (error) {}
                 }
-                if (FaioraNotifications.dismissNativeAlarmPlayback) {
-                    FaioraNotifications.dismissNativeAlarmPlayback();
-                }
                 FaioraNotifications.removeDeliveredAlarmNotifications(alarmId);
             }, []);
 
             useEffect(() => {
-                if (!activeAlarmAlert) {
-                    if (window.Capacitor?.Plugins?.StatusBar) {
-                        try { window.Capacitor.Plugins.StatusBar.show(); } catch(e) {}
+                 if (!activeAlarmAlert) {
+                     // FIX 2026-04-22: Restore system bars when alarm is dismissed
+                     if (window.Capacitor?.Plugins?.StatusBar) {
+                         try { window.Capacitor.Plugins.StatusBar.show(); } catch(e) {}
+                     }
+                     return;
+                 }
+
+                 // FIX 2026-04-22: Hide StatusBar to overlap navigation/notification bars (Immersive Mode)
+                 if (window.Capacitor?.Plugins?.StatusBar) {
+                     try { window.Capacitor.Plugins.StatusBar.hide(); } catch(e) {}
+                 }
+
+                 FaioraNotifications.playAlarmSFX();
+                
+                // --- AUTO-SNOOZE & MISSED LOGIC ---
+                // FIX 2026-04-22: 30s timeout for auto-snooze. If it rings again and timeout occurs, mark as MISSED.
+                const AUTO_TIMEOUT = 30000; 
+                const timeoutTimer = setTimeout(() => {
+                    const isAlreadySnoozed = activeAlarmAlert.isSnoozedCycle || false;
+                    
+                    if (isAlreadySnoozed) {
+                        // Mark as missed
+                        console.log("â° [ALARM] Auto-timeout reached on snooze cycle. Marking as MISSED.");
+                        handleMissedAlarm(activeAlarmAlert.alarmId);
+                    } else {
+                        // Auto snooze for 5 minutes
+                        console.log("â° [ALARM] 30s timeout reached. Auto-snoozing...");
+                        handleSnoozeAlarm(activeAlarmAlert.alarmId);
                     }
-                    return;
-                }
-
-                if (window.Capacitor?.Plugins?.StatusBar) {
-                    try { window.Capacitor.Plugins.StatusBar.hide(); } catch(e) {}
-                }
-
-                if (FaioraNotifications.hasNativeAlarmBridge && FaioraNotifications.hasNativeAlarmBridge()) {
-                    FaioraNotifications.startNativeAlarmPlayback?.();
-                } else {
-                    FaioraNotifications.playAlarmSFX();
-                }
+                    dismissAlarmAlert(activeAlarmAlert.alarmId);
+                }, AUTO_TIMEOUT);
 
                 if (navigator.vibrate) {
                     try { navigator.vibrate([500, 180, 500, 180, 800]); } catch (error) {}
@@ -10585,18 +9747,15 @@
                         try { navigator.vibrate([500, 180, 500, 180, 800]); } catch (error) {}
                     }
                 }, 2200);
-                const autoDismissTimer = setTimeout(() => {
-                    dismissAlarmAlert(activeAlarmAlert.alarmId);
-                }, 30000);
 
                 return () => {
-                    clearTimeout(autoDismissTimer);
+                    clearTimeout(timeoutTimer);
                     clearInterval(vibrateTimer);
                     if (navigator.vibrate) {
                         try { navigator.vibrate(0); } catch (error) {}
                     }
                 };
-            }, [activeAlarmAlert, dismissAlarmAlert]);
+            }, [activeAlarmAlert, dismissAlarmAlert, handleSnoozeAlarm, handleMissedAlarm]);
             const persistReminderMarks = useCallback((nextMarks) => {
                 reminderMarksRef.current = nextMarks;
                 if (!user?.uid) return;
@@ -10628,11 +9787,9 @@
                 syncDeliveredNativeNotifications();
             }, [syncDeliveredNativeNotifications]);
             useEffect(() => {
-                // FIX 2026-04-22: Accept prefillDate from calendar FAB via event.detail
-                const handleOpenTaskCreator = (e) => {
+                const handleOpenTaskCreator = () => {
                     setEditingQuickTask(null);
-                    const calendarDate = e?.detail?.prefillDate || null;
-                    setPrefillDate(calendarDate);
+                    setPrefillDate(null);
                     setIsQuickTaskModalOpen(true);
                 };
                 window.addEventListener('faiora-open-task-creator', handleOpenTaskCreator);
@@ -10648,13 +9805,6 @@
                 }
                 return () => window.removeEventListener('faiora-open-task-creator', handleOpenTaskCreator);
             }, [applyNativeAlarmEvents, refreshAlarmOverlayPermission]);
-            useEffect(() => {
-                if (!FaioraNotifications.consumeNativeAlarmEvents) return;
-                const interval = setInterval(() => {
-                    applyNativeAlarmEvents(FaioraNotifications.consumeNativeAlarmEvents());
-                }, 1200);
-                return () => clearInterval(interval);
-            }, [applyNativeAlarmEvents]);
 
             const clearAlarmTimers = useCallback((alarmId = null) => {
                 if (alarmId) {
@@ -10675,7 +9825,6 @@
                 clearAlarmTimers(alarm.id);
                 const [h, m] = String(alarm.time).split(':').map(Number);
                 if (Number.isNaN(h) || Number.isNaN(m)) return;
-                const prefersNativeAlarmScreen = !!(FaioraNotifications.hasNativeAlarmBridge && FaioraNotifications.hasNativeAlarmBridge());
 
                 const now = new Date();
                 const target = new Date();
@@ -10687,9 +9836,6 @@
                     await FaioraNotifications.cancelAlarmNotification(alarm.id);
                     await FaioraNotifications.scheduleAlarmNotification(alarm);
                 });
-                if (prefersNativeAlarmScreen) {
-                    return;
-                }
                 const delay = target.getTime() - now.getTime();
                 const timeoutId = setTimeout(() => {
                     const alertPayload = {
@@ -11079,8 +10225,6 @@
                     setGamification(nextGamification);
                     scheduleCacheWrite('faiora_notes_' + uid, fetchedNotes, 'notes cache');
                     scheduleCacheWrite('faiora_trash_notes_' + uid, fetchedTrash, 'note trash cache');
-                    // FIX 2026-04-22: Reschedule all note notifications after sync to ensure reminders are active
-                    FaioraNotifications.rescheduleAllNotes(fetchedNotes);
                     try {
                         localStorage.setItem('faiora_sections', JSON.stringify(fetchedSections));
                     } catch (error) {
@@ -11497,8 +10641,6 @@
                     if (auth.currentUser && alarmCollection) {
                         db.collection(alarmCollection).doc(auth.currentUser.uid).set({ alarms: alarmsRef.current }, { merge: true }).catch(() => {});
                     }
-                    void FaioraNotifications.rescheduleAllNotes(notesRef.current || []);
-                    FaioraNotifications.rescheduleAll(quickTasksRef.current || []);
                     rescheduleAlarms(alarmsRef.current);
                 };
                 const handleOffline = () => {
@@ -11552,7 +10694,6 @@
                     const localQuickTaskTrash = normalizeQuickTasks(JSON.parse(localStorage.getItem(qtTrashKey) || '[]'));
                     setTrashQuickTasks(localQuickTaskTrash);
                     trashQuickTasksRef.current = localQuickTaskTrash;
-                    void FaioraNotifications.rescheduleAllNotes(localData);
                     FaioraNotifications.rescheduleAll(localQT);
                     const localAlarms = JSON.parse(localStorage.getItem(alarmKey) || '[]');
                     setAlarms(localAlarms);
@@ -11819,14 +10960,6 @@
                     if (user) {
                         localStorage.setItem('faiora_notes_' + user.uid, JSON.stringify(newNotes));
                     }
-                    
-                    // FIX 2026-04-22: Automatically update push notifications when note is saved
-                    if (updatedNote.reminderDate) {
-                        FaioraNotifications.scheduleNoteNotification(updatedNote);
-                    } else {
-                        FaioraNotifications.cancelNoteNotification(updatedNote.id);
-                    }
-                    
                     return newNotes;
                 });
             }, [user]);
@@ -11837,8 +10970,6 @@
                     if (user) {
                         localStorage.setItem('faiora_notes_' + user.uid, JSON.stringify(newNotes));
                     }
-                    // FIX 2026-04-22: Cancel notifications when note is deleted
-                    FaioraNotifications.cancelNoteNotification(noteId);
                     return newNotes;
                 });
             }, [user]);
@@ -12356,47 +11487,32 @@
                 showToast("Settings saved");
             }, [user, activeCollection, settingsData, showToast]);
 
-            const handleAddQuickTask = useCallback((textOrEntries, dueDate = '', dueTime = '') => {
-                const entries = Array.isArray(textOrEntries)
-                    ? textOrEntries
-                    : String(textOrEntries || '')
-                        .split(/\r?\n/)
-                        .map(line => ({
-                            text: line,
-                            dueDate,
-                            dueTime
-                        }));
-                const normalizedEntries = entries
-                    .map((entry, index) => ({
-                        text: formatTaskText(entry?.text || ''),
-                        dueDate: entry?.dueDate || '',
-                        dueTime: entry?.dueTime || '',
-                        order: index
-                    }))
-                    .map(entry => ({ ...entry, text: entry.text.trim() }))
-                    .filter(entry => entry.text);
-                if (!normalizedEntries.length) return;
-                if (normalizedEntries.some(entry => entry.dueDate)) {
+            const handleAddQuickTask = useCallback((text, dueDate = '', dueTime = '') => {
+                if (dueDate) {
                     FaioraNotifications.requestPermission().catch(() => {});
                 }
+                const chunks = String(text || '')
+                    .split(/\r?\n/)
+                    .map(line => formatTaskText(line))
+                    .map(line => line.trim())
+                    .filter(Boolean);
+                if (!chunks.length) return;
 
+                let dueTimestamp = null;
+                if (dueDate) {
+                    const dt = new Date(`${dueDate}T${dueTime || '23:59'}`);
+                    if (!isNaN(dt.getTime())) dueTimestamp = dt.getTime();
+                }
                 const now = Date.now();
-                const newTasks = normalizedEntries.map((entry, idx) => {
-                    let dueTimestamp = null;
-                    if (entry.dueDate) {
-                        const dt = new Date(`${entry.dueDate}T${entry.dueTime || '23:59'}`);
-                        if (!isNaN(dt.getTime())) dueTimestamp = dt.getTime();
-                    }
-                    return {
-                        id: 'qt_' + (now + idx) + '_' + Math.random().toString(36).slice(2, 7),
-                        text: entry.text,
-                        dueDate: entry.dueDate,
-                        dueTime: entry.dueTime,
-                        dueTimestamp,
-                        completed: false,
-                        createdAt: now + idx
-                    };
-                });
+                const newTasks = chunks.map((line, idx) => ({
+                    id: 'qt_' + (now + idx) + '_' + Math.random().toString(36).slice(2, 7),
+                    text: line,
+                    dueDate,
+                    dueTime,
+                    dueTimestamp,
+                    completed: false,
+                    createdAt: now + idx
+                }));
                 const updated = [...newTasks, ...quickTasksRef.current];
                 handleUpdateQuickTasks(updated);
             }, [handleUpdateQuickTasks]);
@@ -12520,11 +11636,8 @@
                 }
             };
 
-            // FIX 2026-04-22: Added prefillDate support for Calendar integration
-            const [prefillNoteData, setPrefillNoteData] = useState(null);
-            const handleOpenCreator = useCallback((prefillDate) => {
+            const handleOpenCreator = useCallback(() => {
                 setEditingNote(null);
-                setPrefillNoteData(prefillDate ? { reminderDate: prefillDate } : null);
                 setIsCreatorOpen(true);
                 // Push history so back button closes the modal instead of navigating away
                 window.history.pushState({ modal: 'creator' }, '');
@@ -12587,7 +11700,6 @@
             const handleCloseCreator = () => {
                 setEditingNote(null);
                 setIsCreatorOpen(false);
-                setPrefillNoteData(null); // FIX 2026-04-22: Clear prefill data on close
                 // Pop the history entry we pushed, but flag it so popstate handler doesn't re-close
                 if (window.history.state && window.history.state.modal === 'creator') {
                     closingViaCode.current = true;
@@ -12602,10 +11714,6 @@
                     if (!signedUser) return;
                     setNotes([]);
                     setQuickTasks([]);
-                    try {
-                        localStorage.setItem('faiora_logged_in', 'true');
-                    } catch (error) {}
-                    persistLastUserIdentity(signedUser);
                     setUser(signedUser);
                     setIsAuthChecked(true);
                     setIsTimerDone(true);
@@ -12613,7 +11721,7 @@
                 };
                 window.addEventListener('faiora-signed-in', onSignedIn);
                 return () => window.removeEventListener('faiora-signed-in', onSignedIn);
-            }, [persistLastUserIdentity]);
+            }, []);
 
             // APK / WebView: OAuth or resume can strip or break the hash â€” no Route match â†’ blank screen.
             useEffect(() => {
@@ -12652,12 +11760,6 @@
                         setQuickTasksCollection(localStorage.getItem('faiora_quick_tasks_collection') || localStorage.getItem('faiora_active_collection') || 'tasks');
                         prevAuthUidRef.current = nextUid;
                     }
-                    if (u) {
-                        try { localStorage.setItem('faiora_logged_in', 'true'); } catch (error) {}
-                    } else {
-                        try { localStorage.removeItem('faiora_logged_in'); } catch (error) {}
-                    }
-                    persistLastUserIdentity(u);
                     setUser(u);
                     setIsAuthChecked(true);
 
@@ -13072,18 +12174,15 @@
                 window.addEventListener('keydown', handleGlobalKeyDown);
 
                 const authTimeout = setTimeout(() => {
-                    const hasCachedSession = localStorage.getItem('faiora_logged_in') === 'true' && !!localStorage.getItem('faiora_last_uid');
-                    if (!hasCachedSession || auth.currentUser) {
-                        setIsAuthChecked(true);
-                    }
-                }, 2200);
+                    setIsAuthChecked(true);
+                }, 5000);
 
                 return () => {
                     unsubscribe();
                     clearTimeout(authTimeout);
                     window.removeEventListener('keydown', handleGlobalKeyDown);
                 };
-            }, [persistLastUserIdentity]);
+            }, []);
 
             useEffect(() => {
                 const safety = setTimeout(() => setIsTransitioning(false), 1800);
@@ -13239,9 +12338,8 @@
                                 onOpenCreator={handleOpenCreator} 
                                 onEditNote={handleRequestEditNote} 
                                 onToggleQuickTask={handleToggleQuickTask}
-                                onDeleteQuickTask={handleDeleteQuickTask}
-                                onEditQuickTask={handleOpenQuickTaskEditor}
-                                onAddQuickTask={handleOpenQuickTaskModal}
+                                 onEditQuickTask={handleOpenQuickTaskEditor}
+                                 onAddQuickTask={handleOpenQuickTaskModal}
                                 pomodoroTime={pomodoroTime}
                                 isPomodoroActive={isPomodoroActive}
                             />
@@ -13255,7 +12353,7 @@
                         <Route path="/trash" element={<TrashPage user={user} onOpenCreator={handleOpenCreator} trashNotes={trashNotes} trashQuickTasks={trashQuickTasks} onRestoreNote={handleRestoreNote} onRestoreQuickTask={handleRestoreQuickTask} onPermanentDelete={handlePermanentDelete} onPermanentDeleteQuickTask={handlePermanentDeleteQuickTask} onEmptyTrash={handleEmptyTrash} onEmptyQuickTaskTrash={handleEmptyQuickTaskTrash} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
                         </TransitionManager>
                     </div>
-                     {isCreatorOpen && <TaskCreator onClose={handleCloseCreator} user={user} editingNote={editingNote} prefillData={prefillNoteData} activeCollection={activeCollection} onUpdateNote={handleUpdateNoteLocal} onDeleteNote={handleDeleteNoteLocal} onSaveVersion={handleSaveVersion} showToast={showToast} notes={notes} onToggleLock={handleRemoveLock} onOpenLockSet={handleOpenSetLock} />}
+                     {isCreatorOpen && <TaskCreator onClose={handleCloseCreator} user={user} editingNote={editingNote} activeCollection={activeCollection} onUpdateNote={handleUpdateNoteLocal} onDeleteNote={handleDeleteNoteLocal} onSaveVersion={handleSaveVersion} showToast={showToast} notes={notes} onToggleLock={handleRemoveLock} onOpenLockSet={handleOpenSetLock} />}
                      {isSetLockModalOpen && <SetLockModal onClose={handleCloseSetLock} showToast={showToast} onSet={handleSetLock} />}
                      {unlockingNote && (
                          <UnlockModal 
@@ -13326,108 +12424,97 @@
                         document.body
                     )}
 
-                    {typeof document !== 'undefined' && ReactDOM.createPortal(
-                        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[20000] flex flex-col-reverse gap-3 pointer-events-none w-full max-w-sm px-4">
-                            <style>{`
-                                .task-snackbar {
-                                    background: rgba(15, 23, 42, 0.9);
-                                    backdrop-filter: blur(12px);
-                                    border: 1px solid rgba(255, 255, 255, 0.1);
-                                    border-radius: 1.25rem;
-                                    padding: 0.85rem 1.25rem;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: space-between;
-                                    color: #f8fafc;
-                                    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
-                                    pointer-events: auto;
-                                    animation: snackbar-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-                                }
-                                @keyframes snackbar-in {
-                                    from { opacity: 0; transform: translateY(20px) scale(0.9); }
-                                    to { opacity: 1; transform: translateY(0) scale(1); }
-                                }
-                                @keyframes alarm-ripple {
-                                    0% { transform: scale(1); opacity: 0.5; }
-                                    100% { transform: scale(2.2); opacity: 0; }
-                                }
-                                @keyframes slide-up {
-                                    from { transform: translateY(100%); opacity: 0; }
-                                    to { transform: translateY(0); opacity: 1; }
-                                }
-                                .alarm-ripple-ring {
-                                    position: absolute;
-                                    top: 50%;
-                                    left: 50%;
-                                    transform: translate(-50%, -50%);
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    pointer-events: none;
-                                }
-                                .alarm-ripple-ring-pulse {
-                                    border: 2px solid rgba(249, 115, 22, 0.4);
-                                    border-radius: 9999px;
-                                    animation: alarm-ripple 2s infinite;
-                                    flex-shrink: 0;
-                                }
-                                .samsung-swipe-track {
-                                    position: relative;
-                                    width: 280px;
-                                    height: 80px;
-                                    background: rgba(255, 255, 255, 0.05);
-                                    border: 1px solid rgba(255, 255, 255, 0.1);
-                                    border-radius: 9999px;
-                                    margin: 40px auto 0;
-                                    overflow: hidden;
-                                    display: flex;
-                                    items-center: center;
-                                    padding: 6px;
-                                }
-                                .permission-sheet-overlay {
-                                    position: fixed;
-                                    inset: 0;
-                                    z-index: 2000;
-                                    background: rgba(0, 0, 0, 0.6);
-                                    backdrop-blur: 4px;
-                                    animation: fadeIn 0.3s ease-out;
-                                }
-                                .permission-sheet {
-                                    position: fixed;
-                                    left: 0;
-                                    right: 0;
-                                    bottom: 0;
-                                    z-index: 2001;
-                                    background: #0c0a09;
-                                    border-top: 1px solid rgba(255, 255, 255, 0.1);
-                                    border-radius: 32px 32px 0 0;
-                                    padding: 24px 20px 24px;
-                                    animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-                                    box-shadow: 0 -20px 40px rgba(0,0,0,0.4);
-                                }
-                            `}</style>
-                            {taskSnackbars.slice(-1).map(snack => (
-                                <div key={snack.id} className="task-snackbar group">
-                                    <div className="flex items-center gap-3">
-                                        <span className="material-symbols-outlined text-primary text-xl">
-                                            {snack.message.includes('deleted') ? 'delete' : 'check_circle'}
-                                        </span>
-                                        <span className="text-sm font-medium">{snack.message}</span>
-                                    </div>
-                                    <button 
-                                        onClick={() => {
-                                            snack.onUndo();
-                                            setTaskSnackbars(prev => prev.filter(s => s.id !== snack.id));
-                                        }}
-                                        className="text-primary text-xs font-bold uppercase tracking-wider px-3 py-1.5 hover:bg-primary/10 rounded-lg transition-colors"
-                                    >
-                                        Undo
-                                    </button>
+                    {/* Task Snackbars */}
+                    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[20000] flex flex-col-reverse gap-3 pointer-events-none w-full max-w-sm px-4">
+                        <style>{`
+                            .task-snackbar {
+                                background: rgba(15, 23, 42, 0.9);
+                                backdrop-filter: blur(12px);
+                                border: 1px solid rgba(255, 255, 255, 0.1);
+                                border-radius: 1.25rem;
+                                padding: 0.85rem 1.25rem;
+                                display: flex;
+                                align-items: center;
+                                justify-content: space-between;
+                                color: #f8fafc;
+                                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+                                pointer-events: auto;
+                                animation: snackbar-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                            }
+                            @keyframes snackbar-in {
+                                from { opacity: 0; transform: translateY(20px) scale(0.9); }
+                                to { opacity: 1; transform: translateY(0) scale(1); }
+                            }
+                            @keyframes alarm-ripple {
+                                0% { transform: scale(1); opacity: 0.5; }
+                                100% { transform: scale(2.2); opacity: 0; }
+                            }
+                            @keyframes slide-up {
+                                from { transform: translateY(100%); opacity: 0; }
+                                to { transform: translateY(0); opacity: 1; }
+                            }
+                            .alarm-ripple-ring {
+                                position: absolute;
+                                inset: -20px;
+                                border: 2px solid rgba(249, 115, 22, 0.4);
+                                border-radius: 9999px;
+                                animation: alarm-ripple 2s infinite;
+                            }
+                            .samsung-swipe-track {
+                                position: relative;
+                                width: 280px;
+                                height: 80px;
+                                background: rgba(255, 255, 255, 0.05);
+                                border: 1px solid rgba(255, 255, 255, 0.1);
+                                border-radius: 9999px;
+                                margin: 40px auto 0;
+                                overflow: hidden;
+                                display: flex;
+                                items-center: center;
+                                padding: 6px;
+                            }
+                            .permission-sheet-overlay {
+                                position: fixed;
+                                inset: 0;
+                                z-index: 2000;
+                                background: rgba(0, 0, 0, 0.6);
+                                backdrop-blur: 4px;
+                                animation: fadeIn 0.3s ease-out;
+                            }
+                            .permission-sheet {
+                                position: fixed;
+                                left: 0;
+                                right: 0;
+                                bottom: 0;
+                                z-index: 2001;
+                                background: #0c0a09;
+                                border-top: 1px solid rgba(255, 255, 255, 0.1);
+                                border-radius: 32px 32px 0 0;
+                                padding: 24px 20px 24px;
+                                animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+                                box-shadow: 0 -20px 40px rgba(0,0,0,0.4);
+                            }
+                        `}</style>
+                        {taskSnackbars.slice(-1).map(snack => (
+                            <div key={snack.id} className="task-snackbar group">
+                                <div className="flex items-center gap-3">
+                                    <span className="material-symbols-outlined text-primary text-xl">
+                                        {snack.message.includes('deleted') ? 'delete' : 'check_circle'}
+                                    </span>
+                                    <span className="text-sm font-medium">{snack.message}</span>
                                 </div>
-                            ))}
-                        </div>,
-                        document.body
-                    )}
+                                <button 
+                                    onClick={() => {
+                                        snack.onUndo();
+                                        setTaskSnackbars(prev => prev.filter(s => s.id !== snack.id));
+                                    }}
+                                    className="text-primary text-xs font-bold uppercase tracking-wider px-3 py-1.5 hover:bg-primary/10 rounded-lg transition-colors"
+                                >
+                                    Undo
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                     </FaioraErrorBoundary>
                 </HashRouter>
             );
@@ -13436,6 +12523,3 @@
         const container = document.getElementById('root');
         const root = createRoot(container);
         root.render(<App />);
-    </script>
-</body>
-</html>

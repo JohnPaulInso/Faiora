@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faiora - FINAL RECOVERY v5 (Global Scan)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Montserrat', sans-serif; background: #020617; color: #f1f5f9; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .btn-emergency { background: linear-gradient(135deg, #f43f5e, #e11d48); color: white; box-shadow: 0 10px 30px -10px rgba(225, 29, 72, 0.5); }
+        .btn-hailmary { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .card:hover { transform: translateY(-4px); background: rgba(255,255,255,0.08); }
+        .pulse { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body class="p-6 md:p-12 min-h-screen">
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8 pb-12 border-b border-white/5">
+            <div>
+                <h1 class="text-5xl font-black tracking-tighter text-emerald-400 mb-2">Final Hail Mary Scan</h1>
+                <p class="text-slate-400">If it was ever shared, we will find it here. Searching for: <b class="text-orange-500">Hard Talks</b></p>
+            </div>
+            <div id="auth-status" class="glass px-8 py-6 rounded-3xl flex items-center gap-8 shadow-2xl">
+                <div>
+                    <p id="cur-email" class="text-lg font-bold">Checking...</p>
+                    <p id="cur-uid" class="text-xs font-mono text-slate-500"></p>
+                </div>
+            </div>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            <!-- Sidebar: Search & Config -->
+            <div class="lg:col-span-4 space-y-8">
+                <!-- Global Shared Scan -->
+                <section class="glass p-8 rounded-[2.5rem] border-emerald-500/30 bg-emerald-500/5">
+                    <h2 class="text-sm font-black uppercase tracking-widest text-emerald-400 mb-6">1. Global Public Scan</h2>
+                    <p class="text-[10px] text-slate-500 mb-6">Attempts to list <b>ALL</b> notes in the shared database and look for "Hard Talks" or similar content.</p>
+                    <button id="global-scan-btn" class="w-full py-5 btn-hailmary rounded-2xl text-xs font-black shadow-xl shadow-emerald-900/30 active:scale-95 transition-all">BRUTE FORCE PUBLIC SEARCH</button>
+                    <p class="mt-4 text-[9px] text-slate-600 italic">Note: This only works if your security rules allow public listing.</p>
+                </section>
+
+                <!-- Local Cache Dump -->
+                <section class="glass p-8 rounded-[2.5rem] bg-orange-500/5 border-orange-500/20">
+                    <h2 class="text-sm font-black uppercase tracking-widest text-orange-400 mb-6">2. Local Cache Dump</h2>
+                    <p class="text-[10px] text-slate-500 mb-4">If the server is empty, your data might still be in your <b>Browser's Local Storage</b>.</p>
+                    <button id="show-cache-btn" class="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest">SHOW RECOVERY SCRIPT</button>
+                </section>
+
+                <div id="logs" class="h-40 overflow-y-auto font-mono text-[9px] text-green-500 p-6 rounded-3xl bg-black/60 border border-white/5">
+                    > Recovery v5 online. Ready to scan.
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="lg:col-span-8 space-y-8">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-3xl font-black">Scanned Results <span id="res-count" class="text-emerald-500 ml-4 bg-emerald-500/10 px-4 py-1 rounded-full text-base">0</span></h2>
+                    <button id="clear-btn" class="text-xs text-slate-600 hover:text-slate-400">Clear Scan</button>
+                </div>
+
+                <div id="results-grid" class="grid grid-cols-1 gap-6 pb-20">
+                    <!-- Cards will be injected here -->
+                    <div id="empty-msg" class="py-40 text-center opacity-10">
+                        <span class="material-symbols-outlined text-9xl">search_off</span>
+                        <p class="text-xl font-bold mt-4">Database not scanned yet.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Recovery Script Overlay -->
+    <div id="script-modal" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-8">
+        <div class="absolute inset-0 bg-black/95 backdrop-blur-3xl" onclick="toggleScriptModal()"></div>
+        <div class="glass w-full max-w-4xl bg-[#0a0f1e] rounded-[3rem] p-12 relative z-50 border border-white/10 flex flex-col gap-8 shadow-2xl">
+            <div>
+                <h3 class="text-3xl font-black text-orange-400 mb-2">Local Cache Recovery</h3>
+                <p class="text-slate-400 text-sm">Run this in your <b>Main App Console</b> (F12) to dump your browser's private offline database.</p>
+            </div>
+            <pre class="flex-1 bg-black/80 p-8 rounded-3xl text-[10px] font-mono text-emerald-300 overflow-x-auto border border-white/5 select-all">
+(async () => {
+    console.log("🕵️ Starting Local Cache Extraction...");
+    const dbName = "firestore/[DEFAULT]/faiora-24f4a/main";
+    const request = indexedDB.open(dbName);
+    request.onsuccess = (e) => {
+        const db = e.target.result;
+        console.log("✅ IndexedDB Opened. Searching documents...");
+        const tx = db.transaction(["remoteDocuments"], "readonly");
+        const store = tx.objectStore("remoteDocuments");
+        const getReq = store.getAll();
+        getReq.onsuccess = () => {
+            const docs = getReq.result;
+            const matches = docs.filter(d => JSON.stringify(d).includes("Hard Talks"));
+            console.log(`🔎 Found ${matches.length} potential matches for "Hard Talks" in Local Cache!`);
+            matches.forEach(m => console.log("MATCH FOUND:", m));
+            if(matches.length === 0) console.log("❌ No local matches found. Data may have been overwritten.");
+            else alert("SUCCESS: Check your browser console for matches!");
+        };
+    };
+    request.onerror = () => console.error("Could not open IndexedDB.");
+})();</pre>
+            <div class="flex justify-end gap-4">
+                <button onclick="toggleScriptModal()" class="px-8 py-4 bg-slate-800 rounded-2xl text-xs font-black">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDktbyVgI7AAwaY2u-KsWBRwLZawy0949s",
+            authDomain: "faiora-24f4a.firebaseapp.com",
+            projectId: "faiora-24f4a",
+            storageBucket: "faiora-24f4a.firebasestorage.app",
+            messagingSenderId: "752265363994",
+            appId: "1:752265363994:web:78795bfad67d2d541e07a3",
+            measurementId: "G-B0DWSL1JMV"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        let results = [];
+
+        function log(msg, color = "text-green-400") {
+            const l = document.getElementById('logs');
+            const div = document.createElement('div');
+            div.className = `py-2 border-b border-white/5 ${color}`;
+            div.innerHTML = `<span class="opacity-20">[${new Date().toLocaleTimeString()}]</span> > ${msg}`;
+            l.appendChild(div);
+            l.scrollTop = l.scrollHeight;
+        }
+
+        auth.onAuthStateChanged(user => {
+            document.getElementById('cur-email').textContent = user ? user.email : "Identity Unknown";
+            document.getElementById('cur-uid').textContent = user ? user.uid : "UID: ---";
+        });
+
+        async function globalPublicScan() {
+            log("🚀 BRUTE FORCE START: Scanning 'public_shares' collection...", "text-emerald-400");
+            document.getElementById('global-scan-btn').disabled = true;
+            document.getElementById('global-scan-btn').textContent = "SEARCHING...";
+            document.getElementById('global-scan-btn').classList.add('pulse');
+            
+            results = [];
+            
+            try {
+                // Fetch up to 100 docs to avoid performance hang
+                const snap = await db.collection('public_shares').limit(200).get();
+                if (snap.empty) {
+                    log("❌ Collection is empty or read-access is restricted.", "text-rose-400");
+                } else {
+                    log(`📥 Downloaded ${snap.size} public notes. Parsing content...`);
+                    snap.forEach(doc => {
+                        const data = doc.data();
+                        const raw = JSON.stringify(data);
+                        if (raw.toLowerCase().includes("hard talks")) {
+                            log(`🎯 MATCH FOUND: "${data.title || doc.id}"`, "text-emerald-400");
+                            results.push({ ...data, id: doc.id, _type: 'Public Scan Hit' });
+                        }
+                    });
+                    
+                    if (results.length === 0) {
+                        log("⚠️ No notes in the first 200 public documents matched 'Hard Talks'.");
+                    }
+                }
+            } catch (e) {
+                log(`PERMISSION DENIED: Listing disabled by security rules.`, "text-rose-500");
+                alert("Security Lock: Your database rules prevent 'listing' all public notes. We must have the specific Link ID to proceed with this method.");
+            } finally {
+                document.getElementById('global-scan-btn').disabled = false;
+                document.getElementById('global-scan-btn').textContent = "BRUTE FORCE PUBLIC SEARCH";
+                document.getElementById('global-scan-btn').classList.remove('pulse');
+                render();
+            }
+        }
+
+        function render() {
+            const grid = document.getElementById('results-grid');
+            const count = document.getElementById('res-count');
+            const empty = document.getElementById('empty-msg');
+            
+            grid.innerHTML = '';
+            count.textContent = results.length;
+
+            if (results.length === 0) {
+                grid.appendChild(empty);
+                return;
+            }
+
+            results.forEach(r => {
+                const div = document.createElement('div');
+                div.className = "card glass p-8 rounded-[2.5rem] flex justify-between items-center cursor-pointer border-l-4 border-emerald-500 shadow-xl bg-emerald-500/5";
+                div.innerHTML = `
+                    <div class="flex-1">
+                        <h3 class="text-2xl font-black text-white mb-2">${r.title || r.id}</h3>
+                        <p class="text-xs text-slate-500 line-clamp-1 mb-4">${r.content ? stripHtml(r.content).slice(0, 100) : 'No preview available'}</p>
+                        <div class="flex gap-4">
+                            <span class="text-[10px] uppercase font-black tracking-widest text-emerald-500 px-3 py-1 bg-emerald-500/10 rounded-lg">${r._type}</span>
+                            <span class="text-[10px] uppercase font-black tracking-widest text-slate-500 py-1">ID: ${r.id}</span>
+                        </div>
+                    </div>
+                    <span class="material-symbols-outlined text-emerald-400">download</span>
+                `;
+                div.onclick = () => showPreview(r);
+                grid.appendChild(div);
+            });
+        }
+
+        function showPreview(r) {
+            alert(`RECOVERY SUCCESS!\n\nTitle: ${r.title}\n\nContent found. Copy it from the console or preview modal.\n\nLink to re-import: index.html#/share_note.html#/${r.id}`);
+            console.log("FULL RECAP DATA:", r);
+        }
+
+        function stripHtml(h) { const t = document.createElement('div'); t.innerHTML = h; return t.textContent || t.innerText || ''; }
+        function toggleScriptModal() { document.getElementById('script-modal').classList.toggle('hidden'); }
+
+        document.getElementById('global-scan-btn').onclick = globalPublicScan;
+        document.getElementById('show-cache-btn').onclick = toggleScriptModal;
+        document.getElementById('clear-btn').onclick = () => { results = []; render(); log("Cleared results."); };
+
+        log("System v5 Ready. Search for 'Hard Talks' is prioritized.");
+    </script>
+</body>
+</html>

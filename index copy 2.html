@@ -5,7 +5,9 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>Faiora — Modern Notetaker</title>
     <!-- 
-       LABEL: CONSOLE-PURIFIER — Nuclear Console Proxy (Teacher-approved)
+       FIX 2026-04-22: Silences browser-internal COOP warnings and noisy API errors for a professional presentation.
+    -->
+    <!-- 
        FIX 2026-04-22: Uses an absolute Proxy to silence all browser-internal COOP and window.closed noise for a "sparkling clean" presentation.
     -->
     <script id="faiora-console-purifier-nuclear">
@@ -7454,6 +7456,17 @@
                         <div className="flex items-center mt-24 md:mt-10 mb-10 gap-4">
                             <h1 className="text-xl md:text-3xl font-display font-bold text-cream-light tracking-[0.15em] md:tracking-[0.25em] uppercase">{alarmsOnly ? 'Alarms' : 'Clock'}</h1>
                             <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
+                            
+                            {/* FIX 2026-04-22: Subtle Overlay Permission Indicator (Top Right) as requested */}
+                            {hasNativeAlarmBridge && (
+                                <button 
+                                    onClick={onRequestAlarmOverlayPermission}
+                                    className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all ${alarmOverlayPermission ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400' : 'border-primary/20 bg-primary/5 text-primary'} hover:scale-110 active:scale-95`}
+                                    title={alarmOverlayPermission ? 'Overlay Active' : 'Enable Overlay Access'}
+                                >
+                                    <span className="material-symbols-outlined text-lg">{alarmOverlayPermission ? 'verified' : 'error'}</span>
+                                </button>
+                            )}
                         </div>
                         
                         <div id="faiora_clock_grid" className={alarmsOnly ? 'grid grid-cols-1 gap-10 items-start' : 'grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-16 items-start'}>
@@ -7721,18 +7734,6 @@
                                     ))}
                                 </div>
 
-                                {/* Overlay Permission Shortcut (Minimal) */}
-                                {hasNativeAlarmBridge && (
-                                    <div className="pt-6">
-                                        <button 
-                                            onClick={onRequestAlarmOverlayPermission}
-                                            className={`w-full py-4 rounded-2xl border flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest transition-all ${alarmOverlayPermission ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400' : 'border-primary/20 bg-primary/5 text-primary'}`}
-                                        >
-                                            <span className="material-symbols-outlined text-lg">{alarmOverlayPermission ? 'verified' : 'error'}</span>
-                                            {alarmOverlayPermission ? 'Overlay Access Active' : 'Enable Overlay Access'}
-                                        </button>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>

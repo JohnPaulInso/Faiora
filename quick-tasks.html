@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Quick Tasks — Faiora</title>
+  
+    <script id="faiora-console-purifier-nuclear">
+        (function() {
+            const forbidden = [
+                "Cross-Origin-Opener-Policy", "window.closed", "runtime.lastError",
+                "cdn.tailwindcss.com", "in-browser Babel", "deoptimised", "[BABEL]",
+                "enableMultiTabIndexedDbPersistence", "message port closed",
+                "Notification permission", "permission-denied", "Missing or insufficient permissions",
+                "capacitor.js", "applogo.png", "[SYNC]", "[AUTH]", "[FIREBASE]", "[FAIORA]",
+                "FCM token", "SW registered", "Persistent storage",
+                "AdUnit", "Feature is disabled", "content-script.js"
+            ];
+            const handler = {
+                get(target, prop) {
+                    const original = target[prop];
+                    if (typeof original === 'function') {
+                        return (...args) => {
+                            const msg = args.map(a => String(a || '')).join(" ");
+                            if (forbidden.some(f => msg.includes(f))) return;
+                            return original.apply(target, args);
+                        };
+                    }
+                    return original;
+                }
+            };
+            window.console = new Proxy(window.console, handler);
+            window.onunhandledrejection = (e) => {
+                const msg = String(e.reason?.message || '');
+                if (forbidden.some(f => msg.includes(f))) { e.preventDefault(); return false; }
+            };
+        })();
+    </script>
+    <link rel="icon" href="logo.png">
+    <link rel="manifest" href="manifest.json">
+    
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/history@5/umd/history.development.js"></script>
+    <script src="https://unpkg.com/react-router@6.3.0/umd/react-router.development.js"></script>
+    <script src="https://unpkg.com/react-router-dom@6.3.0/umd/react-router-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f97316",
+                        "primary-dark": "#ea580c",
+                        "burnt-orange": "#7c2d12",
+                        "charcoal": "#0a0a0a",
+                        "cream-light": "#fff7ed",
+                        "pastel-orange": "#ffedd5",
+                        "pastel-peach": "#fed7aa",
+                        "pastel-amber": "#fef3c7",
+                        "pastel-yellow": "#fef9c3",
+                        "gold-glow": "#fbbf24",
+                    },
+                    fontFamily: {
+                        "display": ["Newsreader", "serif"],
+                        "sans": ["Inter", "system-ui", "sans-serif"],
+                        "montserrat": ["Montserrat", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "3xl": "2rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+
+    <link rel="stylesheet" href="style.css">
+  </head>
+<body class="dark-gradient-bg font-montserrat text-slate-100 min-h-screen selection:bg-primary/30 overflow-hidden" style="overscroll-behavior-y: contain;">
+    <div id="root"></div>
+
+    <script>
+        (function setupStartupFallback() {
+            let fired = false;
+            const trigger = () => {
+                if (fired) return;
+                fired = true;
+                document.body.classList.add('faiora-react-ready');
+                document.documentElement.classList.add('faiora-app-loaded');
+            };
+            window.addEventListener('faiora-app-ready', trigger);
+            setTimeout(trigger, 2500);
+        })();
+
+        // Multi-Page Detection — Identifies this file as the Quick Tasks page
+        window.FAIOA_CURRENT_PAGE = 'quick-tasks';
+    </script>
+
+    <script type="text/babel" data-presets="env,react" src="faiora-main.js"></script>
+</body>
+</html>

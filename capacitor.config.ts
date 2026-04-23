@@ -8,6 +8,10 @@ const config: CapacitorConfig = {
     FirebaseAuthentication: {
       skipNativeAuth: true,
       providers: ['google.com']
+    },
+    LocalNotifications: {
+      iconColor: '#f97316',
+      sound: 'fire_transition_sfx.mp3'
     }
   }
 };
