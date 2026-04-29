@@ -1,14 +1,29 @@
 // ==========================================================================
-// FAIORA SERVICE WORKER - Offline App Shell + FCM Background Push
+// FAIORA SERVICE WORKER — FCM Background Push + Local Notifications
 // ==========================================================================
 /*
  * Faiora Service Worker (sw.js)
- * v1.1.0 - Offline shell/runtime caching plus background notifications
+ * v1.0.4 - Added Data-only payload support for reliable background notifications
  */
+// This service worker handles:
+//   1. FCM background push messages (when app is closed)
+//   2. Local notification display (when app is open)
+//   3. Notification click → open/focus the app
+//   4. Notification dismiss action
+//
+// LABEL: SW-FCM — Firebase Cloud Messaging integration
+// LABEL: SW-LOCAL — Local notification scheduling
+// LABEL: SW-CLICK — Notification click handling
+// ==========================================================================
 
+// --------------------------------------------------------------------------
+// SECTION: SW-FCM — Import Firebase Messaging for background push
+// --------------------------------------------------------------------------
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
 
+// Initialize Firebase in the service worker
+// NOTE: This must match the config in index.html
 firebase.initializeApp({
     apiKey: "AIzaSyDktbyVgI7AAwaY2u-KsWBRwLZawy0949s",
     authDomain: "faiora-24f4a.firebaseapp.com",
@@ -19,66 +34,28 @@ firebase.initializeApp({
     measurementId: "G-B0DWSL1JMV"
 });
 
+// Get Firebase Messaging instance for background message handling
 const messaging = firebase.messaging();
-const CACHE_VERSION = 'faiora-cache-v2026-04-22-3';
-const SHELL_CACHE = `${CACHE_VERSION}-shell`;
-const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
-const APP_SHELL = [
-    './',
-    'index.html',
-    'style.css',
-    'manifest.json',
-    'applogo.png',
-    'logo.png',
-    'alarm_ringtone.mp3',
-    'fire_transition_sfx.mp3',
-    'fire-wipe-spritesheet.png',
-    'fire_bg_video.mp4',
-    'googled6ec6ba0775bed83.html',
-    'privacy.html',
-    'share_note.html',
-    'terms.html',
-    'assets/icon.png',
-    'assets/icon-only.png'
-];
-const RUNTIME_HOSTS = new Set([
-    'unpkg.com',
-    'cdn.tailwindcss.com',
-    'www.gstatic.com',
-    'fonts.googleapis.com',
-    'fonts.gstatic.com'
-]);
 
-const isCacheableRequest = (request) => {
-    if (!request || request.method !== 'GET') return false;
-    const url = new URL(request.url);
-    if (url.origin === self.location.origin) return true;
-    return RUNTIME_HOSTS.has(url.hostname);
-};
-
-const cacheResponse = async (cacheName, request, response) => {
-    if (!response || response.status >= 400) return response;
-    const cache = await caches.open(cacheName);
-    await cache.put(request, response.clone());
-    return response;
-};
-
+// --------------------------------------------------------------------------
+// SECTION: SW-FCM — Handle background push messages from Cloud Functions
+// --------------------------------------------------------------------------
+// This fires when a push message arrives and the app is NOT in the foreground.
+// The notification is automatically shown by Firebase SDK if a 'notification'
+// payload is present. This handler is for data-only messages or custom logic.
 messaging.onBackgroundMessage((payload) => {
-    if (payload.data) {
-        // [FIX 2026-04-22] Skip background notification for alarms as overlay/native bridge handles it
-        if (payload.data.type === 'alarm') {
-            console.log("🔔 [FCM] Skipping background notification for alarm (handled by overlay)");
-            return;
-        }
+    console.log('🔥 [SW] Background message received:', payload);
 
-        const title = payload.data.title || 'Faiora Reminder';
+    // Handle Data-only messages from Cloud Functions
+    if (payload.data) {
+        const title = payload.data.title || '🔥 Faiora Reminder';
         const body = payload.data.body || 'You have a task due!';
         const taskId = payload.data.taskId || Date.now();
 
         return self.registration.showNotification(title, {
-            body,
-            icon: 'applogo.png',
-            badge: 'applogo.png',
+            body: body,
+            icon: 'logo.png',
+            badge: 'logo.png',
             tag: 'faiora-' + taskId,
             renotify: true,
             vibrate: [200, 100, 200],
@@ -89,15 +66,21 @@ messaging.onBackgroundMessage((payload) => {
             ],
             data: {
                 url: self.location.origin,
-                taskId
+                taskId: taskId
             }
         });
     }
 });
 
+// --------------------------------------------------------------------------
+// SECTION: SW-LOCAL — Handle local notification messages from main app
+// --------------------------------------------------------------------------
+// The main app sends messages via postMessage() for client-side scheduling
+// (works as a fallback when the app is open)
 self.addEventListener('message', (event) => {
     const data = event.data;
 
+    // LABEL: SW-LOCAL-SCHEDULE — Schedule a local notification
     if (data && data.type === 'SCHEDULE_NOTIFICATION') {
         const { title, body, tag, timestamp } = data;
         const delay = timestamp - Date.now();
@@ -111,19 +94,23 @@ self.addEventListener('message', (event) => {
         }
     }
 
+    // LABEL: SW-LOCAL-CANCEL — Cancel/close a notification
     if (data && data.type === 'CANCEL_NOTIFICATION') {
         self.registration.getNotifications({ tag: data.tag }).then(notifications => {
-            notifications.forEach(notification => notification.close());
+            notifications.forEach(n => n.close());
         });
     }
 });
 
+// --------------------------------------------------------------------------
+// SECTION: SW-LOCAL — Show a local notification
+// --------------------------------------------------------------------------
 function showLocalNotification(title, body, tag) {
     self.registration.showNotification(title, {
-        body,
-        icon: 'applogo.png',
-        badge: 'applogo.png',
-        tag,
+        body: body,
+        icon: 'logo.png',
+        badge: 'logo.png',
+        tag: tag,
         renotify: true,
         vibrate: [200, 100, 200],
         requireInteraction: true,
@@ -137,20 +124,30 @@ function showLocalNotification(title, body, tag) {
     });
 }
 
+// --------------------------------------------------------------------------
+// SECTION: SW-CLICK — Handle notification tap/click
+// --------------------------------------------------------------------------
+// When user taps the notification:
+//   - "Open App" action or tap body → opens/focuses the app
+//   - "Dismiss" action → just closes the notification
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
+    // If user clicked "Dismiss", do nothing
     if (event.action === 'dismiss') return;
 
+    // Otherwise, open or focus the app
     const targetUrl = event.notification.data?.url || self.location.origin;
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+            // If the app is already open in a tab, focus it
             for (const client of clientList) {
                 if ((client.url.includes('index.html') || client.url.includes('Faiora')) && 'focus' in client) {
                     return client.focus();
                 }
             }
+            // Otherwise, open a new browser tab/window
             if (clients.openWindow) {
                 return clients.openWindow(targetUrl);
             }
@@ -158,54 +155,16 @@ self.addEventListener('notificationclick', (event) => {
     );
 });
 
+// --------------------------------------------------------------------------
+// SECTION: SW-LIFECYCLE — Install & Activate
+// --------------------------------------------------------------------------
+// Skip waiting and claim clients immediately so the SW takes effect right away
 self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(SHELL_CACHE).then(cache => cache.addAll(APP_SHELL)).catch(() => {})
-    );
     self.skipWaiting();
 });
 
-self.addEventListener('fetch', (event) => {
-    const request = event.request;
-    if (!isCacheableRequest(request)) return;
-
-    const requestUrl = new URL(request.url);
-
-    if (request.mode === 'navigate') {
-        event.respondWith((async () => {
-            const cache = await caches.open(SHELL_CACHE);
-            const cachedShell = await cache.match('index.html');
-            const networkFetch = fetch(request)
-                .then(response => cacheResponse(SHELL_CACHE, 'index.html', response))
-                .catch(() => cachedShell || Response.error());
-            event.waitUntil(networkFetch.catch(() => {}));
-
-            if (cachedShell) return cachedShell;
-            const fallback = await cache.match('./');
-            return fallback || networkFetch;
-        })());
-        return;
-    }
-
-    event.respondWith((async () => {
-        const cacheName = requestUrl.origin === self.location.origin ? SHELL_CACHE : RUNTIME_CACHE;
-        const cache = await caches.open(cacheName);
-        const cached = await cache.match(request);
-
-        const networkFetch = fetch(request)
-            .then(response => cacheResponse(cacheName, request, response))
-            .catch(() => cached || Response.error());
-
-        return cached || networkFetch;
-    })());
-});
-
 self.addEventListener('activate', (event) => {
-    event.waitUntil(
-        caches.keys().then(keys => Promise.all(
-            keys
-                .filter(key => key.startsWith('faiora-cache-') && ![SHELL_CACHE, RUNTIME_CACHE].includes(key))
-                .map(key => caches.delete(key))
-        ))
-    );
+    // FIX 2026-04-22: Commented out clients.claim() to prevent Chrome Extension "message port closed" errors.
+    // This allows extensions to finish their initialization without the page controller switching suddenly.
+    // event.waitUntil(clients.claim());
 });

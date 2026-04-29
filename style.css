@@ -595,7 +595,7 @@ input:focus, textarea:focus, button:focus, select:focus, [contenteditable]:focus
     width: 100%;
     height: 100%;
     object-fit: cover;
-    z-index: -1;
+    z-index: 0;
     opacity: 0; /* Changed to 0 by default to fix broken placeholder icon on slow load */
     mix-blend-mode: screen;
     pointer-events: none;
@@ -608,6 +608,11 @@ input:focus, textarea:focus, button:focus, select:focus, [contenteditable]:focus
 /* NEW 2026-04-16: Prevents "play button" flickering on initial load */
 .fire-bg-video.is-ready {
     opacity: 0.4;
+}
+
+#root {
+    position: relative;
+    z-index: 1;
 }
 
 .floating-toolbar-pill {
@@ -822,11 +827,11 @@ input:focus, textarea:focus, button:focus, select:focus, [contenteditable]:focus
     border: 1px solid rgba(255,255,255,0.1);
     font-family: 'Montserrat', sans-serif;
     opacity: 0;
-    max-width: min(calc(100vw - 32px), 320px);
-    width: fit-content;
+    max-width: min(calc(100vw - 24px), 420px);
+    width: max-content;
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    white-space: normal;
+    white-space: nowrap;
     text-align: center;
 }
 
@@ -856,10 +861,10 @@ input:focus, textarea:focus, button:focus, select:focus, [contenteditable]:focus
     }
 
     .toast-pill {
-        width: fit-content;
-        max-width: min(calc(100vw - 28px), 300px);
+        width: max-content;
+        max-width: min(calc(100vw - 20px), 360px);
         justify-content: center;
-        font-size: 0.78rem;
+        font-size: 0.74rem;
         padding: 10px 14px;
     }
 }
