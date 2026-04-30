@@ -884,6 +884,7 @@
             const hasNativeLocalNotifications = () => !!nativeLocalNotifications();
             const nativeAlarmBridge = () => window.FaioraNativeAlarmBridge || null;
             const hasNativeAlarmBridge = () => !!nativeAlarmBridge()?.scheduleAlarm;
+            const shouldUseNativeAlarmUi = () => isAndroidApp() && hasNativeAlarmBridge();
             const QUICK_TASK_CHANNEL_ID = 'faiora-quick-tasks-v2';
             const ALARM_CHANNEL_ID = 'faiora-alarms-v2';
             const NATIVE_NOTIFICATION_SOUND = 'fire_transition_sfx.mp3';
@@ -2033,6 +2034,16 @@
             const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
             const navigate = useNavigate();
             const pomodoroProgress = isPomodoroActive ? ((1500 - pomodoroTime) / 1500) * 100 : 0;
+
+            useEffect(() => {
+                const handleTransientUiClose = (event) => {
+                    if (!isFabMenuOpen) return;
+                    setIsFabMenuOpen(false);
+                    if (event?.detail) event.detail.handled = true;
+                };
+                window.addEventListener('faiora-request-close-transient-ui', handleTransientUiClose);
+                return () => window.removeEventListener('faiora-request-close-transient-ui', handleTransientUiClose);
+            }, [isFabMenuOpen]);
 
             const handleMainFabClick = () => {
                 if (location.pathname === '/notes') {
@@ -3491,6 +3502,12 @@
                     if (item) {
                         e.preventDefault();
                         const text = item.textContent.trim();
+                        const contentSpan = item.querySelector('span:not(.checklist-checkbox)');
+                        const activeTextNode = startNode.nodeType === 3 ? startNode : contentSpan?.firstChild;
+                        const activeText = activeTextNode?.textContent || '';
+                        const caretOffset = startNode.nodeType === 3 ? startOffset : activeText.length;
+                        const isAtStartOfItem = !!contentSpan && caretOffset === 0;
+                        const isSplitInsideItem = !!contentSpan && !!activeTextNode && activeText.trim() !== '' && caretOffset > 0 && caretOffset < activeText.length;
                         
                         if (text === "") {
                             // Smart Exit: Convert to plain DIV
@@ -3500,6 +3517,35 @@
                             
                             const newRange = document.createRange();
                             newRange.setStart(div, 0);
+                            newRange.collapse(true);
+                            selection.removeAllRanges();
+                            selection.addRange(newRange);
+                        } else if (isAtStartOfItem) {
+                            const newItem = document.createElement('div');
+                            newItem.className = 'checklist-item';
+                            newItem.innerHTML = '<span class="checklist-checkbox" contenteditable="false"></span><span>&nbsp;</span>';
+                            item.insertAdjacentElement('beforebegin', newItem);
+
+                            const newRange = document.createRange();
+                            const textSpan = newItem.querySelector('span:not(.checklist-checkbox)');
+                            newRange.setStart(textSpan, 1);
+                            newRange.collapse(true);
+                            selection.removeAllRanges();
+                            selection.addRange(newRange);
+                        } else if (isSplitInsideItem) {
+                            const beforeText = activeText.slice(0, caretOffset);
+                            const afterText = activeText.slice(caretOffset);
+                            contentSpan.textContent = beforeText || '\u00a0';
+
+                            const newItem = document.createElement('div');
+                            newItem.className = 'checklist-item';
+                            newItem.innerHTML = `<span class="checklist-checkbox" contenteditable="false"></span><span>${afterText || '&nbsp;'}</span>`;
+                            item.insertAdjacentElement('afterend', newItem);
+
+                            const newRange = document.createRange();
+                            const newTextSpan = newItem.querySelector('span:not(.checklist-checkbox)');
+                            const newTextNode = newTextSpan?.firstChild || newTextSpan;
+                            newRange.setStart(newTextNode, 0);
                             newRange.collapse(true);
                             selection.removeAllRanges();
                             selection.addRange(newRange);
@@ -3522,6 +3568,49 @@
                         hasChangesRef.current = true;
                         saveState();
                         return;
+                    }
+
+                    const listItem = startNode.nodeType === 3 ? startNode.parentElement.closest('li') : startNode.closest('li');
+                    if (listItem && startNode.nodeType === 3) {
+                        const listLineText = startNode.textContent || '';
+                        const isAtStartOfListItem = startOffset === 0;
+                        const isSplitInsideListItem = startOffset > 0 && startOffset < listLineText.length;
+
+                        if (isAtStartOfListItem) {
+                            e.preventDefault();
+                            const newLi = document.createElement('li');
+                            newLi.innerHTML = '&nbsp;';
+                            listItem.insertAdjacentElement('beforebegin', newLi);
+
+                            const newRange = document.createRange();
+                            newRange.setStart(newLi.firstChild || newLi, 0);
+                            newRange.collapse(true);
+                            selection.removeAllRanges();
+                            selection.addRange(newRange);
+                            setHasChanges(true);
+                            hasChangesRef.current = true;
+                            saveState();
+                            return;
+                        } else if (isSplitInsideListItem) {
+                            e.preventDefault();
+                            const beforeText = listLineText.slice(0, startOffset);
+                            const afterText = listLineText.slice(startOffset);
+                            startNode.textContent = beforeText || '\u00a0';
+
+                            const newLi = document.createElement('li');
+                            newLi.textContent = afterText || '\u00a0';
+                            listItem.insertAdjacentElement('afterend', newLi);
+
+                            const newRange = document.createRange();
+                            newRange.setStart(newLi.firstChild || newLi, 0);
+                            newRange.collapse(true);
+                            selection.removeAllRanges();
+                            selection.addRange(newRange);
+                            setHasChanges(true);
+                            hasChangesRef.current = true;
+                            saveState();
+                            return;
+                        }
                     }
 
                     // --- Auto-Indentation & Custom Bullets ---
@@ -3554,6 +3643,47 @@
 
                             // Bullet Continuation: Only if we are at the end of the line
                             const isAtEnd = startNode.nodeType === 3 ? startOffset === startNode.length : startOffset === startNode.childNodes.length;
+                            const isAtStartOfBulletItem = isBulletItem && startNode.nodeType === 3 && startOffset === 0;
+                            const isSplitInsideBulletItem = isBulletItem && startNode.nodeType === 3 && startOffset > 0 && startOffset < startNode.length;
+
+                            if (isAtStartOfBulletItem) {
+                                e.preventDefault();
+                                const nextDiv = document.createElement('div');
+                                nextDiv.className = 'bullet-item';
+                                nextDiv.innerHTML = '-&nbsp;';
+                                currentBlock.insertAdjacentElement('beforebegin', nextDiv);
+
+                                const newRange = document.createRange();
+                                newRange.setStart(nextDiv.childNodes[0], 2);
+                                newRange.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                                setHasChanges(true);
+                                hasChangesRef.current = true;
+                                saveState();
+                                return;
+                            } else if (isSplitInsideBulletItem) {
+                                e.preventDefault();
+                                const lineText = startNode.textContent || '';
+                                const beforeText = lineText.slice(0, startOffset);
+                                const afterText = lineText.slice(startOffset);
+                                currentBlock.textContent = beforeText || '- ';
+
+                                const nextDiv = document.createElement('div');
+                                nextDiv.className = 'bullet-item';
+                                nextDiv.textContent = `- ${afterText.trimStart()}` || '- ';
+                                currentBlock.insertAdjacentElement('afterend', nextDiv);
+
+                                const newRange = document.createRange();
+                                newRange.setStart(nextDiv.firstChild || nextDiv, 2);
+                                newRange.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                                setHasChanges(true);
+                                hasChangesRef.current = true;
+                                saveState();
+                                return;
+                            }
                             
                             if (isBulletItem && isAtEnd) {
                                 e.preventDefault();
@@ -5423,6 +5553,13 @@
                 docEndRef.current = null;
             };
 
+            const offlineQuickTaskFallback = useMemo(() => {
+                if (typeof navigator !== 'undefined' && navigator.onLine) return [];
+                if (Array.isArray(quickTasks) && quickTasks.length > 0) return quickTasks;
+                return getWarmCacheSnapshot().quickTasks || [];
+            }, [quickTasks]);
+            const effectiveQuickTasks = offlineQuickTaskFallback.length > 0 ? offlineQuickTaskFallback : quickTasks;
+
             const [localNotes, setLocalNotes] = useState(() => 
                  notes
                      .filter(n => (n.labels || []).some(l => l.toUpperCase() === 'PRIORITY'))
@@ -5435,9 +5572,9 @@
                          return timeB - timeA;
                      })
              );
-            const sortedQuickTasks = useMemo(() => sortQuickTasksList(quickTasks), [quickTasks]);
+            const sortedQuickTasks = useMemo(() => sortQuickTasksList(effectiveQuickTasks), [effectiveQuickTasks]);
 
-            const isLoading = isProbing && !isFirstSyncDone;
+            const isLoading = (isProbing && !isFirstSyncDone) && effectiveQuickTasks.length === 0;
 
             const groupedQuickTasks = useMemo(() => groupQuickTasksBySchedule(sortedQuickTasks), [sortedQuickTasks]);
             const completedDateGroups = useMemo(() => groupCompletedTasksByDate(sortedQuickTasks), [sortedQuickTasks]);
@@ -5790,8 +5927,8 @@
                                                 { key: 'pastDue', label: 'Past Due', items: groupedQuickTasks.pastDue },
                                                 { key: 'today', label: 'Today', items: groupedQuickTasks.today },
                                                 { key: 'tomorrow', label: 'Tomorrow', items: groupedQuickTasks.tomorrow },
-                                                { key: 'finishedYesterday', label: 'Finished Yesterday', items: finishedYesterdayGroup?.tasks || [] },
-                                                { key: 'finishedToday', label: 'Finished Today', items: finishedTodayGroup?.tasks || [] }
+                                                { key: 'finishedToday', label: 'Finished Today', items: finishedTodayGroup?.tasks || [] },
+                                                { key: 'finishedYesterday', label: 'Finished Yesterday', items: finishedYesterdayGroup?.tasks || [] }
                                             ].map(section => (
                                                 section.items.length > 0 && (
                                                     <div key={section.key} className="space-y-3">
@@ -7155,7 +7292,7 @@
                     selectedDate={selectedDate} // FIX 2026-04-22: Bridge current calendar selection to FAB menu
                 >
                     <div className="flex-1 flex flex-col md:flex-row md:h-full md:overflow-hidden">
-                        <div className="flex-1 md:overflow-hidden px-0 md:px-10 pt-0 pb-8">
+                        <div className="flex-1 md:overflow-hidden px-2 md:px-3 pt-0 pb-8">
                             <div className="sticky top-0 z-[100] md:hidden py-4 px-4 mb-2">
                                 <Header
                                     user={user}
@@ -7332,23 +7469,44 @@
             const queryParams = new URLSearchParams(location.search);
             const searchQuery = (queryParams.get('search') || '').toLowerCase();
             const [visibleCompletedGroups, setVisibleCompletedGroups] = useState(7);
-            const loadMoreRef = useRef(null);
+            const [expandedCompletedGroups, setExpandedCompletedGroups] = useState({});
+            const offlineQuickTaskFallback = useMemo(() => {
+                if (typeof navigator !== 'undefined' && navigator.onLine) return [];
+                if (Array.isArray(quickTasks) && quickTasks.length > 0) return quickTasks;
+                return getWarmCacheSnapshot().quickTasks || [];
+            }, [quickTasks]);
+            const effectiveQuickTasks = offlineQuickTaskFallback.length > 0 ? offlineQuickTaskFallback : quickTasks;
 
             const filteredTasks = useMemo(() => {
-                if (!searchQuery) return quickTasks;
-                return quickTasks.filter(t => 
+                if (!searchQuery) return effectiveQuickTasks;
+                return effectiveQuickTasks.filter(t => 
                     (t.text || t.title || '').toLowerCase().includes(searchQuery)
                 );
-            }, [quickTasks, searchQuery]);
+            }, [effectiveQuickTasks, searchQuery]);
 
             const groupedQuickTasks = useMemo(() => groupQuickTasksBySchedule(filteredTasks), [filteredTasks]);
-            const isLoading = isProbing && !isFirstSyncDone;
+            const isLoading = (isProbing && !isFirstSyncDone) && effectiveQuickTasks.length === 0;
             const completedDateGroups = useMemo(() => groupCompletedTasksByDate(groupedQuickTasks.completed), [groupedQuickTasks.completed]);
+            const tomorrowUpcomingItems = useMemo(
+                () => sortQuickTasksList([...(groupedQuickTasks.tomorrow || [])]),
+                [groupedQuickTasks.tomorrow]
+            );
+            const laterUpcomingItems = useMemo(
+                () => sortQuickTasksList([...(groupedQuickTasks.upcoming || [])]),
+                [groupedQuickTasks.upcoming]
+            );
+            const upcomingSectionLabel = useMemo(() => {
+                const firstUpcoming = laterUpcomingItems[0];
+                if (!firstUpcoming?.dueDate) return 'Upcoming';
+                const parsed = parseDateString(firstUpcoming.dueDate);
+                if (!parsed || Number.isNaN(parsed.getTime())) return 'Upcoming';
+                return `Upcoming ${parsed.toLocaleDateString('en-US', { weekday: 'short' })}`;
+            }, [laterUpcomingItems]);
             const sections = [
                 { key: 'pastDue', label: 'Past Due', items: groupedQuickTasks.pastDue },
                 { key: 'today', label: 'Today', items: groupedQuickTasks.today },
-                { key: 'tomorrow', label: 'Tomorrow', items: groupedQuickTasks.tomorrow },
-                { key: 'upcoming', label: 'Upcoming', items: groupedQuickTasks.upcoming }
+                { key: 'tomorrow', label: 'Upcoming Tomorrow', items: tomorrowUpcomingItems },
+                { key: 'upcoming', label: upcomingSectionLabel, items: laterUpcomingItems }
             ];
 
             useEffect(() => {
@@ -7356,15 +7514,16 @@
             }, [searchQuery, groupedQuickTasks.completed.length]);
 
             useEffect(() => {
-                if (!loadMoreRef.current || completedDateGroups.length <= visibleCompletedGroups) return;
-                const observer = new IntersectionObserver((entries) => {
-                    if (entries[0]?.isIntersecting) {
-                        setVisibleCompletedGroups(prev => Math.min(prev + 7, completedDateGroups.length));
-                    }
-                }, { rootMargin: '240px 0px' });
-                observer.observe(loadMoreRef.current);
-                return () => observer.disconnect();
-            }, [completedDateGroups.length, visibleCompletedGroups]);
+                setExpandedCompletedGroups(prev => {
+                    const next = { ...prev };
+                    completedDateGroups.slice(0, visibleCompletedGroups).forEach((group, index) => {
+                        if (next[group.key] === undefined) {
+                            next[group.key] = index === 0;
+                        }
+                    });
+                    return next;
+                });
+            }, [completedDateGroups, visibleCompletedGroups]);
 
             return (
                 <Layout onOpenCreator={onOpenCreator} onFabClick={onAddQuickTaskClick} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
@@ -7422,26 +7581,46 @@
                                             <div className="space-y-6">
                                                 {completedDateGroups.slice(0, visibleCompletedGroups).map(group => (
                                                     <div key={group.key} className="space-y-3">
-                                                        <div className="flex items-center gap-3">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setExpandedCompletedGroups(prev => ({ ...prev, [group.key]: !prev[group.key] }))}
+                                                            className="w-full flex items-center gap-3 text-left rounded-[1.35rem] border border-primary/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] px-4 py-3.5 hover:border-primary/20 hover:bg-[linear-gradient(180deg,rgba(249,115,22,0.08),rgba(255,255,255,0.02))] transition-colors shadow-[0_18px_38px_rgba(0,0,0,0.18)]"
+                                                        >
                                                             <h3 className="text-[11px] font-bold uppercase tracking-[0.22em] text-cream-light/70">{group.label} • {group.weekday}</h3>
-                                                            <div className="h-px flex-1 bg-white/10"></div>
-                                                            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">{group.tasks.length}</span>
-                                                        </div>
-                                                        <div className="space-y-4">
-                                                            {group.tasks.map(task => (
-                                                                <QuickTaskItem
-                                                                    key={task.id}
-                                                                    task={task}
-                                                                    onToggle={onToggleQuickTask}
-                                                                    onDelete={onDeleteQuickTask}
-                                                                    onEdit={onEditQuickTask}
-                                                                />
-                                                            ))}
-                                                        </div>
+                                                            <div className="h-px flex-1 bg-gradient-to-r from-primary/15 via-white/5 to-transparent"></div>
+                                                            <span className="rounded-full border border-primary/12 bg-primary/[0.07] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-primary/70">{group.tasks.length}</span>
+                                                            <span className="material-symbols-outlined text-base text-primary/65">
+                                                                {expandedCompletedGroups[group.key] ? 'expand_less' : 'expand_more'}
+                                                            </span>
+                                                        </button>
+                                                        {expandedCompletedGroups[group.key] && (
+                                                            <div className="space-y-4">
+                                                                {group.tasks.map(task => (
+                                                                    <QuickTaskItem
+                                                                        key={task.id}
+                                                                        task={task}
+                                                                        onToggle={onToggleQuickTask}
+                                                                        onDelete={onDeleteQuickTask}
+                                                                        onEdit={onEditQuickTask}
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>
-                                            {completedDateGroups.length > visibleCompletedGroups && <div ref={loadMoreRef} className="h-8" />}
+                                            {completedDateGroups.length > visibleCompletedGroups && (
+                                                <div className="pt-2 flex justify-center">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setVisibleCompletedGroups(prev => Math.min(prev + 7, completedDateGroups.length))}
+                                                        className="inline-flex items-center gap-2 rounded-full border border-primary/12 bg-primary/[0.06] px-5 py-3 text-[10px] font-black uppercase tracking-[0.24em] text-primary/80 hover:bg-primary/[0.12] hover:border-primary/20 transition-all shadow-[0_14px_30px_rgba(0,0,0,0.18)]"
+                                                    >
+                                                        <span>Load More</span>
+                                                        <span className="material-symbols-outlined text-sm">expand_more</span>
+                                                    </button>
+                                                </div>
+                                            )}
                                         </section>
                                     )}
                                 </div>
@@ -7987,6 +8166,16 @@
                     }
                 };
             }, []);
+
+            useEffect(() => {
+                const handleTransientUiClose = (event) => {
+                    if (!isFormOpen) return;
+                    handleCancelForm();
+                    if (event?.detail) event.detail.handled = true;
+                };
+                window.addEventListener('faiora-request-close-transient-ui', handleTransientUiClose);
+                return () => window.removeEventListener('faiora-request-close-transient-ui', handleTransientUiClose);
+            }, [isFormOpen]);
 
             const handleSubmitAlarm = (e) => {
                 e.preventDefault();
@@ -10560,7 +10749,10 @@
             const trashQuickTasksRef = useRef(trashQuickTasks || []);
             const notesRef = useRef(notes || []);
             const quickTasksRef = useRef(quickTasks || []);
-            const alarmsRef = useRef(alarms || []); 
+            const alarmsRef = useRef(alarms || []);
+            const noteSectionsRef = useRef(noteSections || []);
+            const profileDataRef = useRef(profileData || {});
+            const settingsDataRef = useRef(settingsData || {});
             const isProbingRef = useRef(isProbing);
             const coldBootNeedsUnifiedHydrationRef = useRef(true);
             const quickTasksCollectionRef = useRef(quickTasksCollection);
@@ -10573,6 +10765,9 @@
             useEffect(() => { notesRef.current = notes; }, [notes]);
             useEffect(() => { quickTasksRef.current = quickTasks; }, [quickTasks]);
             useEffect(() => { alarmsRef.current = alarms; }, [alarms]);
+            useEffect(() => { noteSectionsRef.current = noteSections; }, [noteSections]);
+            useEffect(() => { profileDataRef.current = profileData; }, [profileData]);
+            useEffect(() => { settingsDataRef.current = settingsData; }, [settingsData]);
             useEffect(() => { isProbingRef.current = isProbing; }, [isProbing]);
             useEffect(() => { quickTasksCollectionRef.current = quickTasksCollection; }, [quickTasksCollection]);
             useEffect(() => {
@@ -10598,6 +10793,85 @@
                     setToasts(prev => prev.filter(t => t.id !== id));
                 }, 3000);
             }, []);
+            const getCachedUid = useCallback(() => {
+                return auth.currentUser?.uid || masterUidOverride || localStorage.getItem('faiora_last_uid') || warmCache.uid || '';
+            }, [masterUidOverride, warmCache.uid]);
+            const getPendingSyncKey = useCallback((uid) => `faiora_pending_sync_${uid}`, []);
+            const readPendingSyncQueue = useCallback((uid) => {
+                if (!uid) return {};
+                return readCachedJson(getPendingSyncKey(uid), {});
+            }, [getPendingSyncKey]);
+            const writePendingSyncQueue = useCallback((uid, queue) => {
+                if (!uid) return;
+                try {
+                    localStorage.setItem(getPendingSyncKey(uid), JSON.stringify(queue || {}));
+                } catch (error) {
+                    console.warn('[SYNC] pending queue write failed', error);
+                }
+            }, [getPendingSyncKey]);
+            const queuePendingSnapshot = useCallback((slot, collection, payload, uid = '') => {
+                const syncUid = uid || getCachedUid();
+                if (!syncUid || !collection || !payload || typeof payload !== 'object') return;
+                const queue = readPendingSyncQueue(syncUid);
+                queue[slot] = {
+                    collection,
+                    payload,
+                    updatedAt: Date.now()
+                };
+                writePendingSyncQueue(syncUid, queue);
+            }, [getCachedUid, readPendingSyncQueue, writePendingSyncQueue]);
+            const clearPendingSnapshot = useCallback((slot, uid = '') => {
+                const syncUid = uid || getCachedUid();
+                if (!syncUid) return;
+                const queue = readPendingSyncQueue(syncUid);
+                if (!queue[slot]) return;
+                delete queue[slot];
+                writePendingSyncQueue(syncUid, queue);
+            }, [getCachedUid, readPendingSyncQueue, writePendingSyncQueue]);
+            const queuePendingNotesSync = useCallback((uid = '', collection = '') => {
+                const syncUid = uid || getCachedUid();
+                const targetCollection = collection || activeCollectionRef.current;
+                if (!syncUid || !targetCollection) return;
+                queuePendingSnapshot('notesDoc', targetCollection, {
+                    notes: notesRef.current,
+                    trash: trashNotesRef.current,
+                    noteSections: noteSectionsRef.current,
+                    profile: profileDataRef.current,
+                    settings: settingsDataRef.current
+                }, syncUid);
+            }, [getCachedUid, queuePendingSnapshot]);
+            const queuePendingTaskSync = useCallback((uid = '', collection = '') => {
+                const syncUid = uid || getCachedUid();
+                const targetCollection = collection || quickTasksCollectionRef.current || activeCollectionRef.current;
+                if (!syncUid || !targetCollection) return;
+                queuePendingSnapshot('tasksDoc', targetCollection, {
+                    quickTasks: quickTasksRef.current,
+                    quickTaskTrash: trashQuickTasksRef.current,
+                    alarms: alarmsRef.current
+                }, syncUid);
+            }, [getCachedUid, queuePendingSnapshot]);
+            const flushPendingSyncQueue = useCallback(async (uid = '') => {
+                const syncUid = uid || getCachedUid();
+                if (!syncUid || (typeof navigator !== 'undefined' && !navigator.onLine)) return false;
+                const queue = readPendingSyncQueue(syncUid);
+                const entries = Object.entries(queue);
+                if (!entries.length) return true;
+
+                let didFlush = false;
+                for (const [slot, entry] of entries) {
+                    if (!entry?.collection || !entry?.payload) continue;
+                    try {
+                        await db.collection(entry.collection).doc(syncUid).set(entry.payload, { merge: true });
+                        delete queue[slot];
+                        didFlush = true;
+                    } catch (error) {
+                        console.warn(`[SYNC] Pending ${slot} flush failed`, error?.message || error);
+                    }
+                }
+
+                writePendingSyncQueue(syncUid, queue);
+                return didFlush;
+            }, [getCachedUid, readPendingSyncQueue, writePendingSyncQueue]);
             const refreshAlarmOverlayPermission = useCallback(() => {
                 if (!FaioraNotifications.hasAlarmOverlayPermission) return false;
                 const granted = !!FaioraNotifications.hasAlarmOverlayPermission();
@@ -10658,6 +10932,7 @@
                         label: alert.label || ''
                     };
                     if (normalized.type === 'alarm') {
+                        if (shouldUseNativeAlarmUi()) return;
                         setActiveAlarmAlert(prev => prev && prev.alarmId === normalized.alarmId ? prev : normalized);
                     }
                 });
@@ -10779,6 +11054,7 @@
                         label: payload.label || ''
                     };
                     if (normalized.type === 'alarm') {
+                        if (shouldUseNativeAlarmUi()) return;
                         setActiveAlarmAlert(prev => prev && prev.alarmId === normalized.alarmId ? prev : normalized);
                     }
                 });
@@ -10832,6 +11108,9 @@
                     await FaioraNotifications.cancelAlarmNotification(alarm.id);
                     await FaioraNotifications.scheduleAlarmNotification(alarm);
                 });
+                if (shouldUseNativeAlarmUi()) {
+                    return;
+                }
                 const delay = target.getTime() - now.getTime();
                 if (delay <= 0) return;
                 const timeoutId = setTimeout(() => {
@@ -10968,6 +11247,48 @@
                 'faiora', 'planner', 'data', 'my_data', 'user_notes', 'planner_data',
                 'faiora_v1', 'cloud_notes'
             ]), []);
+            useEffect(() => {
+                const cacheUid = effectiveUid || getCachedUid();
+                if (!cacheUid) return;
+                try {
+                    localStorage.setItem('faiora_last_uid', cacheUid);
+                    localStorage.setItem('faiora_notes_' + cacheUid, JSON.stringify(notes));
+                    localStorage.setItem('faiora_trash_notes_' + cacheUid, JSON.stringify(trashNotes));
+                    localStorage.setItem('faiora_quick_tasks_' + cacheUid, JSON.stringify(quickTasks));
+                    localStorage.setItem('faiora_quick_task_trash_' + cacheUid, JSON.stringify(trashQuickTasks));
+                    localStorage.setItem('faiora_alarms_' + cacheUid, JSON.stringify(alarms));
+                    localStorage.setItem('faiora_settings_' + cacheUid, JSON.stringify(settingsData || {}));
+                    localStorage.setItem('faiora_sections', JSON.stringify(noteSections || []));
+                } catch (error) {
+                    console.warn('[SYNC] local cache persist failed', error);
+                }
+            }, [effectiveUid, getCachedUid, notes, trashNotes, quickTasks, trashQuickTasks, alarms, settingsData, noteSections]);
+
+            useEffect(() => {
+                if (isOnline) return;
+                const cacheUid = effectiveUid || getCachedUid();
+                if (!cacheUid) return;
+                queuePendingNotesSync(cacheUid, activeCollection);
+            }, [isOnline, effectiveUid, getCachedUid, activeCollection, notes, trashNotes, noteSections, profileData, settingsData, queuePendingNotesSync]);
+
+            useEffect(() => {
+                if (isOnline) return;
+                const cacheUid = effectiveUid || getCachedUid();
+                if (!cacheUid) return;
+                queuePendingTaskSync(cacheUid, quickTasksCollection || activeCollection);
+            }, [isOnline, effectiveUid, getCachedUid, activeCollection, quickTasksCollection, quickTasks, trashQuickTasks, alarms, queuePendingTaskSync]);
+
+            useEffect(() => {
+                if (!isOnline) return;
+                flushPendingSyncQueue(effectiveUid || getCachedUid()).catch(() => {});
+            }, [isOnline, effectiveUid, getCachedUid, flushPendingSyncQueue]);
+
+            useEffect(() => {
+                if (isOnline || !warmCache.hasData) return;
+                setIsAuthChecked(true);
+                setIsFirstSyncDone(true);
+                setIsProbing(false);
+            }, [isOnline, warmCache.hasData]);
             const getRichNoteMap = useCallback((data) => data?.notes || data?.allNotes || data?.noteList || data?.items || {}, []);
             const getQuickTaskCount = useCallback((data) => {
                 if (!data || !data.quickTasks) return 0;
@@ -11513,6 +11834,12 @@
                      // 1. Dispatch close event for all internal popups/dropdowns
                      window.dispatchEvent(new CustomEvent('faiora-close-popups'));
 
+                     const transientCloseEvent = new CustomEvent('faiora-request-close-transient-ui', { detail: { handled: false } });
+                     window.dispatchEvent(transientCloseEvent);
+                     if (transientCloseEvent.detail?.handled) {
+                         return;
+                     }
+
                      // 2. Handle Unlock PIN modal FIRST (highest priority)
                      if (unlockingNote) {
                          setUnlockingNote(null);
@@ -11582,6 +11909,12 @@
                 const registerBackListener = async () => {
                     try {
                         const handle = await appPlugin.addListener('backButton', () => {
+                            const transientCloseEvent = new CustomEvent('faiora-request-close-transient-ui', { detail: { handled: false } });
+                            window.dispatchEvent(transientCloseEvent);
+                            if (transientCloseEvent.detail?.handled) {
+                                return;
+                            }
+
                             const currentState = window.history.state;
                             if (
                                 currentState?.popup ||
@@ -11637,6 +11970,7 @@
                 const handleOnline = () => {
                     setIsOnline(true);
                     showToast("Back online! Syncing...");
+                    flushPendingSyncQueue(effectiveUid || getCachedUid()).catch(() => {});
                     const alarmCollection = quickTasksCollection || activeCollection;
                     if (auth.currentUser && alarmCollection) {
                         db.collection(alarmCollection).doc(auth.currentUser.uid).set({ alarms: alarmsRef.current }, { merge: true }).catch(() => {});
@@ -11653,7 +11987,7 @@
                     window.removeEventListener('online', handleOnline);
                     window.removeEventListener('offline', handleOffline);
                 };
-            }, [showToast, activeCollection, quickTasksCollection, rescheduleAlarms]);
+            }, [showToast, activeCollection, quickTasksCollection, rescheduleAlarms, flushPendingSyncQueue, effectiveUid, getCachedUid]);
 
             /* 2026-04-19: Legacy streak logic removed. Now handled inside onSnapshot for cross-platform reliability. */
 
@@ -12389,14 +12723,14 @@
                 trashQuickTasksRef.current = updatedTrash;
                 FaioraNotifications.rescheduleAll(updatedTasks);
 
-                const currentUser = auth.currentUser;
+                const currentUser = auth.currentUser || (getCachedUid() ? { uid: getCachedUid() } : null);
                 const taskCollection = quickTasksCollection || activeCollection;
                 if (!currentUser) {
-                    console.warn('Warning: No currentUser - cannot save quick tasks');
+                    queuePendingTaskSync('', taskCollection);
                     return;
                 }
                 if (isProbing) {
-                    console.warn('[SYNC] Modifications paused while discovering writable collection...');
+                    queuePendingTaskSync(currentUser.uid, taskCollection);
                     return;
                 }
 
@@ -12404,7 +12738,7 @@
                 localStorage.setItem('faiora_quick_task_trash_' + currentUser.uid, JSON.stringify(updatedTrash));
 
                 if (!taskCollection) {
-                    console.warn('Warning: activeCollection is falsy - cannot sync quick tasks');
+                    queuePendingTaskSync(currentUser.uid, activeCollection);
                     return;
                 }
 
@@ -12413,21 +12747,32 @@
                     quickTaskTrash: updatedTrash
                 }, { merge: true }).catch(err => {
                     console.error('QuickTasks sync failed on', taskCollection, ':', err.message);
-                    showToast("Database error. Please refresh or try again.");
+                    queuePendingTaskSync(currentUser.uid, taskCollection);
+                    if (typeof navigator !== 'undefined' && navigator.onLine) {
+                        showToast("Quick tasks will sync again automatically");
+                    }
                 });
-            }, [activeCollection, isProbing, quickTasksCollection, showToast]);
+            }, [activeCollection, isProbing, quickTasksCollection, showToast, getCachedUid, queuePendingTaskSync]);
 
             const handleUpdateAlarms = useCallback((updatedAlarms) => {
                 setAlarms(updatedAlarms);
                 alarmsRef.current = updatedAlarms;
                 rescheduleAlarms(updatedAlarms);
-                const currentUser = auth.currentUser;
-                if (!currentUser) return;
+                const currentUser = auth.currentUser || (getCachedUid() ? { uid: getCachedUid() } : null);
+                if (!currentUser) {
+                    queuePendingTaskSync('', quickTasksCollection || activeCollection);
+                    return;
+                }
                 localStorage.setItem('faiora_alarms_' + currentUser.uid, JSON.stringify(updatedAlarms));
                 const alarmCollection = quickTasksCollection || activeCollection;
-                if (isProbing || !alarmCollection) return;
-                db.collection(alarmCollection).doc(currentUser.uid).set({ alarms: updatedAlarms }, { merge: true }).catch(() => {});
-            }, [activeCollection, isProbing, quickTasksCollection, rescheduleAlarms]);
+                if (isProbing || !alarmCollection) {
+                    queuePendingTaskSync(currentUser.uid, alarmCollection || activeCollection);
+                    return;
+                }
+                db.collection(alarmCollection).doc(currentUser.uid).set({ alarms: updatedAlarms }, { merge: true }).catch(() => {
+                    queuePendingTaskSync(currentUser.uid, alarmCollection);
+                });
+            }, [activeCollection, isProbing, quickTasksCollection, rescheduleAlarms, getCachedUid, queuePendingTaskSync]);
 
             const handleAddAlarm = useCallback((payload) => {
                 FaioraNotifications.requestPermission().catch(() => {});
@@ -12486,24 +12831,33 @@
                 const mergedProfile = { ...profileData, ...nextProfile };
                 setProfileData(mergedProfile);
                 if (user && activeCollection) {
-                    db.collection(activeCollection).doc(user.uid).set({ profile: mergedProfile }, { merge: true }).catch(() => {});
+                    db.collection(activeCollection).doc(user.uid).set({ profile: mergedProfile }, { merge: true }).catch(() => {
+                        queuePendingNotesSync(user.uid, activeCollection);
+                    });
+                } else {
+                    queuePendingNotesSync('', activeCollection);
                 }
                 showToast("Profile saved");
-            }, [user, activeCollection, profileData, showToast]);
+            }, [user, activeCollection, profileData, showToast, queuePendingNotesSync]);
 
             const handleSaveSettings = useCallback((nextSettings) => {
                 const mergedSettings = { ...settingsData, ...nextSettings };
                 setSettingsData(mergedSettings);
-                if (user?.uid) {
+                const cacheUid = user?.uid || getCachedUid();
+                if (cacheUid) {
                     try {
-                        localStorage.setItem('faiora_settings_' + user.uid, JSON.stringify(mergedSettings));
+                        localStorage.setItem('faiora_settings_' + cacheUid, JSON.stringify(mergedSettings));
                     } catch (error) {}
                 }
                 if (user && activeCollection) {
-                    db.collection(activeCollection).doc(user.uid).set({ settings: mergedSettings }, { merge: true }).catch(() => {});
+                    db.collection(activeCollection).doc(user.uid).set({ settings: mergedSettings }, { merge: true }).catch(() => {
+                        queuePendingNotesSync(user.uid, activeCollection);
+                    });
+                } else {
+                    queuePendingNotesSync('', activeCollection);
                 }
                 showToast("Settings saved");
-            }, [user, activeCollection, settingsData, showToast]);
+            }, [user, activeCollection, settingsData, showToast, getCachedUid, queuePendingNotesSync]);
 
             const handleAddQuickTask = useCallback((text, dueDate = '', dueTime = '') => {
                 if (dueDate) {
@@ -13430,7 +13784,7 @@
                         />
                     )}
                     {/* LABEL: OVERLAY-ALARM-PORTAL â€” Custom Samsung-style ringing interface */}
-                    {activeAlarmAlert && typeof document !== 'undefined' && ReactDOM.createPortal(
+                    {activeAlarmAlert && !shouldUseNativeAlarmUi() && typeof document !== 'undefined' && ReactDOM.createPortal(
                         <SamsungAlarmOverlay 
                             alarm={activeAlarmAlert} 
                             onDismiss={() => dismissAlarmAlert(activeAlarmAlert.alarmId)} 
