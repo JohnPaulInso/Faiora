@@ -317,6 +317,11 @@ body.faiora-react-ready .startup-fallback {
     min-height: 100dvh;
 }
 
+body.dark-gradient-bg:not(.faiora-react-ready) {
+    background: #09090b;
+    background-image: none;
+}
+
 .card-glow {
     box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(253, 186, 116, 0.1);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -327,6 +332,13 @@ body.faiora-react-ready .startup-fallback {
     transform: translateY(-4px) scale(1.02);
     box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6), 0 0 30px rgba(249, 115, 22, 0.2);
     z-index: 10;
+}
+
+@media (min-width: 768px) and (max-width: 1280px) {
+    .card-glow:hover {
+        transform: translateY(-2px) scale(1.01);
+        box-shadow: 0 14px 28px -14px rgba(0, 0, 0, 0.55), 0 0 18px rgba(249, 115, 22, 0.12);
+    }
 }
 
 .glow-orange {

@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <title>Faiora — Modern Notetaker</title>
+    <title>Faiora � Modern Notetaker</title>
   
     <script id="faiora-console-purifier-nuclear">
         (function() {
@@ -62,7 +62,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <!-- LABEL: FCM-SDK â€” Firebase Cloud Messaging for push notifications -->
+    <!-- LABEL: FCM-SDK — Firebase Cloud Messaging for push notifications -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js"></script>
 
     <!-- Fonts -->
@@ -121,7 +121,7 @@
 
     <script>
         /* 
-           LABEL: STARTUP-SCRIPT-OVERRIDE â€” Disabled startup fallback script
+           LABEL: STARTUP-SCRIPT-OVERRIDE — Disabled startup fallback script
            FIX 2026-04-15: Removed loaders for a more direct app launch experience.
         */
         (function setupStartupFallback() {
@@ -129,7 +129,7 @@
             const trigger = () => {
                 if (fired) return;
                 fired = true;
-                // LABEL: FAIORA-APP-READY-TRIGGER â€” Triggers app fade-in
+                // LABEL: FAIORA-APP-READY-TRIGGER — Triggers app fade-in
                 document.body.classList.add('faiora-react-ready');
                 document.documentElement.classList.add('faiora-app-loaded');
             };
@@ -139,7 +139,7 @@
             // SAFETY FALLBACK: If React/Auth takes too long, force show the app anyway
             // FIX 2026-04-16: Increased to 6s to allow more time for Firestore sync
             // FIX 2026-04-17: Reduced to 2.5s for faster feel, ensuring app reveal even if sync is slow [Performance Optimization]
-            setTimeout(trigger, 2500); // setupStartupFallback â€” Safety timeout for app reveal [FIX 2026-04-17]
+            setTimeout(trigger, 2500); // setupStartupFallback — Safety timeout for app reveal [FIX 2026-04-17]
         })();
 
 
@@ -155,7 +155,7 @@
             return { ...loc, pathname: loc.pathname && loc.pathname !== '' ? loc.pathname : '/' };
         };
 
-        // LABEL: FaioraErrorBoundary â€” Catches React rendering errors and displays a recovery UI
+        // LABEL: FaioraErrorBoundary — Catches React rendering errors and displays a recovery UI
         // FIX 2026-04-20: Added labels and IDs for easier tracking
         class FaioraErrorBoundary extends React.Component {
             constructor(props) {
@@ -172,7 +172,7 @@
                 if (this.state.hasError) {
                     return (
                         <div id="faiora_error_crash_screen" className="min-h-[100dvh] flex flex-col items-center justify-center p-8 text-cream-light text-center gap-4">
-                            {/* crash_screen_error_msg â€” Summary: Displays the error message from the crash */}
+                            {/* crash_screen_error_msg — Summary: Displays the error message from the crash */}
                             <p className="font-bold">Something went wrong loading the app.</p>
                             <p className="text-white/50 text-sm max-w-sm">{this.state.err?.message || 'Unknown error'}</p>
                             <button id="faiora_error_reload_btn" type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-primary text-white rounded-xl text-xs font-bold uppercase">Reload</button>
@@ -183,7 +183,7 @@
             }
         }
 
-        // Capacitor / in-app WebView: empty or bare "#" hash yields no Route match â†’ blank UI after login.
+        // Capacitor / in-app WebView: empty or bare "#" hash yields no Route match → blank UI after login.
         (function ensureHashDefault() {
             try {
                 const h = window.location.hash;
@@ -207,7 +207,7 @@
             return new Date(y, m - 1, d);
         };
 
-        // LABEL: ALARM-UTILITIES â€” Critical date calculation helpers for scheduling & UI readouts
+        // LABEL: ALARM-UTILITIES — Critical date calculation helpers for scheduling & UI readouts
         // =========================================================================================
         const getAlarmScheduleDate = (timeOrAlarm, daysInput) => {
             let time = '';
@@ -319,8 +319,23 @@
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             const tomorrowStr = formatDateLocal(tomorrow);
+            const weekday = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+            const formatClock = () => {
+                if (!time) return '';
+                const [h, m] = time.split(':');
+                const hours = parseInt(h);
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                const h12 = hours % 12 || 12;
+                return `${h12}:${m} ${ampm}`;
+            };
+            const appendScheduleBits = (baseLabel, includeWeekday = true) => {
+                const bits = [baseLabel];
+                if (includeWeekday) bits.push(weekday);
+                const clock = formatClock();
+                if (clock) bits.push(clock);
+                return bits.join(' \u2022 ');
+            };
             
-            // Check for Overdue
             let isOverdue = false;
             const target = parseDateString(date);
             if (time) {
@@ -339,7 +354,6 @@
                 let label = isOverdue ? 'Past due' : 'Due Today';
                 let isNearDeadline = false;
                 if (time) {
-                    const [h, m] = time.split(':');
                     const diffMs = target - now;
                     const diffHours = diffMs / (1000 * 60 * 60);
                     
@@ -353,12 +367,8 @@
                     } else if (diffHours > 0 && diffHours <= 8) {
                         label = `Due in ${Math.ceil(diffHours)}${Math.ceil(diffHours) === 1 ? ' HR' : ' HRS'}`;
                     }
-                    
-                    const hours = parseInt(h);
-                    const ampm = hours >= 12 ? 'PM' : 'AM';
-                    const h12 = hours % 12 || 12;
-                    label += ` • ${h12}:${m} ${ampm}`;
                 }
+                label = appendScheduleBits(label);
                 return { label, isOverdue, isNearDeadline, isDueTomorrow };
             }
             
@@ -366,8 +376,8 @@
                 let label = isOverdue ? 'Past due' : 'Due Tomorrow';
                 let isNearDeadline = false;
                 if (time) {
-                    const [h, m] = time.split(':');
                     const tgt = parseDateString(date);
+                    const [h, m] = time.split(':');
                     tgt.setHours(parseInt(h), parseInt(m), 0, 0);
                     const diffMs = tgt - now;
                     const diffHours = diffMs / (1000 * 60 * 60);
@@ -379,29 +389,20 @@
                         isNearDeadline = true;
                         label = `Due in ${Math.ceil(diffHours)}${Math.ceil(diffHours) === 1 ? ' HR' : ' HRS'}`;
                     }
-                    const hours = parseInt(h);
-                    const ampm = hours >= 12 ? 'PM' : 'AM';
-                    const h12 = hours % 12 || 12;
-                    label += ` • ${h12}:${m} ${ampm}`;
                 }
+                label = appendScheduleBits(label);
                 isDueTomorrow = true;
                 return { label, isOverdue, isNearDeadline, isDueTomorrow };
             }
 
             const options = { month: 'short', day: 'numeric' };
-            let str = d.toLocaleDateString('en-US', options);
-            if (time) {
-                const [h, m] = time.split(':');
-                const hours = parseInt(h);
-                const ampm = hours >= 12 ? 'PM' : 'AM';
-                const h12 = hours % 12 || 12;
-                str += ` • ${h12}:${m} ${ampm}`;
-            }
-            return { label: isOverdue ? `Past due • ${str}` : str, isOverdue, isNearDeadline: false, isDueTomorrow: false };
+            const baseDate = d.toLocaleDateString('en-US', options).toUpperCase();
+            const label = isOverdue ? appendScheduleBits('Past due') : appendScheduleBits(baseDate);
+            return { label, isOverdue, isNearDeadline: false, isDueTomorrow: false };
         };
 
         // --- GLOBAL UTILITY ---
-        // LABEL: formatTime â€” Converts 24h time string (HH:mm) to 12h AM/PM format
+        // LABEL: formatTime — Converts 24h time string (HH:mm) to 12h AM/PM format
         // FIX 2026-04-20: Moved to global scope to resolve "formatTime is not defined" error in Alarms/Clock page
         const formatTime = (time) => {
             if (!time) return '';
@@ -410,6 +411,20 @@
             const ampm = hours >= 12 ? 'PM' : 'AM';
             const h12 = hours % 12 || 12;
             return `${h12}:${m} ${ampm}`;
+        };
+
+        const formatQuickTaskScheduleLabel = (date, time) => {
+            const parsedDate = parseDateString(date || '');
+            if (!parsedDate || Number.isNaN(parsedDate.getTime())) {
+                return time ? formatTime(time) : '';
+            }
+            const month = parsedDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+            const day = parsedDate.getDate();
+            const weekday = parsedDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+            const formattedTime = time ? formatTime(time) : '';
+            return formattedTime
+                ? `${month} ${day} \u2022 ${weekday} \u2022 ${formattedTime}`
+                : `${month} ${day} \u2022 ${weekday}`;
         };
 
         const formatTimeParts = (time) => {
@@ -430,7 +445,7 @@
 
             const cleanupTitle = (value) => String(value || '')
                 .replace(/\s{2,}/g, ' ')
-                .replace(/^[,.\-–:;]+|[,.\-–:;]+$/g, '')
+                .replace(/^[,.\-�:;]+|[,.\-�:;]+$/g, '')
                 .trim();
 
             const parseClock = (text) => {
@@ -701,6 +716,35 @@
             return Array.from(grouped.values());
         };
 
+        const groupFutureTasksByDate = (tasks = []) => {
+            const grouped = new Map();
+            (Array.isArray(tasks) ? tasks : [])
+                .filter(task => task && !task.completed)
+                .sort((a, b) => {
+                    const aDate = parseDateString(a.dueDate || '');
+                    const bDate = parseDateString(b.dueDate || '');
+                    const aTime = aDate && !Number.isNaN(aDate.getTime()) ? aDate.getTime() : Number.MAX_SAFE_INTEGER;
+                    const bTime = bDate && !Number.isNaN(bDate.getTime()) ? bDate.getTime() : Number.MAX_SAFE_INTEGER;
+                    if (aTime !== bTime) return aTime - bTime;
+                    return String(a.dueTime || '23:59').localeCompare(String(b.dueTime || '23:59'));
+                })
+                .forEach(task => {
+                    const parsedDate = parseDateString(task.dueDate || '');
+                    const hasValidDate = parsedDate && !Number.isNaN(parsedDate.getTime());
+                    const key = hasValidDate ? formatDateLocal(parsedDate) : String(task.dueDate || `future-${task.id || task.createdAt || Date.now()}`);
+                    if (!grouped.has(key)) {
+                        const weekdayLabel = hasValidDate ? parsedDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase() : '';
+                        grouped.set(key, {
+                            key,
+                            label: hasValidDate ? `Upcoming ${weekdayLabel}` : 'Upcoming',
+                            tasks: []
+                        });
+                    }
+                    grouped.get(key).tasks.push(task);
+                });
+            return Array.from(grouped.values());
+        };
+
         const getTodayEnabledAlarms = (alarms = []) => {
             const start = new Date();
             start.setHours(0, 0, 0, 0);
@@ -737,7 +781,7 @@
 
 
         // ==========================================================================
-        // LABEL: FIREBASE & AUTH â€” Initialization and Google Sign-In
+        // LABEL: FIREBASE & AUTH — Initialization and Google Sign-In
         // ==========================================================================
         // --- Firebase Initialization ---
         const firebaseConfig = {
@@ -753,6 +797,83 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
+        const NOTE_BACKUP_COLLECTION = 'notes';
+
+        const normalizeEmailAddress = (value) => String(value || '').trim().toLowerCase();
+        const normalizeSharedWithList = (entries = []) => Array.from(new Set((Array.isArray(entries) ? entries : []).map(normalizeEmailAddress).filter(Boolean)));
+        const buildNoteBackupId = (ownerId, noteId) => `${encodeURIComponent(String(ownerId || 'guest'))}__${encodeURIComponent(String(noteId || ''))}`;
+        const buildSharedRuntimeNoteId = (ownerId, noteId) => `shared__${encodeURIComponent(String(ownerId || 'guest'))}__${encodeURIComponent(String(noteId || ''))}`;
+        const buildNoteBackupSignature = (note = {}, backupStatus = 'active') => JSON.stringify({
+            id: note?.sourceNoteId || note?.noteId || note?.id || '',
+            title: note?.title || '',
+            content: note?.content || '',
+            progress: note?.progress ?? 0,
+            isPinned: !!note?.isPinned,
+            noteTheme: note?.noteTheme || '',
+            noteIcon: note?.noteIcon || '',
+            labels: Array.isArray(note?.labels) ? note.labels : [],
+            reminderDate: note?.reminderDate || '',
+            reminderTime: note?.reminderTime || '',
+            versions: note?.versions || {},
+            sharedWith: normalizeSharedWithList(note?.sharedWith),
+            isPublic: !!note?.isPublic,
+            allowPublicEdit: !!note?.allowPublicEdit,
+            publicShareToken: note?.publicShareToken || '',
+            section: note?.section || '',
+            isLocked: !!note?.isLocked,
+            pinHash: note?.pinHash || null,
+            pinHint: note?.pinHint || null,
+            sortOrder: note?.sortOrder ?? null,
+            homeOrder: note?.homeOrder ?? null,
+            updatedAt: note?.updatedAt || '',
+            deletedAt: note?.deletedAt || null,
+            backupStatus
+        });
+        const syncNoteBackup = (noteInput, options = {}) => {
+            const sourceNoteId = options.noteId || noteInput?.sourceNoteId || noteInput?.noteId || noteInput?.id;
+            const ownerId = options.ownerId || noteInput?.ownerId;
+            if (!sourceNoteId || !ownerId || ownerId === 'guest') return Promise.resolve(null);
+
+            const ownerCollection = options.ownerCollection || noteInput?.ownerCollection || noteInput?.sourceCollection || 'tasks';
+            const ownerEmail = normalizeEmailAddress(options.ownerEmail || noteInput?.ownerEmail || '');
+            const backupStatus = options.backupStatus || noteInput?.backupStatus || 'active';
+            const deletedAt = backupStatus === 'active'
+                ? null
+                : (options.deletedAt || noteInput?.deletedAt || new Date().toISOString());
+            const normalizedSharedWith = normalizeSharedWithList(options.sharedWith !== undefined ? options.sharedWith : noteInput?.sharedWith);
+            const backupDocId = buildNoteBackupId(ownerId, sourceNoteId);
+
+            return db.collection(NOTE_BACKUP_COLLECTION).doc(backupDocId).set({
+                ...noteInput,
+                id: sourceNoteId,
+                noteId: sourceNoteId,
+                sourceNoteId,
+                ownerId,
+                ownerEmail,
+                ownerCollection,
+                sourceCollection: ownerCollection,
+                sharedWith: normalizedSharedWith,
+                isSharedNote: false,
+                sharedLabel: '',
+                backupDocId,
+                backupStatus,
+                deletedAt,
+                backupUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastKnownUpdatedAt: noteInput?.updatedAt || new Date().toISOString()
+            }, { merge: true });
+        };
+        const syncReadableNotesMirror = (ownerId, payload = {}) => {
+            if (!ownerId || ownerId === 'guest') return Promise.resolve(null);
+            return db.collection(NOTE_BACKUP_COLLECTION).doc(ownerId).set({
+                ownerId,
+                ownerEmail: normalizeEmailAddress(payload.ownerEmail || ''),
+                readableNotes: Array.isArray(payload.readableNotes) ? payload.readableNotes : [],
+                readableTrashNotes: Array.isArray(payload.readableTrashNotes) ? payload.readableTrashNotes : [],
+                readableNoteCount: Array.isArray(payload.readableNotes) ? payload.readableNotes.length : 0,
+                readableTrashCount: Array.isArray(payload.readableTrashNotes) ? payload.readableTrashNotes.length : 0,
+                readableMirrorUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        };
 
         const isAndroidNative = () =>
             !!window.Capacitor &&
@@ -768,20 +889,20 @@
                 host: "firestore.googleapis.com",
                 ssl: true
             });
-            console.log("âœ¨ [FIREBASE] Final Stand: High-Compatibility Long-Polling enabled.");
+            console.log("✨ [FIREBASE] Final Stand: High-Compatibility Long-Polling enabled.");
         }
 
-        // Enable offline persistence with multi-tab support â€” [FIX 2026-04-19] Disable synchronizeTabs on Android APK
+        // Enable offline persistence with multi-tab support — [FIX 2026-04-19] Disable synchronizeTabs on Android APK
         // to prevent potential database locks in the single-view Capacitor environment.
         db.enablePersistence({ synchronizeTabs: !isAndroidNative() }).then(() => {
-            console.log("âœ¨ [FIREBASE] Persistence enabled (Native: " + isAndroidNative() + ")");
+            console.log("✨ [FIREBASE] Persistence enabled (Native: " + isAndroidNative() + ")");
         }).catch(err => {
             if (err.code === 'failed-precondition') {
-                console.warn("âš ï¸ [FIREBASE] Multi-tab persistence already active in another tab/process. Sync should be consistent.");
+                console.warn("⚠️ [FIREBASE] Multi-tab persistence already active in another tab/process. Sync should be consistent.");
             } else if (err.code === 'unimplemented') {
-                console.warn("âš ï¸ [FIREBASE] Persistence not supported by browser");
+                console.warn("⚠️ [FIREBASE] Persistence not supported by browser");
             } else {
-                console.error("❌ [FIREBASE] Persistence error:", err.message);
+                console.error("? [FIREBASE] Persistence error:", err.message);
             }
         });
 
@@ -829,7 +950,7 @@
         };
 
         // ==========================================================================
-        // LABEL: NOTIFICATION ENGINE â€” Push & Local Notifications
+        // LABEL: NOTIFICATION ENGINE — Push & Local Notifications
         // ==========================================================================
         const FaioraNotifications = (() => {
             const timers = new Map(); // taskId -> [timerIds]
@@ -837,7 +958,7 @@
             let swRegistration = null;
 
             // ------------------------------------------------------------------
-            // LABEL: NOTIF-SW â€” Register Service Worker (Deep Delay to prevent extension race)
+            // LABEL: NOTIF-SW — Register Service Worker (Deep Delay to prevent extension race)
             // ------------------------------------------------------------------
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
@@ -847,14 +968,14 @@
                         navigator.serviceWorker.register('sw.js').then(reg => {
                             swRegistration = reg;
                             swReady = true;
-                            console.log('🔥 Faiora SW registered');
+                            console.log('?? Faiora SW registered');
                             
                             // Re-enable update check but avoid immediate spam
                             setTimeout(() => { try { reg.update(); } catch(e) {} }, 5000);
 
                             if (navigator.storage && navigator.storage.persist) {
                                 navigator.storage.persist().then(granted => {
-                                    if (granted) console.log("💾 [Faiora] Persistent storage granted");
+                                    if (granted) console.log("?? [Faiora] Persistent storage granted");
                                 });
                             }
                         }).catch(err => {
@@ -868,11 +989,11 @@
             }
 
             // ------------------------------------------------------------------
-            // LABEL: NOTIF-FCM â€” VAPID Key for FCM Web Push
+            // LABEL: NOTIF-FCM — VAPID Key for FCM Web Push
             // ------------------------------------------------------------------
             // HOW TO GET THIS KEY:
-            //   1. Go to Firebase Console â†’ Project Settings â†’ Cloud Messaging
-            //   2. Under "Web Push certificates" â†’ Click "Generate key pair"
+            //   1. Go to Firebase Console → Project Settings → Cloud Messaging
+            //   2. Under "Web Push certificates" → Click "Generate key pair"
             //   3. Copy the key and paste it below
             // ------------------------------------------------------------------
             const VAPID_KEY = 'BPEtleiswwW1JQ2b8rtlPBGHm2DhcSmxmDZh6ifdZusmLdD0HzOScot047EvfbSJkN9VbQlD04G4RaNCoBbdiFI';
@@ -1155,7 +1276,7 @@
                     getTaskReminderId(taskId, 'due')
                 ]);
             };
-            /* MOVED: getAlarmScheduleDate 2026-04-20 â€” Now a global utility for UI and Notification consistency */
+            /* MOVED: getAlarmScheduleDate 2026-04-20 — Now a global utility for UI and Notification consistency */
             const scheduleAlarmNotification = async (alarm) => {
                 const bridge = nativeAlarmBridge();
                 if (bridge?.scheduleAlarm && alarm?.enabled && alarm?.time) {
@@ -1190,7 +1311,7 @@
                         notifications: [{
                             id: getAlarmNotificationId(alarm.id),
                             title: 'Alarm Ringing',
-                            body: `${alarm.label || 'Alarm'} • ${alarm.time}`,
+                            body: `${alarm.label || 'Alarm'} � ${alarm.time}`,
                             channelId: ALARM_CHANNEL_ID,
                             actionTypeId: 'FAIORA_ALARM_ACTIONS',
                             ongoing: true,
@@ -1205,7 +1326,7 @@
                                 repeatDaily: !!alarm.repeatDaily,
                                 tag: getAlarmNotificationTag(alarm.id),
                                 title: 'Alarm Ringing',
-                                body: `${alarm.label || 'Alarm'} • ${alarm.time}`
+                                body: `${alarm.label || 'Alarm'} � ${alarm.time}`
                             }
                         }]
                     });
@@ -1226,7 +1347,7 @@
                 await removeDeliveredAlarmNotifications(alarmId);
             };
 
-            // FIX 2026-04-22: Schedule push notifications for notes â€” supports both native APK and web browser
+            // FIX 2026-04-22: Schedule push notifications for notes — supports both native APK and web browser
             const scheduleNoteNotification = async (note) => {
                 if (!note || !note.reminderDate) return false;
                 
@@ -1288,12 +1409,12 @@
                     localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                 }, targetMs - now);
 
-                // Store timer ID for cancellation â€” reuse the existing timers Map with a note-prefixed key
+                // Store timer ID for cancellation — reuse the existing timers Map with a note-prefixed key
                 timers.set(`note_${note.id}`, [timerId]);
                 return true;
             };
 
-            // FIX 2026-04-22: Cancel specific note reminders â€” handles both native and web timers
+            // FIX 2026-04-22: Cancel specific note reminders — handles both native and web timers
             const cancelNoteNotification = async (noteId = '') => {
                 if (!noteId) return;
                 // Cancel native scheduled notifications
@@ -1317,7 +1438,7 @@
             };
 
             // ------------------------------------------------------------------
-            // LABEL: NOTIF-PERMISSION â€” Request notification permission + FCM token
+            // LABEL: NOTIF-PERMISSION — Request notification permission + FCM token
             // ------------------------------------------------------------------
             const requestPermission = async () => {
                 const nativePlugin = nativeLocalNotifications();
@@ -1371,7 +1492,7 @@
                     if (status !== 'granted') return;
                     await ensureNativeNotificationsReady();
                     playNotifSFX();
-                    const title = "🔥 Faiora Test Alert";
+                    const title = "?? Faiora Test Alert";
                     const body = "Your native APK notifications are working.";
                     await nativePlugin.schedule({
                         notifications: [{
@@ -1392,7 +1513,7 @@
                 }
                 
                 playNotifSFX();
-                const title = "🔥 Faiora Test Alert";
+                const title = "?? Faiora Test Alert";
                 const body = "Your notification system is working! This is a local test.";
                 
                 if (swRegistration) {
@@ -1411,14 +1532,14 @@
             };
 
             // ------------------------------------------------------------------
-            // LABEL: NOTIF-FCM-TOKEN â€” Get FCM token and store in Firestore
+            // LABEL: NOTIF-FCM-TOKEN — Get FCM token and store in Firestore
             // ------------------------------------------------------------------
             // This token is what Cloud Functions use to send push to YOUR device.
-            // Stored in Firestore: fcmTokens/{userId} â†’ { tokens: [...] }
+            // Stored in Firestore: fcmTokens/{userId} → { tokens: [...] }
             const registerFCMToken = async () => {
                 try {
                     if (VAPID_KEY === 'YOUR_VAPID_KEY_HERE') {
-                        console.warn('âš ï¸ FCM VAPID key not set! Background notifications won\'t work.');
+                        console.warn('⚠️ FCM VAPID key not set! Background notifications won\'t work.');
                         return;
                     }
 
@@ -1455,7 +1576,7 @@
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
                         }
-                        console.log('🔔 FCM token verified/registered');
+                        console.log('?? FCM token verified/registered');
                     }
                 } catch (err) {
                     console.warn('FCM token registration failed:', err);
@@ -1463,7 +1584,7 @@
             };
 
             // ------------------------------------------------------------------
-            // LABEL: NOTIF-LOCAL-SFX â€” Play notification sound effect
+            // LABEL: NOTIF-LOCAL-SFX — Play notification sound effect
             // ------------------------------------------------------------------
             const playNotifSFX = () => {
                 try {
@@ -1487,7 +1608,7 @@
                 } catch(e) { /* AudioContext not available */ }
             };
 
-            // LABEL: ALARM-AUDIO-ENGINE â€” Manages sound playback with desktop support and anti-doubling
+            // LABEL: ALARM-AUDIO-ENGINE — Manages sound playback with desktop support and anti-doubling
             // FIX 2026-04-22: Implemented singleton check and interaction fallback for PC browsers
             const playAlarmSFX = () => {
                 try {
@@ -1574,7 +1695,7 @@
             };
 
             // ------------------------------------------------------------------
-            // LABEL: NOTIF-UTIL â€” Format time for notification title
+            // LABEL: NOTIF-UTIL — Format time for notification title
             // ------------------------------------------------------------------
             const formatNotifTime = (dateObj) => {
                 let hours = dateObj.getHours();
@@ -1587,7 +1708,7 @@
             };
 
             // ------------------------------------------------------------------
-            // LABEL: NOTIF-LOCAL-SEND â€” Show a local notification via Service Worker
+            // LABEL: NOTIF-LOCAL-SEND — Show a local notification via Service Worker
             // ------------------------------------------------------------------
             const sendNotification = async (title, body, tag, extra = {}) => {
                 const nativePlugin = nativeLocalNotifications();
@@ -1624,7 +1745,7 @@
             };
 
             // ------------------------------------------------------------------
-            // LABEL: NOTIF-LOCAL-SCHEDULE â€” Schedule local notifications for a task
+            // LABEL: NOTIF-LOCAL-SCHEDULE — Schedule local notifications for a task
             // ------------------------------------------------------------------
             // Schedules up to 3 setTimeout timers:
             //   1. At exact due time
@@ -1675,10 +1796,10 @@
                 // Timer 1: At exact due time
                 if (dueMs > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`Task Reminder! 🔥`, `📌 Due Now: ${taskName}`, `faiora-due-${task.id}`);
+                        sendNotification(`Task Reminder! ??`, `?? Due Now: ${taskName}`, `faiora-due-${task.id}`);
                         // Sync to localStorage for offline catch-up
                         const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                        scheduled[`faiora-due-${task.id}`] = { title: `Task Reminder! 🔥`, body: `📌 Due Now: ${taskName}`, timestamp: dueMs };
+                        scheduled[`faiora-due-${task.id}`] = { title: `Task Reminder! ??`, body: `?? Due Now: ${taskName}`, timestamp: dueMs };
                         localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                     }, dueMs - now);
                     taskTimers.push(id);
@@ -1688,9 +1809,9 @@
                 const oneHourBefore = dueMs - (1 * 60 * 60 * 1000);
                 if (oneHourBefore > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`Task Reminder! 🔥`, `⏳ Due in 1hr: ${taskName}`, `faiora-1h-${task.id}`);
+                        sendNotification(`Task Reminder! ??`, `? Due in 1hr: ${taskName}`, `faiora-1h-${task.id}`);
                         const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                        scheduled[`faiora-1h-${task.id}`] = { title: `Task Reminder! 🔥`, body: `⏳ Due in 1hr: ${taskName}`, timestamp: dueMs };
+                        scheduled[`faiora-1h-${task.id}`] = { title: `Task Reminder! ??`, body: `? Due in 1hr: ${taskName}`, timestamp: dueMs };
                         localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                     }, oneHourBefore - now);
                     taskTimers.push(id);
@@ -1700,9 +1821,9 @@
                 const twentyFourHoursBefore = dueMs - (24 * 60 * 60 * 1000);
                 if (twentyFourHoursBefore > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`Task Reminder! 🔥`, `⚡ Due in 24hrs: ${taskName}`, `faiora-24h-${task.id}`);
+                        sendNotification(`Task Reminder! ??`, `? Due in 24hrs: ${taskName}`, `faiora-24h-${task.id}`);
                         const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                        scheduled[`faiora-24h-${task.id}`] = { title: `Task Reminder! 🔥`, body: `⚡ Due in 24hrs: ${taskName}`, timestamp: dueMs };
+                        scheduled[`faiora-24h-${task.id}`] = { title: `Task Reminder! ??`, body: `? Due in 24hrs: ${taskName}`, timestamp: dueMs };
                         localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                     }, twentyFourHoursBefore - now);
                     taskTimers.push(id);
@@ -1714,7 +1835,7 @@
             };
 
             // ------------------------------------------------------------------
-            // LABEL: NOTIF-LOCAL-CANCEL â€” Cancel scheduled notifications for a task
+            // LABEL: NOTIF-LOCAL-CANCEL — Cancel scheduled notifications for a task
             // ------------------------------------------------------------------
             const cancelForTask = (taskId) => {
                 const existing = timers.get(taskId);
@@ -1835,7 +1956,7 @@
         })();
         
         // ==========================================================================
-        // LABEL: SHARED COMPONENTS â€” Components used across multiple pages
+        // LABEL: SHARED COMPONENTS — Components used across multiple pages
         // ==========================================================================
         // --- Shared Components ---
 
@@ -1843,7 +1964,7 @@
         const MobileNav = () => null;
 
         // ------------------------------------------------------------------
-        // LABEL: NAVIGATION â€” Desktop Sidebar & Mobile Bottom Nav
+        // LABEL: NAVIGATION — Desktop Sidebar & Mobile Bottom Nav
         // ------------------------------------------------------------------
         const ResponsiveNav = () => {
             const location = useLocation();
@@ -1907,7 +2028,7 @@
             );
         };
 
-        // LABEL: PullToRefresh â€” Implements mobile "pull down to refresh" gestures
+        // LABEL: PullToRefresh — Implements mobile "pull down to refresh" gestures
         // FIX 2026-04-20: Added labels and IDs for easier tracking
         const PullToRefresh = ({ children, onRefresh, disabled = false }) => {
             const [pullDistance, setPullDistance] = useState(0);
@@ -2024,7 +2145,7 @@
             );
         };
 
-        // LABEL: Layout â€” The main shell of the application including sidebar, navigation, and pull-to-refresh
+        // LABEL: Layout — The main shell of the application including sidebar, navigation, and pull-to-refresh
         // FIX 2026-04-20: Added labels and IDs for easier tracking
         const Layout = ({ children, onOpenCreator, onFabClick, onRefresh, noPadding = false, showFab = true, pomodoroTime, isPomodoroActive, selectedDate }) => {
             const handleFabClick = onFabClick || onOpenCreator;
@@ -2127,7 +2248,7 @@
                                                 onClick={item.onClick}
                                                 className="flex items-center gap-4 group"
                                             >
-                                                {/* FIX 2026-04-22: Labels always visible â€” removed hover-only opacity */}
+                                                {/* FIX 2026-04-22: Labels always visible — removed hover-only opacity */}
                                                 <span className="text-[10px] font-black text-white px-4 py-2 bg-white/5 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl uppercase tracking-[0.25em]">{item.label}</span>
                                                 <div className={`w-14 h-14 md:w-16 md:h-16 ${item.color} rounded-[1.25rem] md:rounded-3xl flex items-center justify-center text-white shadow-2xl hover:scale-110 transition-transform active:scale-95 border border-white/10`}>
                                                     <span className="material-symbols-outlined text-2xl md:text-3xl">{item.icon}</span>
@@ -2412,7 +2533,7 @@
             );
         };
 
-        // LABEL: Header â€” The top navigation bar containing the title, search, and user menu
+        // LABEL: Header — The top navigation bar containing the title, search, and user menu
         // FIX 2026-04-20: Added labels and IDs for easier tracking
         const Header = ({
             title = "Faiora",
@@ -2491,7 +2612,7 @@
                             animation: search-spin 0.6s linear infinite;
                         }
                     `}</style>
-                    {/* Mobile Sticky Header â€” FIXED 2026-04-15: Now using fixed top-0 to stay anchored at absolute top */}
+                    {/* Mobile Sticky Header — FIXED 2026-04-15: Now using fixed top-0 to stay anchored at absolute top */}
                     <header className="faiora-mobile-header md:hidden fixed top-0 left-0 right-0 z-[300] bg-black/95 backdrop-blur-2xl border-b border-white/5 px-0 pt-5 pb-4 flex flex-col gap-3 animate-mobile-header">
                         <div className="flex items-center justify-between gap-3 relative z-10 w-full px-4">
                             <button
@@ -2545,7 +2666,7 @@
                         </div>
                     </header>
 
-                    {/* Desktop Header â€” UPDATED 2026-04-15: Non-sticky, transparent, no blur */}
+                    {/* Desktop Header — UPDATED 2026-04-15: Non-sticky, transparent, no blur */}
                     <header id="faiora_desktop_header" className="faiora-desktop-header hidden md:flex relative top-0 md:pt-5 md:pb-3 mb-4 z-[100] bg-transparent items-center justify-between gap-8">
                         <div id="faiora_desktop_header_title_group" className="faiora-desktop-header-title flex flex-col">
                             <h1 className="text-[3.5rem] font-display font-bold tracking-tighter text-cream-light italic leading-none drop-shadow-2xl">{title}</h1>
@@ -2587,10 +2708,11 @@
         };
 
         // ==========================================================================
-        // LABEL: TASK CREATOR â€” The main modal for creating/editing notes
+        // LABEL: TASK CREATOR — The main modal for creating/editing notes
         // ==========================================================================
         const TaskCreator = ({ onClose, user, editingNote, prefillData, activeCollection, onUpdateNote, onDeleteNote, onSaveVersion, showToast, notes = [], onToggleLock, onOpenLockSet }) => {
-            const noteId = useMemo(() => editingNote ? editingNote.id : 'note_' + Date.now(), [editingNote]);
+            const noteId = useMemo(() => editingNote ? (editingNote.sourceNoteId || editingNote.id) : 'note_' + Date.now(), [editingNote]);
+            const runtimeNoteId = editingNote ? editingNote.id : noteId;
             const [title, setTitle] = useState(editingNote ? editingNote.title || '' : '');
             const [content, setContent] = useState(editingNote ? editingNote.content || '' : '');
             const [progress, setProgress] = useState(() => {
@@ -2801,7 +2923,9 @@
                 const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
                 const newNote = {
                     ...updatedNote,
-                    id: noteId,
+                    id: runtimeNoteId,
+                    noteId,
+                    sourceNoteId: noteId,
                     title: updatedNote.title !== undefined ? updatedNote.title : title,
                     content: updatedNote.content !== undefined ? updatedNote.content : (editorRef.current ? editorRef.current.innerHTML : content),
                     progress: updatedNote.progress !== undefined ? updatedNote.progress : progress,
@@ -2821,6 +2945,11 @@
                     },
                     sharedWith: updatedNote.sharedWith !== undefined ? updatedNote.sharedWith : sharedWith,
                     ownerId: editingNote?.ownerId || user?.uid || 'guest',
+                    ownerEmail: updatedNote.ownerEmail !== undefined ? updatedNote.ownerEmail : (editingNote?.ownerEmail || user?.email || ''),
+                    ownerCollection: updatedNote.ownerCollection !== undefined ? updatedNote.ownerCollection : (editingNote?.ownerCollection || activeCollection || 'tasks'),
+                    isSharedNote: updatedNote.isSharedNote !== undefined ? updatedNote.isSharedNote : !!editingNote?.isSharedNote,
+                    sharedLabel: updatedNote.sharedLabel !== undefined ? updatedNote.sharedLabel : (editingNote?.sharedLabel || ''),
+                    sharedRecipient: updatedNote.sharedRecipient !== undefined ? updatedNote.sharedRecipient : (editingNote?.sharedRecipient || ''),
                     isPublic: updatedNote.isPublic !== undefined ? updatedNote.isPublic : isPublic,
                     allowPublicEdit: updatedNote.allowPublicEdit !== undefined ? updatedNote.allowPublicEdit : allowPublicEdit,
                     publicShareToken: updatedNote.publicShareToken !== undefined ? updatedNote.publicShareToken : publicShareToken,
@@ -2835,12 +2964,15 @@
                 }
 
                 // 2. Background sync to Firestore (only if forced)
-                const effectiveCollection = activeCollection || 'tasks';
+                const effectiveCollection = newNote.ownerCollection || activeCollection || 'tasks';
                 if (forceSync && effectiveCollection) {
                     const targetUid = newNote.ownerId || user?.uid;
                     
                     const noteData = {
                         ...newNote,
+                        id: noteId,
+                        noteId,
+                        sourceNoteId: noteId,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
 
@@ -2870,8 +3002,18 @@
                         db.collection('public_shares').doc(tokenToDelete).delete()
                             .catch(e => {});
                     }
+
+                    if (targetUid && user?.uid && targetUid !== user.uid) {
+                        syncNoteBackup(newNote, {
+                            noteId,
+                            ownerId: targetUid,
+                            ownerEmail: newNote.ownerEmail || editingNote?.ownerEmail || user?.email || '',
+                            ownerCollection: effectiveCollection,
+                            backupStatus: 'active'
+                        }).catch(e => console.warn("Shared backup sync failed:", e.message));
+                    }
                 }
-            }, [user, noteId, editingNote, onUpdateNote, activeCollection, title, content, progress, isPinned, noteTheme, noteIcon, labels, reminderDate, sharedWith, isPublic, publicShareToken, allowPublicEdit]);
+            }, [user, noteId, runtimeNoteId, editingNote, onUpdateNote, activeCollection, title, content, progress, isPinned, noteTheme, noteIcon, labels, reminderDate, sharedWith, isPublic, publicShareToken, allowPublicEdit]);
 
             useEffect(() => {
                 const handleGlobalKeyDown = (e) => {
@@ -3044,6 +3186,41 @@
             const confirmDeleteNote = () => {
                 setShowDeleteConfirm(false);
                 if (!user) return;
+                const isForeignSharedNote = !!editingNote?.isSharedNote && !!ownerId && ownerId !== user.uid;
+                if (isForeignSharedNote) return;
+
+                if (ownerId && ownerId === user.uid) {
+                    syncNoteBackup({
+                        id: noteId,
+                        sourceNoteId: noteId,
+                        title,
+                        content: editorRef.current ? editorRef.current.innerHTML : content,
+                        progress,
+                        isPinned,
+                        noteTheme,
+                        noteIcon,
+                        labels,
+                        reminderDate,
+                        sharedWith,
+                        isPublic,
+                        allowPublicEdit,
+                        publicShareToken,
+                        section: (editingNote && editingNote.section) ? editingNote.section : '',
+                        isLocked,
+                        pinHash: editingNote?.pinHash ?? null,
+                        pinHint: editingNote?.pinHint ?? null,
+                        ownerId,
+                        ownerEmail: editingNote?.ownerEmail || user?.email || '',
+                        ownerCollection: editingNote?.ownerCollection || activeCollection || 'tasks'
+                    }, {
+                        noteId,
+                        ownerId,
+                        ownerEmail: editingNote?.ownerEmail || user?.email || '',
+                        ownerCollection: editingNote?.ownerCollection || activeCollection || 'tasks',
+                        backupStatus: 'deleted',
+                        deletedAt: new Date().toISOString()
+                    }).catch(() => {});
+                }
 
                 // 1. Optimistic removal via prop handler
                 if (onDeleteNote) {
@@ -3333,7 +3510,7 @@
                             selection.addRange(newRange);
                         }
                     } else {
-                        // BATCH CONVERSION â€” collect items from DOM BEFORE any mutation
+                        // BATCH CONVERSION — collect items from DOM BEFORE any mutation
 
                         // 1. Find the parent list or collect block-level elements
                         const startBlock = getBlockParent(range.startContainer);
@@ -3350,7 +3527,7 @@
                             // Remove original items
                             const insertedItems = [];
                             if (selectedLIs.length === allLIs.length) {
-                                // All items selected â€” remove entire list
+                                // All items selected — remove entire list
                                 const anchor = parentList;
                                 const parent = anchor.parentNode;
                                 const frag = document.createDocumentFragment();
@@ -3363,7 +3540,7 @@
                                 });
                                 parent.replaceChild(frag, anchor);
                             } else {
-                                // Partial selection â€” replace only selected LIs, keep list
+                                // Partial selection — replace only selected LIs, keep list
                                 const frag = document.createDocumentFragment();
                                 lines.forEach(l => {
                                     const wrapper = document.createElement('div');
@@ -3384,7 +3561,7 @@
                                 selection.addRange(newRange);
                             }
                         } else {
-                            // Source is plain text / divs / headings â€” use extract approach
+                            // Source is plain text / divs / headings — use extract approach
                             const sBlock = getBlockParent(range.startContainer);
                             const eBlock = getBlockParent(range.endContainer);
                             if (sBlock) range.setStartBefore(sBlock);
@@ -4455,7 +4632,7 @@
                                                          <span className="material-symbols-outlined text-[20px]">ink_highlighter</span>
                                                          <span className="material-symbols-outlined text-sm">arrow_drop_up</span>
                                                      </button>
-                                                    {/* Highlight Color Picker â€” positioned to stay on screen */}
+                                                    {/* Highlight Color Picker — positioned to stay on screen */}
                                                     {activeSubPopup === 'highlight' && (
                                                         <div className="absolute bottom-full right-0 mb-2 p-2 bg-white rounded-xl shadow-2xl border border-black/5 flex items-center z-[160] animate-in slide-in-from-bottom-1 duration-200" style={{ minWidth: '130px' }}>
                                                             <div className="grid grid-cols-4 gap-2">
@@ -4488,7 +4665,7 @@
                                                         <span className="material-symbols-outlined text-[20px]" style={{color: '#ea580c'}}>horizontal_rule</span>
                                                         <span className="material-symbols-outlined text-sm">arrow_drop_up</span>
                                                     </button>
-                                                    {/* Divider Color Picker â€” positioned to stay on screen */}
+                                                    {/* Divider Color Picker — positioned to stay on screen */}
                                                     {activeSubPopup === 'divider' && (
                                                         <div className="absolute bottom-full right-0 mb-2 p-2 bg-white rounded-xl shadow-2xl border border-black/5 flex items-center gap-2 z-[160] animate-in slide-in-from-bottom-1 duration-200">
                                                             {['#ea580c', '#334155', '#64748b', '#94a3b8', '#cbd5e1'].map(color => (
@@ -4829,13 +5006,15 @@
                                                  {isLocked ? 'Remove Lock' : 'Lock Note'}
                                              </button>
                                              <div className="h-px bg-slate-100 my-1"></div>
-                                             <button 
-                                                 onClick={handleDeleteNote}
-                                                 className="menu-item danger font-montserrat"
-                                             >
-                                                 <span className="material-symbols-outlined text-lg">delete</span>
-                                                 Delete Note
-                                             </button>
+                                             {(!editingNote?.isSharedNote || ownerId === user?.uid) && (
+                                                 <button 
+                                                     onClick={handleDeleteNote}
+                                                     className="menu-item danger font-montserrat"
+                                                 >
+                                                     <span className="material-symbols-outlined text-lg">delete</span>
+                                                     Delete Note
+                                                 </button>
+                                             )}
                                          </div>
                                      )}
                                      {activePopup === 'labels' && (
@@ -4927,7 +5106,9 @@
                                                                         db.collection('shared_access').doc(`${noteId}_${email}`).set({
                                                                             noteId,
                                                                             ownerId: user?.uid || 'guest',
+                                                                            ownerEmail: normalizeEmailAddress(user?.email),
                                                                             ownerCollection: activeCollection || 'tasks',
+                                                                            noteBackupId: buildNoteBackupId(user?.uid || 'guest', noteId),
                                                                             sharedWith: email,
                                                                             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                                                                             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -4959,7 +5140,9 @@
                                                                         db.collection('shared_access').doc(`${noteId}_${email}`).set({
                                                                             noteId,
                                                                             ownerId: user?.uid || 'guest',
+                                                                            ownerEmail: normalizeEmailAddress(user?.email),
                                                                             ownerCollection: activeCollection || 'tasks',
+                                                                            noteBackupId: buildNoteBackupId(user?.uid || 'guest', noteId),
                                                                             sharedWith: email,
                                                                             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                                                                             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -5257,7 +5440,7 @@
                 const month = d.toLocaleString('en-US', { month: 'short' });
                 const day = d.getDate();
                 const time = d.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                return `${month} ${day} • ${time}`;
+                return `${month} ${day} � ${time}`;
             } catch(e) { return dateStr; }
         };
 
@@ -5346,7 +5529,7 @@
             </div>
         );
 
-        /* LABEL: PRIORITY-NOTE-SKELETON â€” Loading state for Priority Note cards */
+        /* LABEL: PRIORITY-NOTE-SKELETON — Loading state for Priority Note cards */
         /* NEW 2026-04-16: Matches NoteCard variant="priority" dimensions for smooth transition */
         const PriorityNoteSkeleton = ({ index }) => {
             return (
@@ -5421,6 +5604,11 @@
                             </div>
                         )}
                         <div className="flex flex-wrap gap-1.5">
+                        {note.isSharedNote && (
+                            <span className="text-[10px] font-bold uppercase tracking-widest font-montserrat bg-primary/12 text-primary px-2.5 py-1 rounded-lg border border-primary/20">
+                                {note.sharedLabel || 'Shared Note'}
+                            </span>
+                        )}
                         {(note.labels && note.labels.length > 0) ? (
                             note.labels.map(l => (
                                 <span key={l} className={`text-[10px] font-bold uppercase tracking-widest font-montserrat ${theme.labelBg} ${theme.label} px-2.5 py-1 rounded-lg`}>{l}</span>
@@ -5437,9 +5625,27 @@
             );
         });
 
-        // FIX 2026-04-22: Added touch-based long press â€” fires edit immediately during hold, not after release
+        // FIX 2026-04-22: Added touch-based long press — fires edit immediately during hold, not after release
         const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit }) => {
             const { label: dueDateStr, isOverdue, isNearDeadline, isDueTomorrow } = formatDueDate(task.dueDate, task.dueTime);
+            const scheduleLabel = dueDateStr;
+            const cardBorderColor = task.completed
+                ? 'rgba(138, 90, 54, 0.16)'
+                : isOverdue
+                    ? 'rgba(170, 52, 52, 0.56)'
+                    : isDueTomorrow
+                        ? 'rgba(168, 123, 27, 0.62)'
+                        : 'rgba(104, 67, 41, 0.28)';
+            const cardBackground = isOverdue && !task.completed
+                ? 'linear-gradient(180deg, rgba(58,24,24,0.66), rgba(34,16,16,0.58))'
+                : 'linear-gradient(180deg, rgba(40,24,19,0.7), rgba(24,16,14,0.68))';
+            const cardHoverBackground = isOverdue && !task.completed
+                ? 'linear-gradient(180deg, rgba(66,28,28,0.72), rgba(38,18,18,0.64))'
+                : 'linear-gradient(180deg, rgba(44,27,21,0.74), rgba(28,19,16,0.72))';
+            const uncheckedCircleStyle = task.completed ? undefined : {
+                borderColor: isOverdue ? 'rgba(126, 58, 58, 0.78)' : 'rgba(86, 64, 50, 0.62)',
+                background: 'rgba(0,0,0,0.02)'
+            };
             const longPressRef = useRef(null);
             const didLongPressRef = useRef(false);
 
@@ -5480,8 +5686,8 @@
 
             return (
                 <div 
-                    className={`glass-panel rounded-[2rem] p-4 md:p-5 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 transition-all duration-200 cursor-pointer border border-white/5 shadow-lg hover:shadow-primary/5 ${task.completed ? 'opacity-40 grayscale-[0.5]' : ''} ${isOverdue && !task.completed ? 'border-red-500/30' : ''} ${isNearDeadline && !task.completed ? 'near-deadline-glow' : ''} ${isDueTomorrow && !task.completed ? 'tomorrow-glow' : ''}`}
-                    style={{ minHeight: window.innerWidth < 768 ? '64px' : 'auto', touchAction: 'pan-y' }}
+                    className={`rounded-[2rem] p-4 md:p-5 flex items-center justify-between group transition-all duration-200 cursor-pointer border shadow-[0_18px_38px_rgba(0,0,0,0.2)] ${task.completed ? 'border-primary/12 opacity-45 grayscale-[0.35]' : 'border-primary/12'} ${isNearDeadline && !task.completed ? 'near-deadline-glow' : ''} ${isDueTomorrow && !task.completed ? 'tomorrow-glow' : ''}`}
+                    style={{ minHeight: window.innerWidth < 768 ? '64px' : 'auto', touchAction: 'pan-y', borderColor: cardBorderColor, background: cardBackground }}
                     onClick={handleClick}
                     onContextMenu={(e) => {
                         e.preventDefault();
@@ -5491,24 +5697,29 @@
                     onTouchEnd={handleTouchEnd}
                     onTouchCancel={handleTouchEnd}
                     onTouchMove={handleTouchMove}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = cardHoverBackground; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = cardBackground; }}
                 >
                     <div className="flex items-center gap-5 min-w-0 pointer-events-none">
-                        <div className={`w-7 h-7 rounded-xl border-2 shrink-0 self-center flex items-center justify-center transition-all duration-300 ${task.completed ? 'bg-primary border-primary text-white scale-110 shadow-lg shadow-primary/20' : 'border-white/10 text-transparent group-hover:border-primary/40'}`}>
+                        <div
+                            className={`w-7 h-7 rounded-xl border-2 shrink-0 self-center flex items-center justify-center transition-all duration-300 ${task.completed ? 'bg-primary border-primary text-white scale-110 shadow-lg shadow-primary/20' : 'text-transparent'}`}
+                            style={uncheckedCircleStyle}
+                        >
                             <span className="material-symbols-outlined text-[1rem] font-bold">check</span>
                         </div>
                         <div className="flex min-w-0 flex-col gap-0.5">
-                            <h4 className={`text-sm md:text-base text-cream-light font-montserrat font-bold tracking-wide transition-all duration-300 line-clamp-2 overflow-hidden ${task.completed ? 'line-through decoration-primary/50 opacity-60' : 'group-hover:text-primary'} ${isOverdue && !task.completed ? 'text-red-400' : ''}`}>
+                            <h4 className={`text-sm md:text-base text-cream-light/92 font-montserrat font-bold tracking-wide transition-all duration-300 line-clamp-2 overflow-hidden ${task.completed ? 'line-through decoration-primary/50 opacity-60' : ''} ${isOverdue && !task.completed ? 'text-red-200' : ''}`}>
                                 {formatTaskText(task.text)}
                             </h4>
-                            {dueDateStr && (
-                                <p className={`text-[9px] md:text-[10px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-opacity ${isOverdue && !task.completed ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
+                            {scheduleLabel && (
+                                <p className={`text-[9px] md:text-[10px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-opacity ${isOverdue && !task.completed ? 'text-red-500' : 'text-primary/85 opacity-95 group-hover:opacity-100'}`}>
                                     <span className="material-symbols-outlined text-[8px] md:text-[10px]">event</span>
-                                    {dueDateStr}
+                                    {scheduleLabel}
                                 </p>
                             )}
                         </div>
                     </div>
-                    {/* LABEL: QUIK-TSK-ITM â€” Desktop/Mobile Task Item */}
+                    {/* LABEL: QUIK-TSK-ITM — Desktop/Mobile Task Item */}
                     {/* FIX 2026-04-15: Increased touch target for deletion and made button visible on mobile */}
                     <button 
                         onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
@@ -5979,17 +6190,17 @@
                                         >
                                             <div className="flex justify-between items-center mb-0 min-h-[3.5rem]">
                                                 <div className="flex items-center gap-4 self-center">
-                                                    {/* homepage_alarm_icon â€” Short Summary: Circular alarm icon with thematic styling */}
+                                                    {/* homepage_alarm_icon — Short Summary: Circular alarm icon with thematic styling */}
                                                     <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20 shrink-0">
                                                         <span className="material-symbols-outlined text-2xl" style={{fontVariationSettings: '"FILL" 1'}}>alarm</span>
                                                     </div>
-                                                    {/* homepage_alarm_time_compact â€” Short Summary: Large time display adjacent to icon */}
+                                                    {/* homepage_alarm_time_compact — Short Summary: Large time display adjacent to icon */}
                                                     <div className="flex items-center gap-2 self-center">
                                                         <p className="text-3xl md:text-4xl font-display font-medium text-cream-light tracking-tighter tabular-nums leading-none">{formatTimeParts(alarm.time).main}</p>
                                                         <p className="text-[10px] font-black text-primary uppercase tracking-widest leading-none opacity-80 mt-[2px]">{formatTimeParts(alarm.time).suffix}</p>
                                                     </div>
                                                 </div>
-                                                {/* homepage_alarm_details â€” Short Summary: Label and relative time indicator */}
+                                                {/* homepage_alarm_details — Short Summary: Label and relative time indicator */}
                                                 <div className="flex flex-col items-end justify-center self-center shrink-0">
                                                     <p className="text-[10px] font-black text-primary/50 uppercase tracking-widest">{alarm.label || 'Alarm'}</p>
                                                     <p className="text-[9px] font-bold text-cream-light/30 uppercase tracking-widest mt-0.5">
@@ -6155,7 +6366,7 @@
                  return () => document.removeEventListener('contextmenu', handler);
              }, []);
 
-            // Gesture state ref â€” shared between pointer event handlers
+            // Gesture state ref — shared between pointer event handlers
             const gestureRef = useRef({ active: false, activated: false, scrolling: false });
 
             // Find nearest scrollable ancestor for manual scroll
@@ -7339,7 +7550,7 @@
                                                 {todayMatch && <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-primary glow-orange"></div>}
                                                 {reminders.length > 0 && (
                                                     <div className="flex flex-col mt-2">
-                                                        {/* FIX 2026-04-22: Single-line truncated chips â€” was line-clamp-2 causing multi-line overflow */}
+                                                        {/* FIX 2026-04-22: Single-line truncated chips — was line-clamp-2 causing multi-line overflow */}
                                                         {reminders.slice(0, 3).map((r, ri) => (
                                                             <div key={ri} className={`w-full truncate text-[8px] md:text-[9px] leading-tight font-bold rounded-md px-0.5 py-0.5 flex items-center gap-1 ${r.type === 'quickTask' ? 'bg-white/10 text-cream-light/80' : 'bg-primary/15 text-primary/90'} border border-white/5`}>
                                                                 <span className="text-white/30"></span>
@@ -7376,7 +7587,7 @@
                                     />
                                 </div>
                             </div>
-                            {/* FIX 2026-04-22: Redesigned search card â€” cleaner, minimal, no heavy glass-panel wrapper */}
+                            {/* FIX 2026-04-22: Redesigned search card — cleaner, minimal, no heavy glass-panel wrapper */}
                             <div ref={quickTaskMatchesRef} className="mb-6">
                                 {normalizedTaskSearch ? (
                                     <div className="space-y-3">
@@ -7416,7 +7627,7 @@
                                     </div>
                                 ) : null}
                             </div>
-                            {/* FIX 2026-04-22: Removed redundant + button â€” FAB already handles add actions */}
+                            {/* FIX 2026-04-22: Removed redundant + button — FAB already handles add actions */}
                             <div className="mb-6">
                                 <div className="flex items-center gap-3 mb-1.5">
                                     <h3 className="text-xl font-display font-bold text-cream-light">Daily Agenda</h3>
@@ -7434,7 +7645,7 @@
                                                         <h4 className="text-base font-bold text-orange-950/90 leading-tight truncate flex-1">{item.title || 'Untitled'}</h4>
                                                         {item.isLocked && <span className="material-symbols-outlined text-orange-950/40 text-sm">lock</span>}
                                                     </div>
-                                                    <p className="text-xs text-orange-900/60 mt-1.5 font-sans font-medium capitalize">{formatReminderDate(item.reminderDate)}{item.labels && item.labels[0] ? ` • ${item.labels[0]}` : ''}</p>
+                                                    <p className="text-xs text-orange-900/60 mt-1.5 font-sans font-medium capitalize">{formatReminderDate(item.reminderDate)}{item.labels && item.labels[0] ? ` � ${item.labels[0]}` : ''}</p>
                                                 </div>
                                             );
                                         } else {
@@ -7457,7 +7668,7 @@
                                     <p className="text-white/20 text-xs font-sans">No reminders this day</p>
                                 </div>
                             )}
-                            {/* FIX 2026-04-22: Removed 'Upcoming' section â€” daily agenda now shows only the selected date's tasks */}
+                            {/* FIX 2026-04-22: Removed 'Upcoming' section — daily agenda now shows only the selected date's tasks */}
                         </aside>
                     </div>
                 </Layout>
@@ -7487,26 +7698,19 @@
             const groupedQuickTasks = useMemo(() => groupQuickTasksBySchedule(filteredTasks), [filteredTasks]);
             const isLoading = (isProbing && !isFirstSyncDone) && effectiveQuickTasks.length === 0;
             const completedDateGroups = useMemo(() => groupCompletedTasksByDate(groupedQuickTasks.completed), [groupedQuickTasks.completed]);
-            const tomorrowUpcomingItems = useMemo(
-                () => sortQuickTasksList([...(groupedQuickTasks.tomorrow || [])]),
-                [groupedQuickTasks.tomorrow]
-            );
-            const laterUpcomingItems = useMemo(
-                () => sortQuickTasksList([...(groupedQuickTasks.upcoming || [])]),
+            const futureDateSections = useMemo(
+                () => groupFutureTasksByDate(groupedQuickTasks.upcoming || []),
                 [groupedQuickTasks.upcoming]
             );
-            const upcomingSectionLabel = useMemo(() => {
-                const firstUpcoming = laterUpcomingItems[0];
-                if (!firstUpcoming?.dueDate) return 'Upcoming';
-                const parsed = parseDateString(firstUpcoming.dueDate);
-                if (!parsed || Number.isNaN(parsed.getTime())) return 'Upcoming';
-                return `Upcoming ${parsed.toLocaleDateString('en-US', { weekday: 'short' })}`;
-            }, [laterUpcomingItems]);
             const sections = [
                 { key: 'pastDue', label: 'Past Due', items: groupedQuickTasks.pastDue },
                 { key: 'today', label: 'Today', items: groupedQuickTasks.today },
-                { key: 'tomorrow', label: 'Upcoming Tomorrow', items: tomorrowUpcomingItems },
-                { key: 'upcoming', label: upcomingSectionLabel, items: laterUpcomingItems }
+                { key: 'tomorrow', label: 'Upcoming Tomorrow', items: groupedQuickTasks.tomorrow },
+                ...futureDateSections.map(section => ({
+                    key: `future-${section.key}`,
+                    label: section.label,
+                    items: section.tasks
+                }))
             ];
 
             useEffect(() => {
@@ -7555,7 +7759,7 @@
                                                 <div className="flex items-center gap-3">
                                                     <h2 className="text-xs md:text-sm font-bold uppercase tracking-[0.28em] text-primary/75">{section.label}</h2>
                                                     <div className="h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent"></div>
-                                                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">{section.items.length}</span>
+                                                    <span className="rounded-full border border-primary/15 bg-primary/[0.08] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-primary/70">{section.items.length}</span>
                                                 </div>
                                                 <div className="space-y-4">
                                                     {section.items.map(task => (
@@ -7576,7 +7780,7 @@
                                             <div className="flex items-center gap-3">
                                                 <h2 className="text-xs md:text-sm font-bold uppercase tracking-[0.28em] text-primary/75">Finished</h2>
                                                 <div className="h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent"></div>
-                                                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">{groupedQuickTasks.completed.length}</span>
+                                                <span className="rounded-full border border-primary/15 bg-primary/[0.08] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-primary/70">{groupedQuickTasks.completed.length}</span>
                                             </div>
                                             <div className="space-y-6">
                                                 {completedDateGroups.slice(0, visibleCompletedGroups).map(group => (
@@ -7584,12 +7788,18 @@
                                                         <button
                                                             type="button"
                                                             onClick={() => setExpandedCompletedGroups(prev => ({ ...prev, [group.key]: !prev[group.key] }))}
-                                                            className="w-full flex items-center gap-3 text-left rounded-[1.35rem] border border-primary/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] px-4 py-3.5 hover:border-primary/20 hover:bg-[linear-gradient(180deg,rgba(249,115,22,0.08),rgba(255,255,255,0.02))] transition-colors shadow-[0_18px_38px_rgba(0,0,0,0.18)]"
+                                                            className="w-full flex items-center gap-3 text-left rounded-[1.35rem] border px-4 py-3.5 transition-colors shadow-[0_18px_38px_rgba(0,0,0,0.18)]"
+                                                            style={{ borderColor: 'rgba(128, 74, 34, 0.28)', background: 'linear-gradient(180deg, rgba(40,26,22,0.42), rgba(24,18,16,0.36))' }}
                                                         >
-                                                            <h3 className="text-[11px] font-bold uppercase tracking-[0.22em] text-cream-light/70">{group.label} • {group.weekday}</h3>
-                                                            <div className="h-px flex-1 bg-gradient-to-r from-primary/15 via-white/5 to-transparent"></div>
-                                                            <span className="rounded-full border border-primary/12 bg-primary/[0.07] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-primary/70">{group.tasks.length}</span>
-                                                            <span className="material-symbols-outlined text-base text-primary/65">
+                                                            <h3
+                                                                className="text-[11px] font-bold uppercase tracking-[0.22em]"
+                                                                style={{ color: 'rgba(178, 160, 148, 0.58)' }}
+                                                            >
+                                                                {group.label}{' \u2022 '}{group.weekday}
+                                                            </h3>
+                                                            <div className="h-px flex-1 bg-gradient-to-r from-primary/14 via-primary/[0.05] to-transparent"></div>
+                                                            <span className="rounded-full border border-primary/15 bg-primary/[0.08] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-primary/70">{group.tasks.length}</span>
+                                                            <span className="material-symbols-outlined text-base text-primary/90">
                                                                 {expandedCompletedGroups[group.key] ? 'expand_less' : 'expand_more'}
                                                             </span>
                                                         </button>
@@ -7614,7 +7824,7 @@
                                                     <button
                                                         type="button"
                                                         onClick={() => setVisibleCompletedGroups(prev => Math.min(prev + 7, completedDateGroups.length))}
-                                                        className="inline-flex items-center gap-2 rounded-full border border-primary/12 bg-primary/[0.06] px-5 py-3 text-[10px] font-black uppercase tracking-[0.24em] text-primary/80 hover:bg-primary/[0.12] hover:border-primary/20 transition-all shadow-[0_14px_30px_rgba(0,0,0,0.18)]"
+                                                        className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/[0.08] px-5 py-3 text-[10px] font-black uppercase tracking-[0.24em] text-primary/70 transition-all shadow-[0_14px_30px_rgba(0,0,0,0.18)]"
                                                     >
                                                         <span>Load More</span>
                                                         <span className="material-symbols-outlined text-sm">expand_more</span>
@@ -7993,7 +8203,7 @@
 
         /* ClockPage Component: Displays analog clock and alarm management */
         // ==========================================================================
-        //        // LABEL: ClockPage â€” Minimalist Samsung-style UI for clock, pomodoro, and alarms
+        //        // LABEL: ClockPage — Minimalist Samsung-style UI for clock, pomodoro, and alarms
         // FIX 2026-04-20: Redesigned for basic UI (Samsung-style), removed verbose descriptions, added edit mode
         const ClockPage = ({ user, onOpenCreator, alarms = [], onAddAlarm, onToggleAlarm, onDeleteAlarm, pomodoroTime, setPomodoroTime, isPomodoroActive, setIsPomodoroActive, pomodoroSessions, alarmOverlayPermission = false, onRequestAlarmOverlayPermission, onRefreshAlarmOverlayPermission, hasNativeAlarmBridge = false, alarmsOnly = false }) => {
             const location = useLocation();
@@ -8025,7 +8235,7 @@
             const minsArr = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
             const ampmArr = ['AM', 'PM'];
 
-            /* MOVED: getWaitTimeText 2026-04-20 â€” Now a global utility */
+            /* MOVED: getWaitTimeText 2026-04-20 — Now a global utility */
 
             const DayCircle = ({ day, active, onToggle }) => {
                 const label = ['S', 'M', 'T', 'W', 'T', 'F', 'S'][day];
@@ -8245,7 +8455,7 @@
                                     </div>
                                 </div>
 
-                                {/* LABEL: Pomodoro Focus Card â€” Integrated timer for deep work sessions */}
+                                {/* LABEL: Pomodoro Focus Card — Integrated timer for deep work sessions */}
                                 {/* FIX 2026-04-20: Added label title for Pomodoro section as requested */}
                                 <div id="faiora_pomodoro_header" className="flex items-center justify-between mb-2">
                                     <h2 className="text-xl font-bold text-cream-light/90 uppercase tracking-[0.25em]">Focus Mode</h2>
@@ -8444,7 +8654,7 @@
                                                     {getWaitTimeText(next.date)}
                                                 </p>
                                                 <p className="text-[10px] font-bold text-cream-light/30 uppercase tracking-widest mt-1">
-                                                    {(next.label || 'TITLE').toUpperCase()} • {next.date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+                                                    {(next.label || 'TITLE').toUpperCase()} � {next.date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
                                                 </p>
                                             </div>
                                         );
@@ -9162,7 +9372,7 @@
                                             {sortedTrashNotes.map(note => (
                                                 <div key={note.id} className="glass-panel p-4 rounded-2xl flex items-center justify-between gap-4 group border border-white/5 hover:border-primary/20 transition-all">
                                                     <div className="flex items-center gap-4 min-w-0">
-                                                        {/* trash_note_icon â€” Short Summary: Note's custom icon, consistent with dashboard */}
+                                                        {/* trash_note_icon — Short Summary: Note's custom icon, consistent with dashboard */}
                                                         <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center text-primary shrink-0">
                                                             <span className="material-symbols-outlined text-xl">{note.noteIcon || 'description'}</span>
                                                         </div>
@@ -9214,7 +9424,7 @@
                                             {sortedTrashQuickTasks.map(task => (
                                                 <div key={task.id} className="glass-panel p-4 rounded-2xl flex items-center justify-between gap-4 group border border-white/5 hover:border-amber-300/20 transition-all">
                                                     <div className="flex items-center gap-4 min-w-0">
-                                                        {/* trash_task_icon â€” Short Summary: Amber icon to distinguish tasks from notes */}
+                                                        {/* trash_task_icon — Short Summary: Amber icon to distinguish tasks from notes */}
                                                         <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-300 shrink-0">
                                                             <span className="material-symbols-outlined text-xl">checklist</span>
                                                         </div>
@@ -9222,7 +9432,7 @@
                                                             <h4 className="font-bold text-cream-light/90 truncate leading-tight">{formatTaskText(task.text)}</h4>
                                                             <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.15em] mt-1 text-slate-500">
                                                                 Deleted {new Date(task.deletedAt).toLocaleDateString()}
-                                                                {task.dueDate ? ` • Due ${task.dueTime ? formatDateMinimal(task.dueDate) : formatReminderDate(task.dueDate)}` : ''}
+                                                                {task.dueDate ? ` � Due ${task.dueTime ? formatDateMinimal(task.dueDate) : formatReminderDate(task.dueDate)}` : ''}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -9585,7 +9795,7 @@
                 return formatDateLocal(d);
             };
 
-            // FIX 2026-04-22: Moved getLaterTiming above extractDateFromText â€” needed by Bisaya 'unya' / Tagalog 'mamaya' patterns
+            // FIX 2026-04-22: Moved getLaterTiming above extractDateFromText — needed by Bisaya 'unya' / Tagalog 'mamaya' patterns
              const getLaterTiming = () => {
                 const now = new Date();
                 const hour = now.getHours();
@@ -9713,7 +9923,7 @@
                     { regex: /\b(?:next\s+)?(monday|mon|tuesday|tue|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun)\b/i }
                 ];
 
-                // FIX 2026-04-22: Bisaya/Cebuano & Tagalog time-of-day keywords â†’ mapped to specific times
+                // FIX 2026-04-22: Bisaya/Cebuano & Tagalog time-of-day keywords → mapped to specific times
                 const timeOfDayPatterns = [
                     // Bisaya / Cebuano
                     { regex: /\bunyang\s*gabie\b/i, offset: 0, time: '20:00' },  // tonight 8pm
@@ -9771,7 +9981,7 @@
                         if (match) {
                             const target = new Date();
                             if (p.offsetMonth) {
-                                // "next month" / "sunod buwan" â€” go to the 1st of next month
+                                // "next month" / "sunod buwan" — go to the 1st of next month
                                 target.setMonth(now.getMonth() + p.offsetMonth, 1);
                             } else if (p.offset !== undefined) {
                                 target.setDate(now.getDate() + p.offset);
@@ -10530,7 +10740,7 @@
         };
 
         // ==========================================================================
-        // LABEL: ALARM-OVERLAY-SYSTEM â€” Samsung-inspired alarm dismissal
+        // LABEL: ALARM-OVERLAY-SYSTEM — Samsung-inspired alarm dismissal
         // ==========================================================================
         const SamsungAlarmOverlay = ({ alarm, onDismiss }) => {
             const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
@@ -10592,16 +10802,16 @@
                     
                     {/* Ringing Info - Moved lower and text sized up */}
                     <div className="relative text-center mt-32 z-10">
-                        {/* overlay_status_label â€” Short Summary: Standard 'Alarm Ringing' title */}
+                        {/* overlay_status_label — Short Summary: Standard 'Alarm Ringing' title */}
                         <p id="alarm_overlay_status" className="text-primary font-black uppercase tracking-[0.4em] text-[12px] mb-6 animate-pulse">Alarm Ringing</p>
                         
-                        {/* overlay_time_display â€” Short Summary: Large high-contrast time readout */}
+                        {/* overlay_time_display — Short Summary: Large high-contrast time readout */}
                         <h1 id="alarm_overlay_time" className="text-8xl font-display font-light text-cream-light tracking-tight mb-4 scale-x-105 flex items-start justify-center gap-2">
                             <span>{timeParts.main}</span>
                             <span className="mt-4 text-lg font-black text-primary tracking-[0.24em]">{timeParts.suffix}</span>
                         </h1>
                         
-                        {/* overlay_alarm_label â€” Short Summary: The custom name given to the alarm */}
+                        {/* overlay_alarm_label — Short Summary: The custom name given to the alarm */}
                         <h2 id="alarm_overlay_label" className="text-3xl font-display italic text-white/50 tracking-wide">{alarm.label || 'Alarm'}</h2>
                     </div>
 
@@ -10700,7 +10910,7 @@
         );
 
         // ==========================================================================
-        // LABEL: APP-CORE â€” Main application component
+        // LABEL: APP-CORE — Main application component
         // State Management, Syncing, and Error Handling
         // ==========================================================================
         const App = () => {
@@ -10753,6 +10963,7 @@
             const noteSectionsRef = useRef(noteSections || []);
             const profileDataRef = useRef(profileData || {});
             const settingsDataRef = useRef(settingsData || {});
+            const noteBackupSyncRef = useRef({ active: {}, trash: {} });
             const isProbingRef = useRef(isProbing);
             const coldBootNeedsUnifiedHydrationRef = useRef(true);
             const quickTasksCollectionRef = useRef(quickTasksCollection);
@@ -11121,7 +11332,7 @@
                         label: alarm.label || 'Alarm',
                         time: alarm.time,
                         title: 'Alarm Ringing',
-                        body: `${alarm.label || 'Alarm'} • ${alarm.time}`
+                        body: `${alarm.label || 'Alarm'} � ${alarm.time}`
                     };
                     // FIX 2026-04-20: Improved background reliability. Trigger even if hidden to attempt sound playback.
                     FaioraNotifications.cancelAlarmNotification(alarm.id);
@@ -11198,9 +11409,9 @@
                         if (Number.isNaN(dueMs)) return;
                         const taskName = formatTaskText(task.text || task.title || 'Task');
                         [
-                            { stage: '24h', offsetMs: 24 * 60 * 60 * 1000, graceMs: 45 * 60 * 1000, body: `⚡ Due in 24hrs: ${taskName}` },
-                            { stage: '1h', offsetMs: 60 * 60 * 1000, graceMs: 20 * 60 * 1000, body: `⏳ Due in 1hr: ${taskName}` },
-                            { stage: 'due', offsetMs: 0, graceMs: 25 * 60 * 1000, body: `📌 Due Now: ${taskName}` }
+                            { stage: '24h', offsetMs: 24 * 60 * 60 * 1000, graceMs: 45 * 60 * 1000, body: `? Due in 24hrs: ${taskName}` },
+                            { stage: '1h', offsetMs: 60 * 60 * 1000, graceMs: 20 * 60 * 1000, body: `? Due in 1hr: ${taskName}` },
+                            { stage: 'due', offsetMs: 0, graceMs: 25 * 60 * 1000, body: `?? Due Now: ${taskName}` }
                         ].forEach(entry => {
                             const reminderKey = `${task.id}:${task.dueDate}:${task.dueTime || '23:59'}:${entry.stage}`;
                             activeKeys.add(reminderKey);
@@ -11211,7 +11422,7 @@
                             hasChanges = true;
                             const alertPayload = {
                                 id: Date.now() + Math.random(),
-                                title: 'Task Reminder! 🔥',
+                                title: 'Task Reminder! ??',
                                 body: entry.body,
                                 type: 'quick-task',
                                 tag: `faiora-fallback-${entry.stage}-${task.id}`,
@@ -11478,6 +11689,19 @@
                 });
                 return nextNotes;
             }, [toComparableTime]);
+            const visibleNotes = useMemo(() => {
+                const merged = [...(Array.isArray(notes) ? notes : [])];
+                const existingKeys = new Set(merged.map(note => `${note?.ownerId || user?.uid || 'self'}::${note?.sourceNoteId || note?.noteId || note?.id || ''}`));
+
+                (Array.isArray(sharedNotes) ? sharedNotes : []).forEach(note => {
+                    const sourceId = note?.sourceNoteId || note?.noteId || note?.id;
+                    const key = `${note?.ownerId || 'shared'}::${sourceId || ''}`;
+                    if (!sourceId || existingKeys.has(key)) return;
+                    merged.push(note);
+                });
+
+                return sortNotesForDisplay(merged);
+            }, [notes, sharedNotes, sortNotesForDisplay, user?.uid]);
             const scheduleCacheWrite = useCallback((key, value, label = 'cache') => {
                 const commit = () => {
                     try {
@@ -11494,6 +11718,100 @@
 
                 setTimeout(commit, 0);
             }, []);
+            useEffect(() => {
+                if (!user || user.isAnonymous) return;
+
+                const ownerId = user.uid;
+                const ownerEmail = user.email || '';
+                const defaultCollection = activeCollection || 'tasks';
+
+                (notes || []).forEach(note => {
+                    if (!note?.id || note?.isSharedNote) return;
+                    const noteOwnerId = note.ownerId || ownerId;
+                    if (noteOwnerId !== ownerId) return;
+
+                    const signature = buildNoteBackupSignature(note, 'active');
+                    if (noteBackupSyncRef.current.active[note.id] === signature) return;
+
+                    noteBackupSyncRef.current.active[note.id] = signature;
+                    delete noteBackupSyncRef.current.trash[note.id];
+                    syncNoteBackup(note, {
+                        noteId: note.sourceNoteId || note.noteId || note.id,
+                        ownerId,
+                        ownerEmail,
+                        ownerCollection: note.ownerCollection || defaultCollection,
+                        backupStatus: 'active'
+                    }).catch(error => console.warn('Note backup sync failed', error?.message || error));
+                });
+            }, [notes, user, activeCollection]);
+            useEffect(() => {
+                if (!user || user.isAnonymous) return;
+
+                const ownerId = user.uid;
+                const ownerEmail = user.email || '';
+                const defaultCollection = activeCollection || 'tasks';
+
+                (trashNotes || []).forEach(note => {
+                    if (!note?.id || note?.isSharedNote) return;
+                    const noteOwnerId = note.ownerId || ownerId;
+                    if (noteOwnerId !== ownerId) return;
+
+                    const signature = buildNoteBackupSignature(note, 'trashed');
+                    if (noteBackupSyncRef.current.trash[note.id] === signature) return;
+
+                    noteBackupSyncRef.current.trash[note.id] = signature;
+                    delete noteBackupSyncRef.current.active[note.id];
+                    syncNoteBackup(note, {
+                        noteId: note.sourceNoteId || note.noteId || note.id,
+                        ownerId,
+                        ownerEmail,
+                        ownerCollection: note.ownerCollection || defaultCollection,
+                        backupStatus: 'trashed',
+                        deletedAt: note.deletedAt || new Date().toISOString()
+                    }).catch(error => console.warn('Trash backup sync failed', error?.message || error));
+                });
+            }, [trashNotes, user, activeCollection]);
+            useEffect(() => {
+                if (!user || user.isAnonymous) return;
+
+                const ownerId = user.uid;
+                const ownerEmail = user.email || '';
+                const readableNotes = sortNotesForDisplay((notes || []).filter(note => !note?.isSharedNote)).map(note => ({
+                    noteId: note.sourceNoteId || note.noteId || note.id,
+                    title: note.title || '',
+                    content: note.content || '',
+                    labels: Array.isArray(note.labels) ? note.labels : [],
+                    noteTheme: note.noteTheme || '',
+                    noteIcon: note.noteIcon || '',
+                    reminderDate: note.reminderDate || '',
+                    isPinned: !!note.isPinned,
+                    section: note.section || '',
+                    updatedAt: note.updatedAt || null,
+                    backupDocId: buildNoteBackupId(note.ownerId || ownerId, note.sourceNoteId || note.noteId || note.id),
+                    backupStatus: 'active'
+                }));
+                const readableTrashNotes = (trashNotes || []).filter(note => !note?.isSharedNote).map(note => ({
+                    noteId: note.sourceNoteId || note.noteId || note.id,
+                    title: note.title || '',
+                    content: note.content || '',
+                    labels: Array.isArray(note.labels) ? note.labels : [],
+                    noteTheme: note.noteTheme || '',
+                    noteIcon: note.noteIcon || '',
+                    reminderDate: note.reminderDate || '',
+                    isPinned: !!note.isPinned,
+                    section: note.section || '',
+                    updatedAt: note.updatedAt || null,
+                    deletedAt: note.deletedAt || null,
+                    backupDocId: buildNoteBackupId(note.ownerId || ownerId, note.sourceNoteId || note.noteId || note.id),
+                    backupStatus: note.backupStatus || 'trashed'
+                }));
+
+                syncReadableNotesMirror(ownerId, {
+                    ownerEmail,
+                    readableNotes,
+                    readableTrashNotes
+                }).catch(error => console.warn('Readable notes mirror sync failed', error?.message || error));
+            }, [notes, trashNotes, user, sortNotesForDisplay]);
             const buildHydrationPayload = useCallback((noteData = {}, taskData = null) => {
                 if (!taskData || taskData === noteData) {
                     return noteData || {};
@@ -11575,7 +11893,7 @@
                     setIsFirstSyncDone(true);
                 }
 
-                console.log(`â˜ï¸ [SYNC] Hydrated payload from ${sourceCollection}. Tasks: ${includeQuickTasks ? fetchedQuickTasks.length : quickTasksRef.current.length}, Notes: ${includeNotes ? fetchedNotes.length : notesRef.current.length}`);
+                console.log(`☁️ [SYNC] Hydrated payload from ${sourceCollection}. Tasks: ${includeQuickTasks ? fetchedQuickTasks.length : quickTasksRef.current.length}, Notes: ${includeNotes ? fetchedNotes.length : notesRef.current.length}`);
                 return {
                     noteCount: fetchedNotes.length,
                     taskCount: fetchedQuickTasks.length,
@@ -11590,7 +11908,7 @@
             const [noteToLock, setNoteToLock] = useState(null);
             const [unlockingNote, setUnlockingNote] = useState(null);
             
-            // LABEL: POMODORO-STATE â€” Global persistence for the timer (v1.1.0)
+            // LABEL: POMODORO-STATE — Global persistence for the timer (v1.1.0)
             const [pomodoroTime, setPomodoroTime] = useState(25 * 60);
             const [isPomodoroActive, setIsPomodoroActive] = useState(false);
             const [pomodoroSessions, setPomodoroSessions] = useState(0);
@@ -11677,7 +11995,7 @@
                 return () => clearInterval(interval);
             }, [isPomodoroActive, pomodoroTime]);
 
-            // FIX 2026-04-20: Alarm Watchdog â€” Ensures missed alarms (due to background throttling) trigger when app is touched/seen
+            // FIX 2026-04-20: Alarm Watchdog — Ensures missed alarms (due to background throttling) trigger when app is touched/seen
             useEffect(() => {
                 const alarmWatchdog = setInterval(() => {
                     const now = new Date();
@@ -11881,7 +12199,7 @@
                         - Double-tap back button to exit app with toast confirmation
                      */
                      if (currentPath !== '/') {
-                         // Not on home â€” navigate to home and scroll to top
+                         // Not on home — navigate to home and scroll to top
                          redirectToHomeFromBack(false);
                          return;
                      }
@@ -12050,14 +12368,14 @@
                         console.log("[SYNC] Watchdog: 10s passed with no data. Forcing server fetch...");
                         db.collection(activeCollection).doc(uid).get({ source: 'server' }).then(snap => {
                             if (snap.exists) {
-                                console.log("âœ¨ [SYNC] Watchdog Force Fetch: Success.");
+                                console.log("✨ [SYNC] Watchdog Force Fetch: Success.");
                                 setIsSyncHealthy(true);
                             } else {
                                 console.warn("[SYNC] Watchdog Force Fetch: No data found.");
                                 setIsSyncHealthy(false);
                             }
                         }).catch(e => {
-                            console.error("âŒ [SYNC] Watchdog Force Fetch: Failed.", e.message);
+                            console.error("❌ [SYNC] Watchdog Force Fetch: Failed.", e.message);
                             setIsSyncHealthy(false);
                         });
                     }
@@ -12084,7 +12402,7 @@
                             roughNoteCount === 0;
 
                         if (shouldDeferPartialBootSnapshot || shouldDeferBlankColdBoot) {
-                            console.log(`â¸ï¸ [SYNC] Deferring cold-boot snapshot from ${activeCollection} until discovery resolves real data sources.`);
+                            console.log(`⏸️ [SYNC] Deferring cold-boot snapshot from ${activeCollection} until discovery resolves real data sources.`);
                             return;
                         }
 
@@ -12117,7 +12435,7 @@
                                 
                                 if (milestones[nextStreak] && !nextRewards.includes(milestones[nextStreak])) {
                                     nextRewards.push(milestones[nextStreak]);
-                                    showToast(`🏆 Milestone Unlocked: ${milestones[nextStreak]}!`);
+                                    showToast(`?? Milestone Unlocked: ${milestones[nextStreak]}!`);
                                 }
                                 
                                 const updated = {
@@ -12127,17 +12445,17 @@
                                     rewards: nextRewards
                                 };
 
-                                console.log("🔥 [GAMIFICATION] Streak calculated:", updated);
+                                console.log("?? [GAMIFICATION] Streak calculated:", updated);
                                 setGamification(updated);
                                 db.collection(activeCollection).doc(uid).set({ gamification: updated }, { merge: true }).catch(() => {});
                                 
                                 if (nextStreak > (cloudGamification.currentStreak || 0)) {
-                                    setTimeout(() => showToast(`🔥 Streak Extended! ${nextStreak} Days`), 2000);
+                                    setTimeout(() => showToast(`?? Streak Extended! ${nextStreak} Days`), 2000);
                                 }
                             }
                         }
                     } else {
-                        console.warn(`⚠️ [SYNC] Document does not exist in '${activeCollection}' for UID: ${uid}`);
+                        console.warn(`?? [SYNC] Document does not exist in '${activeCollection}' for UID: ${uid}`);
                         if (coldBootNeedsUnifiedHydrationRef.current && isProbingRef.current) {
                             console.log(`[SYNC] Holding skeleton because '${activeCollection}' has no document yet during source discovery.`);
                             return;
@@ -12186,31 +12504,47 @@
 
             // 3. Shared Notes Discovery (Email-based)
             useEffect(() => {
-                if (!user || user.isAnonymous) return;
+                if (!user || user.isAnonymous) {
+                    setSharedNotes([]);
+                    return;
+                }
 
-                // Listen for notes shared with this user's email
-                const email = user.email ? user.email.toLowerCase() : '';
-                if (!email) return;
+                const email = normalizeEmailAddress(user.email);
+                if (!email) {
+                    setSharedNotes([]);
+                    return;
+                }
 
-                // This is a more complex query. For simplicity in this implementation, 
-                // we'll assume a shared_notes_access collection if we wanted high scale,
-                // but for now we'll query the tasks collection for any document where notes contain the user's email in sharedWith.
-                // Note: Firestore doesn't easily support "array-contains" on nested map fields across all docs.
-                // A better way: The owner adds a record to a 'shared_access' collection.
-                
-                const unsubscribe = db.collection('shared_access').where('sharedWith', '==', email).onSnapshot(snapshot => {
-                    const sharedDocs = [];
-                    snapshot.forEach(doc => {
-                        sharedDocs.push({ id: doc.id, ...doc.data() });
-                    });
-                    
-                    // Fetch the actual notes from their owners' docs
-                    // (In a real app, this would be optimized)
-                    setSharedNotes(sharedDocs);
+                const unsubscribe = db.collection(NOTE_BACKUP_COLLECTION).where('sharedWith', 'array-contains', email).onSnapshot(snapshot => {
+                    const nextSharedNotes = sortNotesForDisplay(
+                        snapshot.docs
+                            .map(doc => {
+                                const data = doc.data() || {};
+                                const sourceId = data.sourceNoteId || data.noteId || data.id;
+                                if (!sourceId || !data.ownerId || data.ownerId === user.uid) return null;
+                                if (data.backupStatus && data.backupStatus !== 'active') return null;
+
+                                return {
+                                    ...data,
+                                    id: buildSharedRuntimeNoteId(data.ownerId, sourceId),
+                                    noteId: sourceId,
+                                    sourceNoteId: sourceId,
+                                    ownerEmail: normalizeEmailAddress(data.ownerEmail),
+                                    isSharedNote: true,
+                                    sharedLabel: 'Shared Note',
+                                    sharedRecipient: email
+                                };
+                            })
+                            .filter(Boolean)
+                    );
+                    setSharedNotes(nextSharedNotes);
+                }, error => {
+                    console.warn('Shared notes sync failed', error?.message || error);
+                    setSharedNotes([]);
                 });
 
                 return () => unsubscribe();
-            }, [user]);
+            }, [user, sortNotesForDisplay]);
 
             // 4. Public Note Routing
             useEffect(() => {
@@ -12273,6 +12607,18 @@
             }, [user, activeCollection]);
 
             const handleUpdateNoteLocal = useCallback((updatedNote) => {
+                const isForeignSharedNote = !!updatedNote?.isSharedNote && !!updatedNote?.ownerId && !!user?.uid && updatedNote.ownerId !== user.uid;
+                if (isForeignSharedNote) {
+                    setSharedNotes(prev => {
+                        const idx = prev.findIndex(n => n.id === updatedNote.id);
+                        const nextShared = [...prev];
+                        if (idx > -1) nextShared[idx] = updatedNote;
+                        else nextShared.push(updatedNote);
+                        return sortNotesForDisplay(nextShared);
+                    });
+                    return;
+                }
+
                 setNotes(prev => {
                     const idx = prev.findIndex(n => n.id === updatedNote.id);
                     const newNotes = [...prev];
@@ -12304,7 +12650,7 @@
                     
                     return newNotes;
                 });
-            }, [user]);
+            }, [user, sortNotesForDisplay]);
 
             const handleDeleteNoteLocal = useCallback((noteId) => {
                 setNotes(prev => {
@@ -12377,7 +12723,7 @@
             // Bulk update: partially update a note by id (or create if isNew)
             const handleBulkUpdate = useCallback((noteId, updates, isNew = false) => {
                 if (isProbing) {
-                    console.warn('âš ï¸ [SYNC] Note update paused while discovering writable collection...');
+                    console.warn('⚠️ [SYNC] Note update paused while discovering writable collection...');
                     return;
                 }
                 setNotes(prev => {
@@ -12410,7 +12756,7 @@
             // Bulk delete: move note to Trash and sync to Firestore
             const handleBulkDelete = useCallback((noteId) => {
                 if (isProbing) {
-                    console.warn('âš ï¸ [SYNC] Note delete paused while discovering writable collection...');
+                    console.warn('⚠️ [SYNC] Note delete paused while discovering writable collection...');
                     return;
                 }
                 const noteToTrash = notes.find(n => n.id === noteId);
@@ -12457,10 +12803,21 @@
 
             const handlePermanentDelete = useCallback((noteId) => {
                 if (!user || !activeCollection) return;
+                const noteToDelete = trashNotesRef.current.find(note => note.id === noteId);
                 const nextTrashNotes = trashNotesRef.current.filter(note => note.id !== noteId);
                 setTrashNotes(nextTrashNotes);
                 trashNotesRef.current = nextTrashNotes;
                 localStorage.setItem('faiora_trash_notes_' + user.uid, JSON.stringify(nextTrashNotes));
+                if (noteToDelete) {
+                    syncNoteBackup(noteToDelete, {
+                        noteId: noteToDelete.sourceNoteId || noteToDelete.noteId || noteToDelete.id,
+                        ownerId: noteToDelete.ownerId || user.uid,
+                        ownerEmail: noteToDelete.ownerEmail || user.email || '',
+                        ownerCollection: noteToDelete.ownerCollection || activeCollection,
+                        backupStatus: 'deleted',
+                        deletedAt: noteToDelete.deletedAt || new Date().toISOString()
+                    }).catch(e => console.warn('Permanent delete backup sync fail', e?.message || e));
+                }
                 db.collection(activeCollection).doc(user.uid).update({
                     [`trash.${noteId}`]: firebase.firestore.FieldValue.delete()
                 }).catch(e => console.warn('Permanent delete sync fail', e));
@@ -12469,9 +12826,20 @@
 
             const handleEmptyTrash = useCallback(() => {
                 if (!user || !activeCollection) return;
+                const trashedNotes = [...trashNotesRef.current];
                 setTrashNotes([]);
                 trashNotesRef.current = [];
                 localStorage.setItem('faiora_trash_notes_' + user.uid, JSON.stringify([]));
+                trashedNotes.forEach(note => {
+                    syncNoteBackup(note, {
+                        noteId: note.sourceNoteId || note.noteId || note.id,
+                        ownerId: note.ownerId || user.uid,
+                        ownerEmail: note.ownerEmail || user.email || '',
+                        ownerCollection: note.ownerCollection || activeCollection,
+                        backupStatus: 'deleted',
+                        deletedAt: note.deletedAt || new Date().toISOString()
+                    }).catch(() => {});
+                });
                 db.collection(activeCollection).doc(user.uid).update({
                     trash: firebase.firestore.FieldValue.delete()
                 }).catch(e => console.warn('Empty trash fail', e));
@@ -12614,11 +12982,13 @@
                 localStorage.setItem('faiora_sections', JSON.stringify(updated));
                 
                 let affectedNoteIds = [];
+                const affectedNotes = [];
                 setNotes(prev => {
                     if (deleteNotes) {
                         const newNotes = prev.filter(n => {
                             if (n.section === name) {
                                 affectedNoteIds.push(n.id);
+                                affectedNotes.push(n);
                                 return false; // Delete it completely
                             }
                             return true;
@@ -12653,6 +13023,18 @@
                     }
                     db.collection(activeCollection).doc(user.uid).update(updates).catch(e => console.warn('Section delete sync fail', e));
                 }
+                if (deleteNotes && user) {
+                    affectedNotes.forEach(note => {
+                        syncNoteBackup(note, {
+                            noteId: note.sourceNoteId || note.noteId || note.id,
+                            ownerId: note.ownerId || user.uid,
+                            ownerEmail: note.ownerEmail || user.email || '',
+                            ownerCollection: note.ownerCollection || activeCollection || 'tasks',
+                            backupStatus: 'deleted',
+                            deletedAt: new Date().toISOString()
+                        }).catch(() => {});
+                    });
+                }
             }, [user, activeCollection, noteSections]);
 
             const handleMoveNoteToSection = useCallback((noteId, sectionName) => {
@@ -12670,7 +13052,7 @@
                 if (showToast) showToast('Moved to ' + (sectionName || 'All Notes'));
             }, [user, activeCollection, showToast]);
 
-            // --- Redundant Definitions Removed â€” Hoisted to top of App ---
+            // --- Redundant Definitions Removed — Hoisted to top of App ---
 
             const handleUpdateQuickTasksLegacy = useCallback((updatedTasks, specificUpdate = null) => {
                 setQuickTasks(updatedTasks);
@@ -12681,7 +13063,7 @@
                 
                 if (currentUser) {
                     if (isProbing) {
-                        console.warn('âš ï¸ [SYNC] Modifications paused while discovering writable collection...');
+                        console.warn('⚠️ [SYNC] Modifications paused while discovering writable collection...');
                         return;
                     }
                     console.log(`[SYNC] Syncing QuickTasks [${activeCollection}]:`, specificUpdate ? 'Partial' : 'Full');
@@ -12691,28 +13073,28 @@
                         if (specificUpdate) {
                             // Atomic field update
                             docRef.update(specificUpdate)
-                                .then(() => console.log('âœ… QuickTasks partial sync successful'))
+                                .then(() => console.log('✅ QuickTasks partial sync successful'))
                                 .catch(e => {
-                                    console.warn('âš ï¸ Partial sync failed, executing aggressive set(merge:true) fallback:', e.message);
+                                    console.warn('⚠️ Partial sync failed, executing aggressive set(merge:true) fallback:', e.message);
                                     // Bypasses PERMISSION DENIED if it was caused by structural mismatch (Array vs Map)
                                     docRef.set({ quickTasks: updatedTasks }, { merge: true })
-                                        .then(() => console.log('âœ… Aggressive fallback: QuickTasks sync successful'))
+                                        .then(() => console.log('✅ Aggressive fallback: QuickTasks sync successful'))
                                         .catch(err => {
-                                            console.error('âŒ QuickTasks WRITE PERMISSION DENIED on', activeCollection, ':', err.message);
+                                            console.error('❌ QuickTasks WRITE PERMISSION DENIED on', activeCollection, ':', err.message);
                                             showToast("Database error. Please refresh or try again.");
                                         });
                                 });
                         } else {
                             // Fallback / Bulk update
                             docRef.set({ quickTasks: updatedTasks }, { merge: true })
-                                .then(() => console.log('âœ… QuickTasks full sync successful'))
-                                .catch(e => console.error('âŒ QuickTasks full sync FAILED:', e.message));
+                                .then(() => console.log('✅ QuickTasks full sync successful'))
+                                .catch(e => console.error('❌ QuickTasks full sync FAILED:', e.message));
                         }
                     } else {
-                        console.warn('âš ï¸ activeCollection is falsy - cannot sync quick tasks');
+                        console.warn('⚠️ activeCollection is falsy - cannot sync quick tasks');
                     }
                 } else {
-                    console.warn('âš ï¸ No currentUser â€” cannot save quick tasks');
+                    console.warn('⚠️ No currentUser — cannot save quick tasks');
                 }
             }, [activeCollection, isProbing, quickTasksCollection]);
 
@@ -13084,7 +13466,7 @@
                 }
             };
 
-            // Fires as soon as Google popup/native sign-in resolves â€” before onAuthStateChanged in some browsers.
+            // Fires as soon as Google popup/native sign-in resolves — before onAuthStateChanged in some browsers.
             useEffect(() => {
                 const onSignedIn = (e) => {
                     const signedUser = e.detail;
@@ -13100,7 +13482,7 @@
                 return () => window.removeEventListener('faiora-signed-in', onSignedIn);
             }, []);
 
-            // APK / WebView: OAuth or resume can strip or break the hash â€” no Route match â†’ blank screen.
+            // APK / WebView: OAuth or resume can strip or break the hash — no Route match → blank screen.
             useEffect(() => {
                 if (!user) return;
                 try {
@@ -13281,7 +13663,7 @@
                                         }
                                     }
                                 } catch (metaErr) {
-                                    console.warn("âš ï¸ [SYNC] Consensus check failed, falling back to local discovery race.");
+                                    console.warn("⚠️ [SYNC] Consensus check failed, falling back to local discovery race.");
                                 }
 
                                 const runProbe = async () => {
@@ -13328,7 +13710,7 @@
                                                 const consolidated = await consolidateCollections(u.uid, splitSources, [bestCollection, lastColl, richest.coll]);
                                                 if (consolidated?.coll) {
                                                     hydrateResolvedPayload({ uid: u.uid, data: consolidated.payload, sourceCollection: consolidated.coll, markReady: true });
-                                                    console.log(`âœ… [PROBE] Consolidated split data into '${consolidated.coll}'.`);
+                                                    console.log(`✅ [PROBE] Consolidated split data into '${consolidated.coll}'.`);
                                                     return consolidated.coll;
                                                 }
                                             }
@@ -13467,7 +13849,7 @@
                             const sampleNotes = {
                                 "note_seed_1": {
                                     id: "note_seed_1",
-                                    title: "🚀 Project Faiora",
+                                    title: "?? Project Faiora",
                                     content: "<div>Building a powerful productivity suite with React and Firestore. Focus on <b>premium design</b> and <b>fluid UI</b>.</div>",
                                     noteIcon: "rocket_launch",
                                     noteTheme: "warm4",
@@ -13476,7 +13858,7 @@
                                 },
                                 "note_seed_2": {
                                     id: "note_seed_2",
-                                    title: "🛒 Shopping List",
+                                    title: "?? Shopping List",
                                     content: "<div><ul><li>Coffee beans (Medium Roast)</li><li>Oat milk</li><li>Avocados</li><li>Sourdough bread</li></ul></div>",
                                     noteIcon: "shopping_cart",
                                     noteTheme: "cool1",
@@ -13485,7 +13867,7 @@
                                 },
                                 "note_seed_3": {
                                     id: "note_seed_3",
-                                    title: "💡 Morning Routine",
+                                    title: "?? Morning Routine",
                                     content: "<div>1. Meditation (10m)<br>2. Journaling<br>3. High-intensity workout<br>4. Cold shower</div>",
                                     noteIcon: "wb_sunny",
                                     noteTheme: "warm1",
@@ -13526,9 +13908,9 @@
                                     notes: sampleNotes,
                                     quickTasks: sampleTasks
                                 }, { merge: true });
-                                console.log("âœ¨ [SUCCESS] Account seeded with sample data! Please refresh to see changes.");
+                                console.log("✨ [SUCCESS] Account seeded with sample data! Please refresh to see changes.");
                             } catch(e) {
-                                console.error("âŒ [ERROR] Seeding failed:", e.message);
+                                console.error("❌ [ERROR] Seeding failed:", e.message);
                             }
                         };
                         }, 0);
@@ -13593,7 +13975,7 @@
             // If the app is ready but find 0 notes while tasks exist, automatically trigger a one-time
             // background deep scan to find data in legacy collections that the initial prober might have missed.
             useEffect(() => {
-                // [NEW 2026-04-20] REDUCED SYNC AGGRESSION â€” Hyper-Turbo Step 3
+                // [NEW 2026-04-20] REDUCED SYNC AGGRESSION — Hyper-Turbo Step 3
                 // The 'Deep Search' intensive sweep was over-triggering during boot, causing
                 // network congestion and the '1-2 minute' loading stall.
                 // We now wait until the primary discovery (isProbing) has fully settled.
@@ -13694,7 +14076,7 @@
             }
 
             // ==========================================================================
-            // LABEL: APP-RENDER â€” Main JSX Structure and Routing
+            // LABEL: APP-RENDER — Main JSX Structure and Routing
             // ==========================================================================
             return (
                 <HashRouter>
@@ -13721,7 +14103,7 @@
                             onTransitionEnd={() => setIsTransitioning(false)}
                         >
                         <Route path="/" element={<DashboardPage user={user} notes={notes} quickTasks={quickTasks} alarms={alarms} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} onReorderPriorityNote={handleReorderPriorityNote} onToggleQuickTask={handleToggleQuickTask} onAddQuickTaskClick={() => { handleOpenQuickTaskModal(); }} onDeleteQuickTask={handleDeleteQuickTask} onUpdateQuickTask={handleUpdateQuickTask} onEditQuickTask={handleOpenQuickTaskEditor} editingQuickTask={editingQuickTask} setEditingQuickTask={setEditingQuickTask} isQuickTaskModalOpen={isQuickTaskModalOpen} setIsQuickTaskModalOpen={setIsQuickTaskModalOpen} onRemoveReminder={handleRemoveReminder} isProbing={isProbing} isFirstSyncDone={isFirstSyncDone} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} setIsPomodoroActive={setIsPomodoroActive} />} />
-                        <Route path="/notes" element={<NotesPage user={user} notes={notes} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} noteSections={noteSections} onAddSection={handleAddSection} onDeleteSection={handleDeleteSection} onMoveNote={handleMoveNoteToSection} onReorderNote={handleReorderNote} onRemoveReminder={handleRemoveReminder} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} isProbing={isProbing} isFirstSyncDone={isFirstSyncDone} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
+                        <Route path="/notes" element={<NotesPage user={user} notes={visibleNotes} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} noteSections={noteSections} onAddSection={handleAddSection} onDeleteSection={handleDeleteSection} onMoveNote={handleMoveNoteToSection} onReorderNote={handleReorderNote} onRemoveReminder={handleRemoveReminder} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} isProbing={isProbing} isFirstSyncDone={isFirstSyncDone} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
                         <Route path="/quick-tasks" element={<QuickTasksPage user={user} quickTasks={quickTasks} onOpenCreator={handleOpenCreator} onToggleQuickTask={handleToggleQuickTask} onAddQuickTaskClick={() => { handleOpenQuickTaskModal(); }} onDeleteQuickTask={handleDeleteQuickTask} onEditQuickTask={handleOpenQuickTaskEditor} isProbing={isProbing} isFirstSyncDone={isFirstSyncDone} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
                         <Route path="/calendar" element={
                             <CalendarPage 
@@ -13783,7 +14165,7 @@
                             }}
                         />
                     )}
-                    {/* LABEL: OVERLAY-ALARM-PORTAL â€” Custom Samsung-style ringing interface */}
+                    {/* LABEL: OVERLAY-ALARM-PORTAL — Custom Samsung-style ringing interface */}
                     {activeAlarmAlert && !shouldUseNativeAlarmUi() && typeof document !== 'undefined' && ReactDOM.createPortal(
                         <SamsungAlarmOverlay 
                             alarm={activeAlarmAlert} 
@@ -13792,7 +14174,7 @@
                         document.body
                     )}
 
-                    {/* LABEL: PERMISSION-MODAL-PORTAL â€” Prompt for overlay permissions */}
+                    {/* LABEL: PERMISSION-MODAL-PORTAL — Prompt for overlay permissions */}
                     {showPermissionModal && typeof document !== 'undefined' && ReactDOM.createPortal(
                         <PermissionModal 
                             onGrant={() => {
@@ -13937,3 +14319,12 @@
     </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
