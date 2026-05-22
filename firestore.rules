@@ -1,0 +1,119 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.email == 'admin@admin.com';
+    }
+
+    function keepsShareOwnership() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'ownerId',
+        'ownerEmail',
+        'ownerCollection',
+        'sourceCollection',
+        'sourceNoteId',
+        'noteId',
+        'id',
+        'publicShareToken',
+        'adminBackSync'
+      ]);
+    }
+
+    function publicShareEditAllowed() {
+      return signedIn()
+        && resource.data.isPublic == true
+        && resource.data.allowPublicEdit == true
+        && request.resource.data.isPublic == resource.data.isPublic
+        && request.resource.data.allowPublicEdit == resource.data.allowPublicEdit
+        && keepsShareOwnership();
+    }
+
+    match /public_shares/{token} {
+      allow read: if resource.data.isPublic == true
+        || isAdmin()
+        || (signedIn() && resource.data.ownerId == request.auth.uid);
+      allow create: if isAdmin()
+        || (signedIn() && request.resource.data.ownerId == request.auth.uid);
+      allow update: if isAdmin()
+        || (signedIn() && resource.data.ownerId == request.auth.uid)
+        || publicShareEditAllowed();
+      allow delete: if isAdmin() || (signedIn() && resource.data.ownerId == request.auth.uid);
+    }
+
+    match /users_public/{userId} {
+      allow read: if isAdmin() || isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.uid == userId;
+      allow create, update: if isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    match /faiora_metadata/{userId} {
+      allow read: if isAdmin() || isOwner(userId);
+      allow write: if isOwner(userId) || isAdmin();
+    }
+
+    match /sentNotifications/{docId} {
+      allow read: if signedIn();
+    }
+
+    match /fcmTokens/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /{collection}/{userId} {
+      allow read, write: if isOwner(userId);
+      allow read: if isAdmin()
+        && collection in [
+          'tasks',
+          'notes',
+          'users',
+          'userdata',
+          'users_public',
+          'faiora_data',
+          'user_metadata',
+          'metadata',
+          'profiles',
+          'user_accounts',
+          'leaderboard',
+          'faiora',
+          'planner',
+          'data',
+          'my_data',
+          'user_notes',
+          'planner_data',
+          'faiora_v1',
+          'cloud_notes'
+        ];
+      allow write: if isAdmin()
+        && collection in [
+          'tasks',
+          'notes',
+          'users',
+          'userdata',
+          'faiora_data',
+          'user_metadata',
+          'metadata',
+          'profiles',
+          'user_accounts',
+          'faiora',
+          'planner',
+          'data',
+          'my_data',
+          'user_notes',
+          'planner_data',
+          'faiora_v1',
+          'cloud_notes'
+        ];
+    }
+  }
+}

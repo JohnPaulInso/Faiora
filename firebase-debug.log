@@ -1,0 +1,320 @@
+[debug] [2026-05-21T16:48:35.079Z] ----------------------------------------------------------------------
+[debug] [2026-05-21T16:48:35.081Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Lenovo\AppData\Local\npm-cache\_npx\7750544ccf494d8b\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions
+[debug] [2026-05-21T16:48:35.081Z] CLI Version:   15.18.0
+[debug] [2026-05-21T16:48:35.081Z] Platform:      win32
+[debug] [2026-05-21T16:48:35.081Z] Node Version:  v25.4.0
+[debug] [2026-05-21T16:48:35.081Z] Time:          Fri May 22 2026 00:48:35 GMT+0800 (Taiwan Standard Time)
+[debug] [2026-05-21T16:48:35.081Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-21T16:48:39.290Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-21T16:48:39.292Z] > authorizing via signed-in user (johnpaulinso123@gmail.com)
+[debug] [2026-05-21T16:48:39.294Z] [iam] checking project faiora-24f4a for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2026-05-21T16:48:39.297Z] Checked if tokens are valid: false, expires at: 1779355386307
+[debug] [2026-05-21T16:48:39.298Z] Checked if tokens are valid: false, expires at: 1779355386307
+[debug] [2026-05-21T16:48:39.298Z] > refreshing access token with scopes: []
+[debug] [2026-05-21T16:48:39.304Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-05-21T16:48:39.304Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-05-21T16:48:39.582Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-05-21T16:48:39.583Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-05-21T16:48:39.625Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions [none]
+[debug] [2026-05-21T16:48:39.625Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions  x-goog-user-project=faiora-24f4a
+[debug] [2026-05-21T16:48:39.626Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-05-21T16:48:40.670Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions 200
+[debug] [2026-05-21T16:48:40.670Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-05-21T16:48:40.672Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:40.672Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:40.674Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/faiora-24f4a/serviceAccounts/faiora-24f4a@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-05-21T16:48:40.674Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/faiora-24f4a/serviceAccounts/faiora-24f4a@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-05-21T16:48:41.944Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/faiora-24f4a/serviceAccounts/faiora-24f4a@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2026-05-21T16:48:41.944Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/faiora-24f4a/serviceAccounts/faiora-24f4a@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'faiora-24f4a'...
+[info] 
+[info] i  deploying functions 
+[debug] [2026-05-21T16:48:41.951Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:41.951Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:41.951Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a [none]
+[debug] [2026-05-21T16:48:42.207Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a 200
+[debug] [2026-05-21T16:48:42.208Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a {"projectNumber":"752265363994","projectId":"faiora-24f4a","lifecycleState":"ACTIVE","name":"Faiora","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2026-02-26T04:41:43.453357Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2026-05-21T16:48:42.210Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:42.210Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:42.211Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/faiora-24f4a/adminSdkConfig [none]
+[debug] [2026-05-21T16:48:42.690Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/faiora-24f4a/adminSdkConfig 200
+[debug] [2026-05-21T16:48:42.690Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/faiora-24f4a/adminSdkConfig {"projectId":"faiora-24f4a","storageBucket":"faiora-24f4a.firebasestorage.app"}
+[debug] [2026-05-21T16:48:42.691Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:42.691Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:42.691Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/faiora-24f4a/configs [none]
+[debug] [2026-05-21T16:48:43.270Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/faiora-24f4a/configs 200
+[debug] [2026-05-21T16:48:43.270Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/faiora-24f4a/configs {}
+[debug] [2026-05-21T16:48:43.271Z] Validating nodejs source
+[warn] !  functions: Runtime Node.js 20 was deprecated on 2026-04-30 and will be decommissioned on 2026-10-30, after which you will not be able to deploy without upgrading. Consider upgrading now to avoid disruption. See https://cloud.google.com/functions/docs/runtime-support for full details on the lifecycle policy 
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2026-05-21T16:48:44.620Z] > [functions] package.json contents: {
+  "name": "faiora-functions",
+  "description": "Faiora Cloud Functions — Push notification scheduler for Quick Tasks",
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^5.0.0"
+  }
+}
+[debug] [2026-05-21T16:48:44.621Z] Building nodejs source
+[info] i  functions: Loading and analyzing source code for codebase default to determine what to deploy 
+[debug] [2026-05-21T16:48:44.631Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-05-21T16:48:44.661Z] Found firebase-functions binary at 'C:\Users\Lenovo\Desktop\faiora\functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8043
+
+[debug] [2026-05-21T16:48:45.936Z] Got response from /__/functions.yaml {"endpoints":{"sendTaskNotifications":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"sendTaskNotifications"},"cleanupSentNotifications":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"cleanupSentNotifications"},"adminApi":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"httpsTrigger":{},"entryPoint":"adminApi"}},"specVersion":"v1alpha1","requiredAPIs":[{"api":"cloudscheduler.googleapis.com","reason":"Needed for scheduled functions."}],"extensions":{}}
+[debug] [2026-05-21T16:48:50.096Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:50.096Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:50.097Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v1/projects/faiora-24f4a/locations/-/functions [none]
+[debug] [2026-05-21T16:48:51.128Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v1/projects/faiora-24f4a/locations/-/functions 200
+[debug] [2026-05-21T16:48:51.130Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v1/projects/faiora-24f4a/locations/-/functions {"functions":[{"name":"projects/faiora-24f4a/locations/us-central1/functions/sendTaskNotifications","eventTrigger":{"eventType":"google.pubsub.topic.publish","resource":"projects/faiora-24f4a/topics/firebase-schedule-sendTaskNotifications-us-central1","service":"pubsub.googleapis.com","failurePolicy":{}},"status":"ACTIVE","entryPoint":"sendTaskNotifications","timeout":"60s","availableMemoryMb":256,"serviceAccountEmail":"faiora-24f4a@appspot.gserviceaccount.com","updateTime":"2026-03-30T02:24:24.819313099Z","versionId":"1","labels":{"deployment-scheduled":"true","firebase-functions-hash":"dedf91cd748e76f8df15eba165faae08a2ca3761","deployment-tool":"cli-firebase"},"sourceUploadUrl":"https://storage.googleapis.com/uploads-105602040024.us-central1.cloudfunctions.appspot.com/3fff1838-1906-42ac-b39f-0d65402c79ae.zip","environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"faiora-24f4a\",\"storageBucket\":\"faiora-24f4a.firebasestorage.app\"}","GCLOUD_PROJECT":"faiora-24f4a","EVENTARC_CLOUD_EVENT_SOURCE":"projects/faiora-24f4a/locations/us-central1/functions/sendTaskNotifications"},"runtime":"nodejs20","maxInstances":3000,"ingressSettings":"ALLOW_ALL","buildId":"2972126a-7e00-4574-8a4f-13c8a0f17c4a","buildEnvironmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"buildName":"projects/752265363994/locations/us-central1/builds/2972126a-7e00-4574-8a4f-13c8a0f17c4a","dockerRegistry":"ARTIFACT_REGISTRY","automaticUpdatePolicy":{},"buildServiceAccount":"projects/faiora-24f4a/serviceAccounts/752265363994-compute@developer.gserviceaccount.com"},{"name":"projects/faiora-24f4a/locations/us-central1/functions/cleanupSentNotifications","eventTrigger":{"eventType":"google.pubsub.topic.publish","resource":"projects/faiora-24f4a/topics/firebase-schedule-cleanupSentNotifications-us-central1","service":"pubsub.googleapis.com","failurePolicy":{}},"status":"ACTIVE","entryPoint":"cleanupSentNotifications","timeout":"60s","availableMemoryMb":256,"serviceAccountEmail":"faiora-24f4a@appspot.gserviceaccount.com","updateTime":"2026-03-30T02:24:24.851240581Z","versionId":"1","labels":{"deployment-tool":"cli-firebase","deployment-scheduled":"true","firebase-functions-hash":"dedf91cd748e76f8df15eba165faae08a2ca3761"},"sourceUploadUrl":"https://storage.googleapis.com/uploads-105602040024.us-central1.cloudfunctions.appspot.com/3fff1838-1906-42ac-b39f-0d65402c79ae.zip","environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"faiora-24f4a\",\"storageBucket\":\"faiora-24f4a.firebasestorage.app\"}","GCLOUD_PROJECT":"faiora-24f4a","EVENTARC_CLOUD_EVENT_SOURCE":"projects/faiora-24f4a/locations/us-central1/functions/cleanupSentNotifications"},"runtime":"nodejs20","maxInstances":3000,"ingressSettings":"ALLOW_ALL","buildId":"2972126a-7e00-4574-8a4f-13c8a0f17c4a","buildEnvironmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"buildName":"projects/752265363994/locations/us-central1/builds/2972126a-7e00-4574-8a4f-13c8a0f17c4a","dockerRegistry":"ARTIFACT_REGISTRY","automaticUpdatePolicy":{},"buildServiceAccount":"projects/faiora-24f4a/serviceAccounts/752265363994-compute@developer.gserviceaccount.com"}]}
+[debug] [2026-05-21T16:48:51.136Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:51.136Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:51.137Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/faiora-24f4a/locations/-/functions filter=environment%3D%22GEN_2%22
+[debug] [2026-05-21T16:48:52.542Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/faiora-24f4a/locations/-/functions 200
+[debug] [2026-05-21T16:48:52.543Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/faiora-24f4a/locations/-/functions {}
+[info] i  extensions: ensuring required API firebaseextensions.googleapis.com is enabled... 
+[debug] [2026-05-21T16:48:52.556Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-21T16:48:52.558Z] > authorizing via signed-in user (johnpaulinso123@gmail.com)
+[debug] [2026-05-21T16:48:52.558Z] [iam] checking project faiora-24f4a for permissions ["firebase.projects.get","firebaseextensions.instances.list"]
+[debug] [2026-05-21T16:48:52.559Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:52.560Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:52.562Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions [none]
+[debug] [2026-05-21T16:48:52.563Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions  x-goog-user-project=faiora-24f4a
+[debug] [2026-05-21T16:48:52.564Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions {"permissions":["firebase.projects.get","firebaseextensions.instances.list"]}
+[debug] [2026-05-21T16:48:53.578Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions 200
+[debug] [2026-05-21T16:48:53.579Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions {"permissions":["firebase.projects.get","firebaseextensions.instances.list"]}
+[debug] [2026-05-21T16:48:53.583Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:53.585Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:53.587Z] >>> [apiv2][query] GET https://firebaseextensions.googleapis.com/v1beta/projects/faiora-24f4a/instances pageSize=100&pageToken=
+[debug] [2026-05-21T16:48:54.871Z] <<< [apiv2][status] GET https://firebaseextensions.googleapis.com/v1beta/projects/faiora-24f4a/instances 200
+[debug] [2026-05-21T16:48:54.872Z] <<< [apiv2][body] GET https://firebaseextensions.googleapis.com/v1beta/projects/faiora-24f4a/instances {}
+[info] i  functions: preparing functions directory for uploading... 
+[info] i  functions: packaged C:\Users\Lenovo\Desktop\faiora\functions (40.55 KB) for uploading 
+[info] i  functions: ensuring required API cloudscheduler.googleapis.com is enabled... 
+[debug] [2026-05-21T16:48:54.909Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:54.909Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:54.909Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a [none]
+[debug] [2026-05-21T16:48:55.156Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a 200
+[debug] [2026-05-21T16:48:55.156Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a {"projectNumber":"752265363994","projectId":"faiora-24f4a","lifecycleState":"ACTIVE","name":"Faiora","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2026-02-26T04:41:43.453357Z"}
+[debug] [2026-05-21T16:48:55.157Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:55.157Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:48:55.157Z] >>> [apiv2][query] GET https://cloudbilling.googleapis.com/v1/projects/faiora-24f4a/billingInfo [none]
+[debug] [2026-05-21T16:48:56.384Z] <<< [apiv2][status] GET https://cloudbilling.googleapis.com/v1/projects/faiora-24f4a/billingInfo 200
+[debug] [2026-05-21T16:48:56.385Z] <<< [apiv2][body] GET https://cloudbilling.googleapis.com/v1/projects/faiora-24f4a/billingInfo {"name":"projects/faiora-24f4a/billingInfo","projectId":"faiora-24f4a","billingAccountName":"","billingEnabled":false}
+[error] 
+[error] Error: Extensions require the Blaze plan, but project faiora-24f4a is not on the Blaze plan. Please visit https://console.cloud.google.com/billing/linkedaccount?project=faiora-24f4a to upgrade your project.
+[debug] [2026-05-21T16:53:06.257Z] ----------------------------------------------------------------------
+[debug] [2026-05-21T16:53:06.260Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Lenovo\AppData\Local\npm-cache\_npx\7750544ccf494d8b\node_modules\firebase-tools\lib\bin\firebase.js deploy --only firestore:rules
+[debug] [2026-05-21T16:53:06.260Z] CLI Version:   15.18.0
+[debug] [2026-05-21T16:53:06.261Z] Platform:      win32
+[debug] [2026-05-21T16:53:06.261Z] Node Version:  v25.4.0
+[debug] [2026-05-21T16:53:06.261Z] Time:          Fri May 22 2026 00:53:06 GMT+0800 (Taiwan Standard Time)
+[debug] [2026-05-21T16:53:06.261Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-21T16:53:08.220Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-21T16:53:08.220Z] > authorizing via signed-in user (johnpaulinso123@gmail.com)
+[debug] [2026-05-21T16:53:08.220Z] [iam] checking project faiora-24f4a for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-05-21T16:53:08.221Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:08.221Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:08.222Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions [none]
+[debug] [2026-05-21T16:53:08.222Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions  x-goog-user-project=faiora-24f4a
+[debug] [2026-05-21T16:53:08.222Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-05-21T16:53:09.347Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions 200
+[debug] [2026-05-21T16:53:09.347Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[info] 
+[info] === Deploying to 'faiora-24f4a'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-05-21T16:53:09.354Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:09.355Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:09.355Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/faiora-24f4a/services/firestore.googleapis.com [none]
+[debug] [2026-05-21T16:53:09.356Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/faiora-24f4a/services/firestore.googleapis.com  x-goog-user-project=faiora-24f4a
+[debug] [2026-05-21T16:53:10.775Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/faiora-24f4a/services/firestore.googleapis.com 200
+[debug] [2026-05-21T16:53:10.776Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/faiora-24f4a/services/firestore.googleapis.com [omitted]
+[info] +  firestore: required API firestore.googleapis.com is enabled 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-05-21T16:53:11.197Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:11.197Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:11.198Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/faiora-24f4a/databases/(default) [none]
+[debug] [2026-05-21T16:53:12.500Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/faiora-24f4a/databases/(default) 200
+[debug] [2026-05-21T16:53:12.501Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/faiora-24f4a/databases/(default) {"name":"projects/faiora-24f4a/databases/(default)","uid":"2f69984c-90c3-4d88-bcf0-61864dcc8d5c","createTime":"2026-02-26T04:43:18.777853Z","updateTime":"2026-02-26T04:43:18.777853Z","locationId":"nam5","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2026-05-21T15:53:11.804620Z","appEngineIntegrationMode":"DISABLED","keyPrefix":"s","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","etag":"IOqhiPvrypQDMOu+97Dph5MD"}
+[info] i  cloud.firestore: checking firestore.rules for compilation errors... 
+[debug] [2026-05-21T16:53:12.503Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:12.504Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:12.504Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a:test [none]
+[debug] [2026-05-21T16:53:12.505Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a:test [omitted]
+[debug] [2026-05-21T16:53:13.845Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a:test 200
+[debug] [2026-05-21T16:53:13.845Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a:test {}
+[info] +  cloud.firestore: rules file firestore.rules compiled successfully 
+[debug] [2026-05-21T16:53:13.846Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:13.846Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:13.847Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases pageSize=10&pageToken=
+[debug] [2026-05-21T16:53:14.985Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases 200
+[debug] [2026-05-21T16:53:14.985Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases {"releases":[{"name":"projects/faiora-24f4a/releases/cloud.firestore","rulesetName":"projects/faiora-24f4a/rulesets/e47fb663-2bd5-457d-b5b4-966a0a4297d9","createTime":"2026-02-26T04:43:24.455101Z","updateTime":"2026-05-21T08:49:34.551346Z"}]}
+[debug] [2026-05-21T16:53:14.986Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:14.986Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:14.987Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets/e47fb663-2bd5-457d-b5b4-966a0a4297d9 [none]
+[debug] [2026-05-21T16:53:16.049Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets/e47fb663-2bd5-457d-b5b4-966a0a4297d9 200
+[debug] [2026-05-21T16:53:16.050Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets/e47fb663-2bd5-457d-b5b4-966a0a4297d9 [omitted]
+[info] i  firestore: uploading rules firestore.rules... 
+[debug] [2026-05-21T16:53:16.053Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:16.053Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:16.055Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets [none]
+[debug] [2026-05-21T16:53:16.055Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets [omitted]
+[debug] [2026-05-21T16:53:16.565Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets 200
+[debug] [2026-05-21T16:53:16.566Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets {"name":"projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153","source":{"files":[{"content":"rules_version = '2';\n\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    function signedIn() {\n      return request.auth != null;\n    }\n\n    function isOwner(userId) {\n      return signedIn() && request.auth.uid == userId;\n    }\n\n    function isAdmin() {\n      return signedIn() && request.auth.token.email == 'admin@admin.com';\n    }\n\n    match /public_shares/{token} {\n      allow read: if true;\n      allow create, update: if signedIn();\n      allow delete: if isAdmin() || (signedIn() && resource.data.ownerId == request.auth.uid);\n    }\n\n    match /users_public/{userId} {\n      allow read: if isAdmin() || isOwner(userId);\n      allow create, update: if isOwner(userId)\n        && request.resource.data.uid == userId;\n      allow create, update: if isAdmin();\n      allow delete: if isOwner(userId) || isAdmin();\n    }\n\n    match /faiora_metadata/{userId} {\n      allow read: if isAdmin() || isOwner(userId);\n      allow write: if isOwner(userId) || isAdmin();\n    }\n\n    match /sentNotifications/{docId} {\n      allow read: if signedIn();\n    }\n\n    match /fcmTokens/{userId} {\n      allow read, write: if isOwner(userId);\n    }\n\n    match /{collection}/{userId} {\n      allow read, write: if isOwner(userId);\n      allow read: if isAdmin()\n        && collection in [\n          'tasks',\n          'notes',\n          'users',\n          'userdata',\n          'users_public',\n          'faiora_data',\n          'user_metadata',\n          'metadata',\n          'profiles',\n          'user_accounts',\n          'leaderboard',\n          'faiora',\n          'planner',\n          'data',\n          'my_data',\n          'user_notes',\n          'planner_data',\n          'faiora_v1',\n          'cloud_notes'\n        ];\n      allow write: if isAdmin()\n        && collection in [\n          'tasks',\n          'notes',\n          'users',\n          'userdata',\n          'faiora_data',\n          'user_metadata',\n          'metadata',\n          'profiles',\n          'user_accounts',\n          'faiora',\n          'planner',\n          'data',\n          'my_data',\n          'user_notes',\n          'planner_data',\n          'faiora_v1',\n          'cloud_notes'\n        ];\n    }\n  }\n}\n","name":"firestore.rules"}]},"createTime":"2026-05-21T16:53:15.842223Z","metadata":{"services":["cloud.firestore"]}}
+[debug] [2026-05-21T16:53:16.566Z] [rules] created ruleset projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153
+[debug] [2026-05-21T16:53:16.567Z] [rules] releasing cloud.firestore with ruleset projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153
+[debug] [2026-05-21T16:53:16.567Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:16.568Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:53:16.568Z] >>> [apiv2][query] PATCH https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases/cloud.firestore [none]
+[debug] [2026-05-21T16:53:16.568Z] >>> [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases/cloud.firestore {"release":{"name":"projects/faiora-24f4a/releases/cloud.firestore","rulesetName":"projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153"}}
+[debug] [2026-05-21T16:53:16.922Z] <<< [apiv2][status] PATCH https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases/cloud.firestore 200
+[debug] [2026-05-21T16:53:16.922Z] <<< [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases/cloud.firestore {"name":"projects/faiora-24f4a/releases/cloud.firestore","rulesetName":"projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153","createTime":"2026-02-26T04:43:24.455101Z","updateTime":"2026-05-21T16:53:16.203940Z"}
+[debug] [2026-05-21T16:53:16.922Z] [rules] updated release projects/faiora-24f4a/releases/cloud.firestore
+[info] +  firestore: released rules firestore.rules to cloud.firestore 
+[info] 
+[info] +  Deploy complete! 
+[info] 
+[info] Project Console: https://console.firebase.google.com/project/faiora-24f4a/overview
+[debug] [2026-05-21T16:54:46.239Z] ----------------------------------------------------------------------
+[debug] [2026-05-21T16:54:46.242Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Lenovo\AppData\Local\npm-cache\_npx\7750544ccf494d8b\node_modules\firebase-tools\lib\bin\firebase.js deploy --only firestore:rules
+[debug] [2026-05-21T16:54:46.242Z] CLI Version:   15.18.0
+[debug] [2026-05-21T16:54:46.242Z] Platform:      win32
+[debug] [2026-05-21T16:54:46.242Z] Node Version:  v25.4.0
+[debug] [2026-05-21T16:54:46.242Z] Time:          Fri May 22 2026 00:54:46 GMT+0800 (Taiwan Standard Time)
+[debug] [2026-05-21T16:54:46.242Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-21T16:54:50.068Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-21T16:54:50.069Z] > authorizing via signed-in user (johnpaulinso123@gmail.com)
+[debug] [2026-05-21T16:54:50.071Z] [iam] checking project faiora-24f4a for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-05-21T16:54:50.075Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:54:50.075Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:54:50.079Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions [none]
+[debug] [2026-05-21T16:54:50.080Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions  x-goog-user-project=faiora-24f4a
+[debug] [2026-05-21T16:54:50.081Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-05-21T16:54:51.318Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions 200
+[debug] [2026-05-21T16:54:51.319Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[info] 
+[info] === Deploying to 'faiora-24f4a'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-05-21T16:54:51.331Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:54:51.332Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:54:51.332Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/faiora-24f4a/databases/(default) [none]
+[debug] [2026-05-21T16:54:52.648Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/faiora-24f4a/databases/(default) 200
+[debug] [2026-05-21T16:54:52.649Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/faiora-24f4a/databases/(default) {"name":"projects/faiora-24f4a/databases/(default)","uid":"2f69984c-90c3-4d88-bcf0-61864dcc8d5c","createTime":"2026-02-26T04:43:18.777853Z","updateTime":"2026-02-26T04:43:18.777853Z","locationId":"nam5","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2026-05-21T15:54:51.953383Z","appEngineIntegrationMode":"DISABLED","keyPrefix":"s","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","etag":"IPjs6KrsypQDMOu+97Dph5MD"}
+[info] i  cloud.firestore: checking firestore.rules for compilation errors... 
+[debug] [2026-05-21T16:54:52.651Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:54:52.651Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:54:52.651Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a:test [none]
+[debug] [2026-05-21T16:54:52.651Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a:test [omitted]
+[debug] [2026-05-21T16:54:53.802Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a:test 200
+[debug] [2026-05-21T16:54:53.802Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a:test {}
+[info] +  cloud.firestore: rules file firestore.rules compiled successfully 
+[debug] [2026-05-21T16:54:53.808Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:54:53.808Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:54:53.809Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases pageSize=10&pageToken=
+[debug] [2026-05-21T16:54:54.897Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases 200
+[debug] [2026-05-21T16:54:54.897Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases {"releases":[{"name":"projects/faiora-24f4a/releases/cloud.firestore","rulesetName":"projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153","createTime":"2026-02-26T04:43:24.455101Z","updateTime":"2026-05-21T16:53:16.203940Z"}]}
+[debug] [2026-05-21T16:54:54.898Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:54:54.898Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:54:54.898Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153 [none]
+[debug] [2026-05-21T16:54:55.951Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153 200
+[debug] [2026-05-21T16:54:55.951Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153 [omitted]
+[info] i  firestore: latest version of firestore.rules already up to date, skipping upload... 
+[debug] [2026-05-21T16:54:55.953Z] [rules] releasing cloud.firestore with ruleset projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153
+[debug] [2026-05-21T16:54:55.954Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:54:55.954Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T16:54:55.954Z] >>> [apiv2][query] PATCH https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases/cloud.firestore [none]
+[debug] [2026-05-21T16:54:55.955Z] >>> [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases/cloud.firestore {"release":{"name":"projects/faiora-24f4a/releases/cloud.firestore","rulesetName":"projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153"}}
+[debug] [2026-05-21T16:54:56.405Z] <<< [apiv2][status] PATCH https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases/cloud.firestore 200
+[debug] [2026-05-21T16:54:56.405Z] <<< [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases/cloud.firestore {"name":"projects/faiora-24f4a/releases/cloud.firestore","rulesetName":"projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153","createTime":"2026-02-26T04:43:24.455101Z","updateTime":"2026-05-21T16:54:55.706084Z"}
+[debug] [2026-05-21T16:54:56.405Z] [rules] updated release projects/faiora-24f4a/releases/cloud.firestore
+[info] +  firestore: released rules firestore.rules to cloud.firestore 
+[info] 
+[info] +  Deploy complete! 
+[info] 
+[info] Project Console: https://console.firebase.google.com/project/faiora-24f4a/overview
+[debug] [2026-05-21T17:04:16.332Z] ----------------------------------------------------------------------
+[debug] [2026-05-21T17:04:16.337Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Lenovo\AppData\Local\npm-cache\_npx\7750544ccf494d8b\node_modules\firebase-tools\lib\bin\firebase.js deploy --only firestore:rules
+[debug] [2026-05-21T17:04:16.337Z] CLI Version:   15.18.0
+[debug] [2026-05-21T17:04:16.338Z] Platform:      win32
+[debug] [2026-05-21T17:04:16.338Z] Node Version:  v25.4.0
+[debug] [2026-05-21T17:04:16.338Z] Time:          Fri May 22 2026 01:04:16 GMT+0800 (Taiwan Standard Time)
+[debug] [2026-05-21T17:04:16.338Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-21T17:04:17.843Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-21T17:04:17.843Z] > authorizing via signed-in user (johnpaulinso123@gmail.com)
+[debug] [2026-05-21T17:04:17.843Z] [iam] checking project faiora-24f4a for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-05-21T17:04:17.845Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T17:04:17.845Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T17:04:17.846Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions [none]
+[debug] [2026-05-21T17:04:17.846Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions  x-goog-user-project=faiora-24f4a
+[debug] [2026-05-21T17:04:17.846Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-05-21T17:04:19.068Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions 200
+[debug] [2026-05-21T17:04:19.068Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/faiora-24f4a:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[info] 
+[info] === Deploying to 'faiora-24f4a'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-05-21T17:04:19.070Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T17:04:19.070Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T17:04:19.070Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/faiora-24f4a/databases/(default) [none]
+[debug] [2026-05-21T17:04:20.387Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/faiora-24f4a/databases/(default) 200
+[debug] [2026-05-21T17:04:20.387Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/faiora-24f4a/databases/(default) {"name":"projects/faiora-24f4a/databases/(default)","uid":"2f69984c-90c3-4d88-bcf0-61864dcc8d5c","createTime":"2026-02-26T04:43:18.777853Z","updateTime":"2026-02-26T04:43:18.777853Z","locationId":"nam5","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2026-05-21T16:04:19.680671Z","appEngineIntegrationMode":"DISABLED","keyPrefix":"s","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","etag":"IPCQxLnuypQDMOu+97Dph5MD"}
+[info] i  cloud.firestore: checking firestore.rules for compilation errors... 
+[debug] [2026-05-21T17:04:20.388Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T17:04:20.388Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T17:04:20.388Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a:test [none]
+[debug] [2026-05-21T17:04:20.388Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a:test [omitted]
+[debug] [2026-05-21T17:04:20.965Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a:test 200
+[debug] [2026-05-21T17:04:20.966Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a:test {}
+[info] +  cloud.firestore: rules file firestore.rules compiled successfully 
+[debug] [2026-05-21T17:04:20.966Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T17:04:20.966Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T17:04:20.966Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases pageSize=10&pageToken=
+[debug] [2026-05-21T17:04:21.413Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases 200
+[debug] [2026-05-21T17:04:21.414Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases {"releases":[{"name":"projects/faiora-24f4a/releases/cloud.firestore","rulesetName":"projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153","createTime":"2026-02-26T04:43:24.455101Z","updateTime":"2026-05-21T16:54:55.706084Z"}]}
+[debug] [2026-05-21T17:04:21.414Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T17:04:21.414Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T17:04:21.414Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153 [none]
+[debug] [2026-05-21T17:04:22.517Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153 200
+[debug] [2026-05-21T17:04:22.517Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets/f7e448fa-255a-48f4-81ae-a257a6347153 [omitted]
+[info] i  firestore: uploading rules firestore.rules... 
+[debug] [2026-05-21T17:04:22.518Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T17:04:22.518Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T17:04:22.518Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets [none]
+[debug] [2026-05-21T17:04:22.518Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets [omitted]
+[debug] [2026-05-21T17:04:23.643Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets 200
+[debug] [2026-05-21T17:04:23.644Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/rulesets {"name":"projects/faiora-24f4a/rulesets/0e680e6f-aa66-407b-997e-829806e1c10b","source":{"files":[{"content":"rules_version = '2';\n\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    function signedIn() {\n      return request.auth != null;\n    }\n\n    function isOwner(userId) {\n      return signedIn() && request.auth.uid == userId;\n    }\n\n    function isAdmin() {\n      return signedIn() && request.auth.token.email == 'admin@admin.com';\n    }\n\n    function keepsShareOwnership() {\n      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([\n        'ownerId',\n        'ownerEmail',\n        'ownerCollection',\n        'sourceCollection',\n        'sourceNoteId',\n        'noteId',\n        'id',\n        'publicShareToken',\n        'adminBackSync'\n      ]);\n    }\n\n    function publicShareEditAllowed() {\n      return signedIn()\n        && resource.data.isPublic == true\n        && resource.data.allowPublicEdit == true\n        && request.resource.data.isPublic == resource.data.isPublic\n        && request.resource.data.allowPublicEdit == resource.data.allowPublicEdit\n        && keepsShareOwnership();\n    }\n\n    match /public_shares/{token} {\n      allow read: if resource.data.isPublic == true\n        || isAdmin()\n        || (signedIn() && resource.data.ownerId == request.auth.uid);\n      allow create: if isAdmin()\n        || (signedIn() && request.resource.data.ownerId == request.auth.uid);\n      allow update: if isAdmin()\n        || (signedIn() && resource.data.ownerId == request.auth.uid)\n        || publicShareEditAllowed();\n      allow delete: if isAdmin() || (signedIn() && resource.data.ownerId == request.auth.uid);\n    }\n\n    match /users_public/{userId} {\n      allow read: if isAdmin() || isOwner(userId);\n      allow create, update: if isOwner(userId)\n        && request.resource.data.uid == userId;\n      allow create, update: if isAdmin();\n      allow delete: if isOwner(userId) || isAdmin();\n    }\n\n    match /faiora_metadata/{userId} {\n      allow read: if isAdmin() || isOwner(userId);\n      allow write: if isOwner(userId) || isAdmin();\n    }\n\n    match /sentNotifications/{docId} {\n      allow read: if signedIn();\n    }\n\n    match /fcmTokens/{userId} {\n      allow read, write: if isOwner(userId);\n    }\n\n    match /{collection}/{userId} {\n      allow read, write: if isOwner(userId);\n      allow read: if isAdmin()\n        && collection in [\n          'tasks',\n          'notes',\n          'users',\n          'userdata',\n          'users_public',\n          'faiora_data',\n          'user_metadata',\n          'metadata',\n          'profiles',\n          'user_accounts',\n          'leaderboard',\n          'faiora',\n          'planner',\n          'data',\n          'my_data',\n          'user_notes',\n          'planner_data',\n          'faiora_v1',\n          'cloud_notes'\n        ];\n      allow write: if isAdmin()\n        && collection in [\n          'tasks',\n          'notes',\n          'users',\n          'userdata',\n          'faiora_data',\n          'user_metadata',\n          'metadata',\n          'profiles',\n          'user_accounts',\n          'faiora',\n          'planner',\n          'data',\n          'my_data',\n          'user_notes',\n          'planner_data',\n          'faiora_v1',\n          'cloud_notes'\n        ];\n    }\n  }\n}\n","name":"firestore.rules"}]},"createTime":"2026-05-21T17:04:22.922703Z","metadata":{"services":["cloud.firestore"]}}
+[debug] [2026-05-21T17:04:23.644Z] [rules] created ruleset projects/faiora-24f4a/rulesets/0e680e6f-aa66-407b-997e-829806e1c10b
+[debug] [2026-05-21T17:04:23.644Z] [rules] releasing cloud.firestore with ruleset projects/faiora-24f4a/rulesets/0e680e6f-aa66-407b-997e-829806e1c10b
+[debug] [2026-05-21T17:04:23.644Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T17:04:23.645Z] Checked if tokens are valid: true, expires at: 1779385718584
+[debug] [2026-05-21T17:04:23.645Z] >>> [apiv2][query] PATCH https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases/cloud.firestore [none]
+[debug] [2026-05-21T17:04:23.645Z] >>> [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases/cloud.firestore {"release":{"name":"projects/faiora-24f4a/releases/cloud.firestore","rulesetName":"projects/faiora-24f4a/rulesets/0e680e6f-aa66-407b-997e-829806e1c10b"}}
+[debug] [2026-05-21T17:04:24.176Z] <<< [apiv2][status] PATCH https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases/cloud.firestore 200
+[debug] [2026-05-21T17:04:24.176Z] <<< [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/faiora-24f4a/releases/cloud.firestore {"name":"projects/faiora-24f4a/releases/cloud.firestore","rulesetName":"projects/faiora-24f4a/rulesets/0e680e6f-aa66-407b-997e-829806e1c10b","createTime":"2026-02-26T04:43:24.455101Z","updateTime":"2026-05-21T17:04:23.454574Z"}
+[debug] [2026-05-21T17:04:24.176Z] [rules] updated release projects/faiora-24f4a/releases/cloud.firestore
+[info] +  firestore: released rules firestore.rules to cloud.firestore 
+[info] 
+[info] +  Deploy complete! 
+[info] 
+[info] Project Console: https://console.firebase.google.com/project/faiora-24f4a/overview

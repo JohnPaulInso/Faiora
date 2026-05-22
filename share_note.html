@@ -375,9 +375,37 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
+        const CLOUD_ADMIN_API = 'https://us-central1-faiora-24f4a.cloudfunctions.net/adminApi';
+        const LOCAL_ADMIN_API = 'http://localhost:5001/faiora-24f4a/us-central1/adminApi';
+        const getAdminApiBase = () => ['localhost', '127.0.0.1'].includes(window.location.hostname) ? LOCAL_ADMIN_API : CLOUD_ADMIN_API;
+        const callAdminApi = async (path, payload) => {
+            const currentUser = auth.currentUser;
+            if (!currentUser) throw new Error('Admin sign-in required.');
+            const token = await currentUser.getIdToken(true);
+            const response = await fetch(`${getAdminApiBase().replace(/\/+$/, '')}/${path}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(payload || {})
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.ok === false) {
+                throw new Error(data.error || `Admin API request failed (${response.status})`);
+            }
+            return data;
+        };
+        const isPermissionError = (error) => {
+            const code = String(error?.code || '').toLowerCase();
+            const message = String(error?.message || '').toLowerCase();
+            return code.includes('permission-denied') || message.includes('missing or insufficient permissions') || message.includes('permission');
+        };
+        const isAdminUser = (currentUser) => String(currentUser?.email || '').toLowerCase() === 'admin@admin.com';
 
         const ShareApp = () => {
             const [user, setUser] = useState(null);
+            const [authReady, setAuthReady] = useState(false);
             const [note, setNote] = useState(null);
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
@@ -588,12 +616,16 @@
             useEffect(() => {
                 const unsubscribe = auth.onAuthStateChanged((u) => {
                     setUser(u);
+                    setAuthReady(true);
                     console.log("Auth state changed:", u ? `User: ${u.uid}` : "Guest");
                 });
                 return () => unsubscribe();
             }, []);
 
             useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                const adminRequested = params.has('adminEdit') || params.has('adminView');
+                if (adminRequested && !authReady) return;
                 const hash = window.location.hash;
                 const token = hash.replace(/^#\/?/, '').split('/').pop();
                 if (!token) { setLoading(false); setError("invalid_token"); return; }
@@ -603,7 +635,9 @@
                     setLoading(false);
                     if (doc.exists) {
                         const data = doc.data();
-                        if (data.isPublic) {
+                        const canViewPrivate = adminRequested && isAdminUser(auth.currentUser);
+                        const canOwnerView = auth.currentUser?.uid && data.ownerId === auth.currentUser.uid;
+                        if (data.isPublic || canViewPrivate || canOwnerView) {
                             // Always process incoming remote changes for real-time sync
                             setNote(prev => {
                                 // Real-time sync of content to editor
@@ -641,7 +675,7 @@
                 });
 
                 return () => unsubscribe();
-            }, []);
+            }, [authReady, user]);
 
             const saveToFirestore = useCallback(async (updates = {}, force = false) => {
                 const token = window.location.hash.split('/').pop();
@@ -652,12 +686,70 @@
                     // Only send fields that actually exist in the share document or are being updated
                     const cleanUpdates = { ...updates };
                     cleanUpdates.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                    const params = new URLSearchParams(window.location.search);
+                    const adminEditSession = (params.has('adminEdit') || params.has('adminView')) && isAdminUser(auth.currentUser);
+                    [
+                        'ownerId',
+                        'ownerEmail',
+                        'ownerCollection',
+                        'sourceCollection',
+                        'sourceNoteId',
+                        'noteId',
+                        'id',
+                        'publicShareToken',
+                        'adminBackSync'
+                    ].forEach((field) => delete cleanUpdates[field]);
+                    if (!adminEditSession) {
+                        delete cleanUpdates.isPublic;
+                        delete cleanUpdates.allowPublicEdit;
+                    }
 
                     // Remove any undefined fields
                     Object.keys(cleanUpdates).forEach(key => cleanUpdates[key] === undefined && delete cleanUpdates[key]);
 
                     // Use update instead of set to avoid permission issues and preserve other fields
                     await db.collection('public_shares').doc(token).update(cleanUpdates);
+
+                    const activeNote = note || {};
+                    const isAdminEdit = adminEditSession && activeNote.adminBackSync;
+                    const ownerId = activeNote.ownerId || '';
+                    const ownerCollection = activeNote.ownerCollection || activeNote.sourceCollection || '';
+                    const sourceNoteId = activeNote.sourceNoteId || activeNote.noteId || activeNote.id || '';
+                    if (isAdminEdit && ownerId && ownerCollection && sourceNoteId) {
+                        const ownerNote = {
+                            ...activeNote,
+                            ...cleanUpdates,
+                            id: sourceNoteId,
+                            noteId: sourceNoteId,
+                            sourceNoteId,
+                            ownerId,
+                            ownerCollection,
+                            sourceCollection: ownerCollection,
+                            publicShareToken: token,
+                            isPublic: cleanUpdates.isPublic ?? activeNote.isPublic ?? false,
+                            allowPublicEdit: cleanUpdates.allowPublicEdit ?? activeNote.allowPublicEdit ?? false
+                        };
+                        const ownerRef = db.collection(ownerCollection).doc(ownerId);
+                        await ownerRef.update(new firebase.firestore.FieldPath('notes', sourceNoteId), ownerNote)
+                            .catch(async (ownerWriteError) => {
+                                if (ownerWriteError?.code === 'not-found') {
+                                    await ownerRef.set(
+                                        { notes: { [sourceNoteId]: ownerNote } },
+                                        { mergeFields: [new firebase.firestore.FieldPath('notes', sourceNoteId)] }
+                                    );
+                                    return;
+                                }
+                                if (isPermissionError(ownerWriteError)) {
+                                    await callAdminApi('note/save', {
+                                        ownerId,
+                                        collection: ownerCollection,
+                                        note: ownerNote
+                                    });
+                                    return;
+                                }
+                                throw ownerWriteError;
+                            });
+                    }
                     
                     setHasChanges(false);
                     hasChangesRef.current = false;
@@ -670,7 +762,7 @@
                 } finally {
                     setIsSaving(false);
                 }
-            }, [hasChanges]);
+            }, [hasChanges, note, user]);
 
             // Debounced Auto-Save
             const hasInitializedRef = useRef(false);
@@ -1252,7 +1344,10 @@
             );
 
             const activeTheme = themes.find(t => t.id === note.noteTheme) || themes[0];
-            const canEdit = note.allowPublicEdit;
+            const params = new URLSearchParams(window.location.search);
+            const adminAccess = (params.has('adminEdit') || params.has('adminView')) && isAdminUser(user);
+            const ownerAccess = !!(user?.uid && note.ownerId === user.uid);
+            const canEdit = !!(adminAccess || ownerAccess || (note.isPublic && note.allowPublicEdit && user));
             const title = note.title || '';
             const labels = note.labels || [];
             const isPinned = note.isPinned || false;
@@ -1300,6 +1395,36 @@
                             )}
                             <div className="flex justify-between items-start mb-4 relative z-10">
                                 <div className="flex-1 flex flex-col gap-2">
+                                    {adminAccess && (
+                                        <div className="flex flex-wrap items-center gap-2 px-0 md:px-4 mb-1">
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-600 bg-black/5 px-2 py-1 rounded-lg font-montserrat">
+                                                <span className="material-symbols-outlined text-sm">admin_panel_settings</span>
+                                                Admin sharing
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const nextPublic = !note.isPublic;
+                                                    setNote(prev => ({ ...prev, isPublic: nextPublic }));
+                                                    saveToFirestore({ isPublic: nextPublic }, true);
+                                                }}
+                                                className={"text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border transition-all font-montserrat " + (note.isPublic ? "bg-emerald-500/15 text-emerald-700 border-emerald-500/30" : "bg-slate-900/10 text-slate-600 border-slate-900/10")}
+                                            >
+                                                {note.isPublic ? 'Public' : 'Private'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const nextEditable = !note.allowPublicEdit;
+                                                    setNote(prev => ({ ...prev, allowPublicEdit: nextEditable }));
+                                                    saveToFirestore({ allowPublicEdit: nextEditable }, true);
+                                                }}
+                                                className={"text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border transition-all font-montserrat " + (note.allowPublicEdit ? "bg-primary/15 text-primary border-primary/30" : "bg-slate-900/10 text-slate-600 border-slate-900/10")}
+                                            >
+                                                {note.allowPublicEdit ? 'Shared users can edit' : 'Read only'}
+                                            </button>
+                                        </div>
+                                    )}
                                     <div className="flex items-center gap-2">
                                     <input 
                                         type="text" 
