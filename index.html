@@ -6316,9 +6316,11 @@
                 if (showToast) showToast(`Category "${clean}" added`);
             };
 
-            // (2026-07-13) High-performance pointer capture drag to sort. Prev: document listener
+            // (2026-07-13) Step-based vertical drag sorting with reliable persistence. Prev: bound rect check
             const [dragOffsetY, setDragOffsetY] = useState(0);
             const dragHandleRef = useRef(null);
+            const overIdxRef = useRef(null);
+            const ROW_HEIGHT = 56;
 
             const handlePointerDown = (e, idx) => {
                 if (e.target.closest('button, input')) return;
@@ -6327,6 +6329,7 @@
                 
                 isDraggingRef.current = true;
                 dragStartIdx.current = idx;
+                overIdxRef.current = idx;
                 dragHandleRef.current = { pointerId: e.pointerId, startY: e.clientY, target };
                 setDraggingIdx(idx);
                 setOverIdx(idx);
@@ -6335,22 +6338,16 @@
             };
 
             const handlePointerMove = (e) => {
-                if (!isDraggingRef.current || !dragHandleRef.current || !listRef.current) return;
+                if (!isDraggingRef.current || !dragHandleRef.current) return;
                 const dy = e.clientY - dragHandleRef.current.startY;
                 setDragOffsetY(dy);
 
                 const currentIdx = dragStartIdx.current;
-                const rows = Array.from(listRef.current.querySelectorAll('[data-cat-row]'));
-                let targetIdx = currentIdx;
+                const step = Math.round(dy / ROW_HEIGHT);
+                const targetIdx = Math.max(0, Math.min(orderedCats.length - 1, currentIdx + step));
 
-                rows.forEach((row, i) => {
-                    const rect = row.getBoundingClientRect();
-                    if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
-                        targetIdx = i;
-                    }
-                });
-
-                if (targetIdx !== overIdx) {
+                if (targetIdx !== overIdxRef.current) {
+                    overIdxRef.current = targetIdx;
                     setOverIdx(targetIdx);
                     if (navigator.vibrate) try { navigator.vibrate(15); } catch {}
                 }
@@ -6359,26 +6356,23 @@
             const handlePointerUp = (e) => {
                 if (!isDraggingRef.current) return;
                 const currentDrag = dragStartIdx.current;
-                const currentOver = overIdx;
+                const currentOver = overIdxRef.current;
 
                 if (dragHandleRef.current && dragHandleRef.current.target) {
                     try { dragHandleRef.current.target.releasePointerCapture(dragHandleRef.current.pointerId); } catch {}
                 }
 
                 if (currentDrag !== null && currentOver !== null && currentOver !== currentDrag) {
-                    setOrderedCats(prev => {
-                        const next = [...prev];
-                        const [moved] = next.splice(currentDrag, 1);
-                        next.splice(currentOver, 0, moved);
-                        setTimeout(() => {
-                            if (onReorderCategories) onReorderCategories(next);
-                        }, 0);
-                        return next;
-                    });
+                    const next = [...orderedCats];
+                    const [moved] = next.splice(currentDrag, 1);
+                    next.splice(currentOver, 0, moved);
+                    setOrderedCats(next);
+                    if (onReorderCategories) onReorderCategories(next);
                 }
 
                 isDraggingRef.current = false;
                 dragStartIdx.current = null;
+                overIdxRef.current = null;
                 dragHandleRef.current = null;
                 setDraggingIdx(null);
                 setOverIdx(null);
@@ -6501,13 +6495,13 @@
                                                 key={cat}
                                                 data-cat-row={idx}
                                                 style={{
-                                                    transition: isDragging ? 'box-shadow 0.15s, transform 0.05s linear' : 'transform 0.2s cubic-bezier(0.2,0,0,1)',
+                                                    transition: isDragging ? 'box-shadow 0.15s' : 'transform 0.2s cubic-bezier(0.2,0,0,1)',
                                                     transform: isDragging 
-                                                        ? `translateY(${dragOffsetY}px) scale(1.05)` 
+                                                        ? `translateY(${dragOffsetY}px) scale(1.04)` 
                                                         : (draggingIdx !== null && idx > draggingIdx && idx <= (overIdx ?? draggingIdx))
-                                                            ? 'translateY(-48px)'
+                                                            ? 'translateY(-56px)'
                                                             : (draggingIdx !== null && idx < draggingIdx && idx >= (overIdx ?? draggingIdx))
-                                                                ? 'translateY(48px)'
+                                                                ? 'translateY(56px)'
                                                                 : 'none',
                                                     zIndex: isDragging ? 100 : 1,
                                                     position: 'relative',
