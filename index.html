@@ -6288,9 +6288,17 @@
             const [pendingDeleteCat, setPendingDeleteCat] = useState(null);
             const listRef = useRef(null);
 
-            // Sync if parent categories prop changes
+            // (2026-07-13) Only sync if parent list changes length/items. Prev: reset on every prop ref change
             React.useEffect(() => {
-                setOrderedCats([...(categories || [])]);
+                const incoming = categories || [];
+                setOrderedCats(prev => {
+                    const prevJoined = prev.join('||');
+                    const incJoined = incoming.join('||');
+                    if (prevJoined !== incJoined && incoming.length !== prev.length) {
+                        return [...incoming];
+                    }
+                    return prev;
+                });
             }, [categories]);
 
             const handleClose = () => {
@@ -6694,23 +6702,35 @@
             const [isAddingCategory, setIsAddingCategory] = useState(false);
             const [newCategoryName, setNewCategoryName] = useState('');
 
-            // (2026-07-13) Exclude ALL from custom list to prevent duplicate All. Prev: double All
+            // (2026-07-13) Preserve customCategories order and append any task categories. Prev: unindexed Set
             const allCategories = useMemo(() => {
-                const set = new Set();
-                (quickTasks || []).forEach(t => {
-                    if (Array.isArray(t.categories)) {
-                        t.categories.forEach(c => {
-                            if (c && c.trim() && c.trim().toUpperCase() !== 'ALL') set.add(c.trim());
-                        });
-                    }
-                    if (t.category && t.category.trim() && t.category.trim().toUpperCase() !== 'ALL') {
-                        set.add(t.category.trim());
-                    }
-                });
+                const orderedList = [];
+                const seen = new Set();
+
                 (customCategories || []).forEach(c => {
-                    if (c && c.trim() && c.trim().toUpperCase() !== 'ALL') set.add(c.trim());
+                    if (c && c.trim() && c.trim().toUpperCase() !== 'ALL') {
+                        const val = c.trim();
+                        if (!seen.has(val.toLowerCase())) {
+                            seen.add(val.toLowerCase());
+                            orderedList.push(val);
+                        }
+                    }
                 });
-                return Array.from(set);
+
+                (quickTasks || []).forEach(t => {
+                    const taskCats = Array.isArray(t.categories) ? t.categories : (t.category ? [t.category] : []);
+                    taskCats.forEach(c => {
+                        if (c && c.trim() && c.trim().toUpperCase() !== 'ALL') {
+                            const val = c.trim();
+                            if (!seen.has(val.toLowerCase())) {
+                                seen.add(val.toLowerCase());
+                                orderedList.push(val);
+                            }
+                        }
+                    });
+                });
+
+                return orderedList;
             }, [quickTasks, customCategories]);
 
             // (2026-07-13) Manage & delete quick task categories. Prev: no deletion
@@ -9299,23 +9319,35 @@
             const [isAddingCategory, setIsAddingCategory] = useState(false);
             const [newCategoryName, setNewCategoryName] = useState('');
 
-            // (2026-07-13) Exclude ALL from custom list in QuickTasksPage. Prev: uncheck ALL
+            // (2026-07-13) Preserve customCategories order and append task categories. Prev: unindexed Set
             const allCategories = useMemo(() => {
-                const set = new Set();
-                (quickTasks || []).forEach(t => {
-                    if (Array.isArray(t.categories)) {
-                        t.categories.forEach(c => {
-                            if (c && c.trim() && c.trim().toUpperCase() !== 'ALL') set.add(c.trim());
-                        });
-                    }
-                    if (t.category && t.category.trim() && t.category.trim().toUpperCase() !== 'ALL') {
-                        set.add(t.category.trim());
-                    }
-                });
+                const orderedList = [];
+                const seen = new Set();
+
                 (customCategories || []).forEach(c => {
-                    if (c && c.trim() && c.trim().toUpperCase() !== 'ALL') set.add(c.trim());
+                    if (c && c.trim() && c.trim().toUpperCase() !== 'ALL') {
+                        const val = c.trim();
+                        if (!seen.has(val.toLowerCase())) {
+                            seen.add(val.toLowerCase());
+                            orderedList.push(val);
+                        }
+                    }
                 });
-                return Array.from(set);
+
+                (quickTasks || []).forEach(t => {
+                    const taskCats = Array.isArray(t.categories) ? t.categories : (t.category ? [t.category] : []);
+                    taskCats.forEach(c => {
+                        if (c && c.trim() && c.trim().toUpperCase() !== 'ALL') {
+                            const val = c.trim();
+                            if (!seen.has(val.toLowerCase())) {
+                                seen.add(val.toLowerCase());
+                                orderedList.push(val);
+                            }
+                        }
+                    });
+                });
+
+                return orderedList;
             }, [quickTasks, customCategories]);
 
             // (2026-07-13) Manage & delete quick task categories. Prev: no deletion
