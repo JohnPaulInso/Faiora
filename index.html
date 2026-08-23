@@ -10816,15 +10816,27 @@
                 showToast("Setting saved");
             };
 
-            // (2026-07-13) Comprehensive export: notes, quickTasks (with logs/progress), alarms, settings, profile, categories, sections. Prev: basic export
+            // (2026-07-13) Complete backup: notes, tasks, alarms, settings, profile, categories, sections, trash, pomodoro, marks. Prev: partial
             const handleExport = () => {
                 let sections = [];
                 let categories = [];
                 let trashNotes = [];
                 let trashTasks = [];
+                let pomoSessions = 0;
+                let visibleSections = null;
+                let reminderMarks = {};
                 try { sections = JSON.parse(localStorage.getItem('faiora_sections') || '[]'); } catch {}
                 try { categories = JSON.parse(localStorage.getItem('faiora_qt_categories') || '[]'); } catch {}
-                try { const uid = user?.uid; if (uid) { trashNotes = JSON.parse(localStorage.getItem('faiora_trash_notes_' + uid) || '[]'); trashTasks = JSON.parse(localStorage.getItem('faiora_quick_task_trash_' + uid) || '[]'); } } catch {}
+                try { visibleSections = JSON.parse(localStorage.getItem('faiora_qt_visible_sections') || 'null'); } catch {}
+                try { pomoSessions = parseInt(localStorage.getItem('faiora_pomo_sessions') || '0', 10); } catch {}
+                try { 
+                    const uid = user?.uid; 
+                    if (uid) { 
+                        trashNotes = JSON.parse(localStorage.getItem('faiora_trash_notes_' + uid) || '[]'); 
+                        trashTasks = JSON.parse(localStorage.getItem('faiora_quick_task_trash_' + uid) || '[]'); 
+                        reminderMarks = JSON.parse(localStorage.getItem('faiora_reminder_marks_' + uid) || '{}');
+                    } 
+                } catch {}
 
                 const payload = {
                     exportedAt: new Date().toISOString(),
@@ -10837,7 +10849,10 @@
                     categories,
                     sections,
                     trashNotes,
-                    trashTasks
+                    trashTasks,
+                    pomoSessions,
+                    visibleSections,
+                    reminderMarks
                 };
                 const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
                 const url = URL.createObjectURL(blob);
@@ -10899,7 +10914,7 @@
                     // Merge settings
                     const finalSettings = { ...(settingsData || {}), ...(data.settings || {}) };
 
-                    // Restore custom categories and sections if present
+                    // Restore custom categories, sections, trash, pomodoro, visibleSections, reminder marks
                     if (Array.isArray(data.categories) && data.categories.length > 0) {
                         try {
                             const existingCats = JSON.parse(localStorage.getItem('faiora_qt_categories') || '[]');
@@ -10913,6 +10928,25 @@
                             const mergedSecs = Array.from(new Set([...existingSecs, ...data.sections]));
                             localStorage.setItem('faiora_sections', JSON.stringify(mergedSecs));
                         } catch {}
+                    }
+                    if (data.visibleSections) {
+                        try { localStorage.setItem('faiora_qt_visible_sections', JSON.stringify(data.visibleSections)); } catch {}
+                    }
+                    if (typeof data.pomoSessions === 'number') {
+                        try { localStorage.setItem('faiora_pomo_sessions', String(data.pomoSessions)); } catch {}
+                    }
+                    if (data.reminderMarks && typeof data.reminderMarks === 'object') {
+                        try {
+                            const existingMarks = JSON.parse(localStorage.getItem('faiora_reminder_marks_' + uid) || '{}');
+                            const mergedMarks = { ...existingMarks, ...data.reminderMarks };
+                            localStorage.setItem('faiora_reminder_marks_' + uid, JSON.stringify(mergedMarks));
+                        } catch {}
+                    }
+                    if (Array.isArray(data.trashNotes)) {
+                        try { localStorage.setItem('faiora_trash_notes_' + uid, JSON.stringify(data.trashNotes)); } catch {}
+                    }
+                    if (Array.isArray(data.trashTasks)) {
+                        try { localStorage.setItem('faiora_quick_task_trash_' + uid, JSON.stringify(data.trashTasks)); } catch {}
                     }
 
                     // Convert to Firestore object map format
