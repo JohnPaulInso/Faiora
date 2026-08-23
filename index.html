@@ -6801,7 +6801,8 @@
 
                     const rect = cardEl.getBoundingClientRect();
                     const clone = cardEl.cloneNode(true);
-                    clone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;z-index:9999;pointer-events:none;opacity:0.9;transform:scale(1.05) rotate(2deg);box-shadow:0 25px 60px rgba(0,0,0,0.5), 0 0 30px rgba(249, 115, 22, 0.3);transition:transform 0.15s ease, box-shadow 0.15s ease;border-radius:1.5rem;`;
+                    // (2026-07-13) No transition on clone so left/top follows finger instantly. Prev: 0.15s
+                    clone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;z-index:9999;pointer-events:none;opacity:0.9;transform:scale(1.05) rotate(2deg);box-shadow:0 25px 60px rgba(0,0,0,0.5), 0 0 30px rgba(249, 115, 22, 0.3);transition:none;will-change:left,top;border-radius:1.5rem;`;
                     document.body.appendChild(clone);
                     document.body.style.cursor = 'grabbing';
                     cardEl.style.opacity = '0.3';
@@ -6836,9 +6837,11 @@
                 if (!s) return;
                 s.didMove = true;
                 
-                /* FIX 2026-04-16: Clone follows finger correctly using delta from start position */
+                /* (2026-07-13) Absolute ptr pos minus offset for accurate follow. Prev: delta from startX/Y */
                 if (s.cloneEl) {
-                    s.cloneEl.style.transform = `translate3d(${mx - s.startX}px, ${my - s.startY}px, 0) scale(1.05) rotate(2deg)`;
+                    s.cloneEl.style.left = `${mx - s.offsetX}px`;
+                    s.cloneEl.style.top = `${my - s.offsetY}px`;
+                    s.cloneEl.style.transform = `scale(1.05) rotate(2deg)`;
                 }
 
                 // [FIX 2026-04-16] Edge Autoscrolling for Mobile
