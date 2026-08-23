@@ -6507,10 +6507,10 @@
 
                         {activeTab === 'categories' && (
                             <div className="flex flex-col flex-1 min-h-0 space-y-3">
-                                {/* (2026-07-13) Clean custom visible scrollbar for category list. Prev: no-scrollbar */}
+                                {/* (2026-07-13) Clean custom visible scrollbar with overflow-x-hidden. Prev: overflow-y-auto only */}
                                 <div
                                     ref={listRef}
-                                    className="flex-1 overflow-y-auto space-y-2 pr-1 pb-2 qt-categories-scrollbar"
+                                    className="flex-1 overflow-y-auto overflow-x-hidden space-y-2 pr-1 pb-2 qt-categories-scrollbar"
                                 >
                                     {orderedCats.map((cat, idx) => {
                                         const count = (quickTasks || []).filter(t => {
@@ -6526,7 +6526,7 @@
                                                 style={{
                                                     transition: isDragging ? 'none' : 'transform 0.18s cubic-bezier(0.2,0,0,1)',
                                                     transform: isDragging 
-                                                        ? `translateY(${dragOffsetY}px) scale(1.04)` 
+                                                        ? `translateY(${dragOffsetY}px)` 
                                                         : (draggingIdx !== null && idx > draggingIdx && idx <= (overIdx ?? draggingIdx))
                                                             ? 'translateY(-56px)'
                                                             : (draggingIdx !== null && idx < draggingIdx && idx >= (overIdx ?? draggingIdx))
