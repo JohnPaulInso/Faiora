@@ -6524,7 +6524,7 @@
                                                 key={cat}
                                                 data-cat-row={idx}
                                                 style={{
-                                                    transition: isDragging ? 'none' : 'transform 0.18s cubic-bezier(0.2,0,0,1)',
+                                                    transition: 'none',
                                                     transform: isDragging 
                                                         ? `translateY(${dragOffsetY}px)` 
                                                         : (draggingIdx !== null && idx > draggingIdx && idx <= (overIdx ?? draggingIdx))
@@ -6536,7 +6536,7 @@
                                                     position: 'relative',
                                                     touchAction: isDragging ? 'none' : 'pan-y'
                                                 }}
-                                                className={`flex items-center gap-2.5 p-3 rounded-2xl border transition-all select-none ${isDragging ? 'bg-[#1e130c] border-primary shadow-[0_12px_30px_rgba(249,115,22,0.35)] ring-2 ring-primary/60 cursor-grabbing' : 'bg-white/[0.03] border-white/5 hover:border-white/10'}`}
+                                                className={`flex items-center gap-2.5 p-3 rounded-2xl border select-none ${isDragging ? 'bg-[#1e130c] border-primary shadow-[0_12px_30px_rgba(249,115,22,0.35)] ring-2 ring-primary/60 cursor-grabbing' : 'bg-white/[0.03] border-white/5 hover:border-white/10'}`}
                                             >
                                                 {/* 3-line drag handle */}
                                                 <div
