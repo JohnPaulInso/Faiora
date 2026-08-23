@@ -9989,9 +9989,8 @@
                                         setSelectedDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d].sort());
                                     };
 
-                                    // (2026-07-13) Uniform darkened blur for alarm modal. Prev: black/40 blur-3xl
+                                    // (2026-07-13) Solid dark backdrop, no blur. Prev: backdrop-blur-md
                                     return (
-                                        {/* (2026-07-13) Solid dark backdrop, no blur. Prev: backdrop-blur-md */}
                                         <div 
                                             className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300"
                                             onClick={handleCancelForm}
