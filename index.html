@@ -6308,10 +6308,9 @@
                 if (showToast) showToast(`Category "${clean}" added`);
             };
 
-            // (2026-07-13) Floating drag-to-sort with live translateY offset. Prev: static scale
+            // (2026-07-13) Safe pointer-down handler without illegal passive preventDefault. Prev: preventDefault on touch
             const [dragOffsetY, setDragOffsetY] = useState(0);
             const handleDragPointerDown = (e, idx) => {
-                e.preventDefault();
                 e.stopPropagation();
                 if (e.target.closest('button, input')) return;
                 
@@ -6509,7 +6508,6 @@
                                                 {/* 3-line drag handle */}
                                                 <div
                                                     onPointerDown={(e) => handleDragPointerDown(e, idx)}
-                                                    onTouchStart={(e) => handleDragPointerDown(e, idx)}
                                                     className={`p-1.5 rounded-xl transition-all flex items-center justify-center touch-none flex-shrink-0 cursor-grab active:cursor-grabbing ${isDragging ? 'bg-primary text-white shadow-md' : 'text-white/40 hover:text-primary hover:bg-white/5'}`}
                                                     title="Hold and drag to reorder"
                                                 >
