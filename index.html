@@ -6059,12 +6059,13 @@
                 };
             }, [tasks, showCheckedTasks]);
 
-            // (2026-07-13) Detect duplicate task texts for category view badge. Prev: none
+            // (2026-07-13) Only count duplicates for tasks with 2 or more words. Prev: all texts
             const duplicateTextCounts = useMemo(() => {
                 const map = new Map();
                 (tasks || []).forEach(t => {
                     const text = (t.text || '').trim().toLowerCase();
-                    if (text) {
+                    const words = text.split(/\s+/).filter(Boolean);
+                    if (words.length >= 2) {
                         map.set(text, (map.get(text) || 0) + 1);
                     }
                 });
