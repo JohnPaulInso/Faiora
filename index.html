@@ -1862,6 +1862,8 @@
                 if (!el) return;
 
                 const handleTouchStart = (e) => {
+                    // (2026-07-13) Block PTR if modal, popup, or overlay is open. Prev: triggered under modal
+                    if (document.querySelector('.faiora-auth-screen, .fixed.inset-0.z-\\[950\\], .fixed.inset-0.z-\\[2000\\], .fixed.inset-0.z-\\[2050\\], [role="dialog"]')) return;
                     const touch = e.touches[0];
                     const scrollContainer = e.target.closest('.overflow-y-auto, [data-scroll]');
                     if (scrollContainer && scrollContainer.scrollTop > 0) return;
@@ -6306,49 +6308,66 @@
                 if (showToast) showToast(`Category "${clean}" added`);
             };
 
-            // (2026-07-13) 3-line drag handle pointer down with quick activation. Prev: up/down buttons
+            // (2026-07-13) Document-level drag listeners with vivid hold state. Prev: container listener
             const handleDragPointerDown = (e, idx) => {
+                e.preventDefault();
                 e.stopPropagation();
                 if (e.target.closest('button, input')) return;
-                const touchY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+                
+                isDraggingRef.current = true;
                 dragStartIdx.current = idx;
-                dragHandleTimer.current = setTimeout(() => {
-                    isDraggingRef.current = true;
-                    setDraggingIdx(idx);
-                    setOverIdx(idx);
-                    if (navigator.vibrate) try { navigator.vibrate(35); } catch {}
-                }, 80);
-            };
+                setDraggingIdx(idx);
+                setOverIdx(idx);
+                if (navigator.vibrate) try { navigator.vibrate(40); } catch {}
 
-            const handleDragPointerMove = (e) => {
-                if (!isDraggingRef.current || draggingIdx === null || !listRef.current) return;
-                const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-                const items = Array.from(listRef.current.querySelectorAll('[data-cat-row]'));
-                let newOver = draggingIdx;
-                items.forEach((el, i) => {
-                    const rect = el.getBoundingClientRect();
-                    const mid = rect.top + rect.height / 2;
-                    if (clientY > mid) newOver = i;
-                });
-                if (newOver !== overIdx) {
-                    setOverIdx(newOver);
-                    if (navigator.vibrate) try { navigator.vibrate(10); } catch {}
-                }
-            };
+                const onMove = (moveEvent) => {
+                    if (!isDraggingRef.current || !listRef.current) return;
+                    const clientY = moveEvent.clientY || (moveEvent.touches && moveEvent.touches[0] ? moveEvent.touches[0].clientY : 0);
+                    const rows = Array.from(listRef.current.querySelectorAll('[data-cat-row]'));
+                    let newOver = idx;
+                    rows.forEach((el, i) => {
+                        const rect = el.getBoundingClientRect();
+                        if (clientY >= rect.top && clientY <= rect.bottom) newOver = i;
+                        else if (clientY > rect.bottom) newOver = i;
+                    });
+                    setOverIdx(prev => {
+                        if (prev !== newOver) {
+                            if (navigator.vibrate) try { navigator.vibrate(15); } catch {}
+                            return newOver;
+                        }
+                        return prev;
+                    });
+                };
 
-            const handleDragPointerUp = () => {
-                clearTimeout(dragHandleTimer.current);
-                if (isDraggingRef.current && draggingIdx !== null && overIdx !== null && overIdx !== draggingIdx) {
-                    const next = [...orderedCats];
-                    const [moved] = next.splice(draggingIdx, 1);
-                    next.splice(overIdx, 0, moved);
-                    setOrderedCats(next);
-                    if (onReorderCategories) onReorderCategories(next);
-                }
-                isDraggingRef.current = false;
-                dragStartIdx.current = null;
-                setDraggingIdx(null);
-                setOverIdx(null);
+                const onUp = (upEvent) => {
+                    document.removeEventListener('pointermove', onMove);
+                    document.removeEventListener('pointerup', onUp);
+                    document.removeEventListener('touchmove', onMove);
+                    document.removeEventListener('touchend', onUp);
+                    
+                    setOverIdx(latestOver => {
+                        setDraggingIdx(latestDrag => {
+                            if (latestDrag !== null && latestOver !== null && latestOver !== latestDrag) {
+                                setOrderedCats(prev => {
+                                    const next = [...prev];
+                                    const [moved] = next.splice(latestDrag, 1);
+                                    next.splice(latestOver, 0, moved);
+                                    if (onReorderCategories) onReorderCategories(next);
+                                    return next;
+                                });
+                            }
+                            return null;
+                        });
+                        return null;
+                    });
+                    isDraggingRef.current = false;
+                    dragStartIdx.current = null;
+                };
+
+                document.addEventListener('pointermove', onMove, { passive: false });
+                document.addEventListener('pointerup', onUp);
+                document.addEventListener('touchmove', onMove, { passive: false });
+                document.addEventListener('touchend', onUp);
             };
 
             // --- Inline edit ---
@@ -6470,18 +6489,19 @@
                                                 key={cat}
                                                 data-cat-row={idx}
                                                 style={{
-                                                    transition: 'transform 0.18s cubic-bezier(0.2,0,0,1), opacity 0.15s',
-                                                    transform: isDragging ? 'scale(1.03)' : isOver ? 'translateY(4px)' : 'none',
-                                                    opacity: isDragging ? 0.55 : 1,
-                                                    zIndex: isDragging ? 10 : 1,
-                                                    position: 'relative'
+                                                    transition: isDragging ? 'none' : 'transform 0.18s cubic-bezier(0.2,0,0,1), opacity 0.15s',
+                                                    transform: isDragging ? 'scale(1.04) translateY(-2px)' : isOver ? 'translateY(4px)' : 'none',
+                                                    zIndex: isDragging ? 50 : 1,
+                                                    position: 'relative',
+                                                    touchAction: 'none'
                                                 }}
-                                                className={`flex items-center gap-2 p-3 rounded-2xl border transition-all select-none ${isDragging ? 'bg-primary/10 border-primary/40 shadow-lg shadow-primary/10' : isOver ? 'bg-white/[0.05] border-primary/20' : 'bg-white/[0.03] border-white/5 hover:border-white/10'}`}
+                                                className={`flex items-center gap-2.5 p-3 rounded-2xl border transition-all select-none ${isDragging ? 'bg-primary/25 border-primary shadow-2xl shadow-primary/30 ring-2 ring-primary/50' : isOver ? 'bg-white/[0.07] border-primary/40' : 'bg-white/[0.03] border-white/5 hover:border-white/10'}`}
                                             >
                                                 {/* 3-line drag handle */}
                                                 <div
                                                     onPointerDown={(e) => handleDragPointerDown(e, idx)}
-                                                    className="p-1 text-white/30 hover:text-primary cursor-grab active:cursor-grabbing transition-colors flex items-center justify-center touch-none flex-shrink-0"
+                                                    onTouchStart={(e) => handleDragPointerDown(e, idx)}
+                                                    className={`p-1.5 rounded-xl transition-all flex items-center justify-center touch-none flex-shrink-0 cursor-grab active:cursor-grabbing ${isDragging ? 'bg-primary text-white shadow-md' : 'text-white/40 hover:text-primary hover:bg-white/5'}`}
                                                     title="Hold and drag to reorder"
                                                 >
                                                     <span className="material-symbols-outlined text-[18px]">drag_handle</span>
