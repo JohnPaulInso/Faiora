@@ -6000,8 +6000,8 @@
             );
         });
 
-        // (2026-07-13) Support progress bar and edit in notepad. Prev: checkbox only
-        const QuickTasksNotepadView = ({ tasks = [], onToggle, onSaveToNotes, onEditQuickTask }) => {
+        // (2026-07-13) Support category grouping mode in notepad. Prev: date only
+        const QuickTasksNotepadView = ({ tasks = [], onToggle, onSaveToNotes, onEditQuickTask, groupBy = 'date' }) => {
             const [showCheckedTasks, setShowCheckedTasks] = useState(() => {
                 try {
                     const saved = localStorage.getItem('faiora_qt_notepad_show_checked');
@@ -6020,6 +6020,41 @@
             };
 
             const dailyData = useMemo(() => groupQuickTasksDaily(tasks, showCheckedTasks), [tasks, showCheckedTasks]);
+
+            // (2026-07-13) Group notepad purely by categories when groupBy === 'category'. Prev: none
+            const categoryData = useMemo(() => {
+                const list = Array.isArray(tasks) ? tasks : [];
+                const filtered = showCheckedTasks ? list : list.filter(t => !t.completed);
+                const catMap = new Map();
+
+                filtered.forEach(task => {
+                    const rawCats = Array.isArray(task.categories) && task.categories.length > 0
+                        ? task.categories
+                        : (task.category ? [task.category] : ['GENERAL']);
+                    
+                    rawCats.forEach(c => {
+                        const clean = (c || 'GENERAL').toUpperCase().trim();
+                        if (!catMap.has(clean)) catMap.set(clean, []);
+                        catMap.get(clean).push(task);
+                    });
+                });
+
+                const sortedCats = Array.from(catMap.keys()).sort();
+                const sections = sortedCats.map(cat => ({
+                    key: `cat_${cat}`,
+                    label: cat,
+                    shortLabel: cat,
+                    items: catMap.get(cat),
+                    totalCount: catMap.get(cat).length
+                }));
+
+                return {
+                    sections,
+                    completed: []
+                };
+            }, [tasks, showCheckedTasks]);
+
+            const viewData = groupBy === 'category' ? categoryData : dailyData;
             const [isSaving, setIsSaving] = useState(false);
             const longPressTimer = useRef(null);
             const isLongPressTriggered = useRef(false);
@@ -6054,22 +6089,22 @@
                 setTimeout(() => setIsSaving(false), 1000);
             };
 
-            const activeCount = dailyData.sections.reduce((sum, sec) => sum + sec.items.length, 0);
+            const activeCount = viewData.sections.reduce((sum, sec) => sum + sec.items.length, 0);
 
             return (
                 <div className="qt-notepad-card p-4 md:p-5 space-y-4 animate-in fade-in duration-200">
                     {/* (2026-07-13) Compact inline SAVE button on notepad header. Prev: wrapped */}
                     <div className="qt-notepad-header flex items-center justify-between gap-2 pb-3 border-b border-white/10">
                         <div className="flex items-center gap-2 min-w-0">
-                            <span className="material-symbols-outlined text-primary text-lg shrink-0">edit_note</span>
+                            <span className="material-symbols-outlined text-primary text-lg shrink-0">{groupBy === 'category' ? 'category' : 'edit_note'}</span>
                             <div className="min-w-0">
                                 {/* (2026-07-13) Increase notepad title font size. Prev: text-xs md:text-sm */}
                                 <h3 
                                     onClick={toggleShowChecked}
                                     className="qt-notepad-title text-sm sm:text-base md:text-lg font-bold text-cream-light hover:text-primary font-montserrat tracking-wide uppercase cursor-pointer select-none transition-colors flex items-center gap-1.5 truncate"
-                                    title="Click to toggle showing or hiding checked tasks and date sections"
+                                    title="Click to toggle showing or hiding checked tasks"
                                 >
-                                    Quick Tasks Notepad
+                                    {groupBy === 'category' ? 'Quick Tasks by Category' : 'Quick Tasks Notepad'}
                                     <span className="material-symbols-outlined text-[13px] text-primary/70">{showCheckedTasks ? 'visibility' : 'visibility_off'}</span>
                                 </h3>
                                 <p className="qt-notepad-subtitle text-[9px] text-white/40 font-montserrat truncate">{activeCount} tasks ready to sync</p>
@@ -6088,13 +6123,13 @@
                     </div>
 
                     {/* Notepad Body Sections */}
-                    {dailyData.sections.length === 0 ? (
+                    {viewData.sections.length === 0 ? (
                         <div className="py-8 text-center text-white/30 text-xs font-montserrat">
                             No active quick tasks on this notepad
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {dailyData.sections.map(sec => (
+                            {viewData.sections.map(sec => (
                                 <div key={sec.key} className="qt-notepad-section space-y-1.5">
                                     <div className="flex items-center gap-2">
                                         <h4 className={`qt-notepad-section-title text-[11px] font-bold uppercase tracking-wider font-montserrat ${sec.isPastDue ? 'text-red-400' : 'text-primary'}`}>
@@ -7171,9 +7206,17 @@
                                             type="button"
                                             onClick={() => handleSetViewMode('notepad')}
                                             className={`viewmode-btn w-7 h-7 rounded-full border transition-all duration-150 flex items-center justify-center select-none ${viewMode === 'notepad' ? 'active bg-primary/20 text-primary border-primary/40' : 'border-transparent text-cream-light/40 hover:text-cream-light/90 hover:bg-white/5'}`}
-                                            title="Notepad View"
+                                            title="Date Notepad View"
                                         >
                                             <span className="material-symbols-outlined text-[15px]">sticky_note_2</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSetViewMode('categories')}
+                                            className={`viewmode-btn w-7 h-7 rounded-full border transition-all duration-150 flex items-center justify-center select-none ${viewMode === 'categories' ? 'active bg-primary/20 text-primary border-primary/40' : 'border-transparent text-cream-light/40 hover:text-cream-light/90 hover:bg-white/5'}`}
+                                            title="Category Notepad View"
+                                        >
+                                            <span className="material-symbols-outlined text-[15px]">category</span>
                                         </button>
                                     </div>
                                 </div>
@@ -7286,13 +7329,14 @@
                                 ) : (
                                     /* (2026-07-13) Fix JS comment in ternary. Prev: JSX comment */
                                     <div className="skeleton-fade-in">
-                                        {viewMode === 'notepad' ? (
+                                        {viewMode === 'notepad' || viewMode === 'categories' ? (
                                             <QuickTasksNotepadView
                                                 tasks={sortedQuickTasks}
                                                 onToggle={onToggleQuickTask}
                                                 onSaveToNotes={handleSaveQuickTasksToNotes}
                                                 onAddQuickTask={onAddQuickTaskClick}
                                                 onEditQuickTask={onEditQuickTask}
+                                                groupBy={viewMode === 'categories' ? 'category' : 'date'}
                                             />
                                         ) : viewMode === 'daily' ? (
                                             <div className="space-y-8">
@@ -9305,9 +9349,17 @@
                                     type="button"
                                     onClick={() => handleSetViewMode('notepad')}
                                     className={`viewmode-btn w-7 h-7 rounded-full border transition-all duration-150 flex items-center justify-center select-none ${viewMode === 'notepad' ? 'active bg-primary/20 text-primary border-primary/40' : 'border-transparent text-cream-light/40 hover:text-cream-light/90 hover:bg-white/5'}`}
-                                    title="Notepad View"
+                                    title="Date Notepad View"
                                 >
                                     <span className="material-symbols-outlined text-[15px]">sticky_note_2</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleSetViewMode('categories')}
+                                    className={`viewmode-btn w-7 h-7 rounded-full border transition-all duration-150 flex items-center justify-center select-none ${viewMode === 'categories' ? 'active bg-primary/20 text-primary border-primary/40' : 'border-transparent text-cream-light/40 hover:text-cream-light/90 hover:bg-white/5'}`}
+                                    title="Category Notepad View"
+                                >
+                                    <span className="material-symbols-outlined text-[15px]">category</span>
                                 </button>
                             </div>
                         </div>
@@ -9418,13 +9470,14 @@
                             ) : (
                                 /* (2026-07-13) Fix JS comment in ternary. Prev: JSX comment */
                                 <div className="skeleton-fade-in">
-                                    {viewMode === 'notepad' ? (
+                                    {viewMode === 'notepad' || viewMode === 'categories' ? (
                                         <QuickTasksNotepadView
                                             tasks={filteredTasks}
                                             onToggle={onToggleQuickTask}
                                             onSaveToNotes={handleSaveQuickTasksToNotes}
                                             onAddQuickTask={onAddQuickTaskClick}
                                             onEditQuickTask={onEditQuickTask}
+                                            groupBy={viewMode === 'categories' ? 'category' : 'date'}
                                         />
                                     ) : viewMode === 'daily' ? (
                                         <div className="space-y-8">
