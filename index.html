@@ -6362,14 +6362,7 @@
                     try { dragHandleRef.current.target.releasePointerCapture(dragHandleRef.current.pointerId); } catch {}
                 }
 
-                if (currentDrag !== null && currentOver !== null && currentOver !== currentDrag) {
-                    const next = [...orderedCats];
-                    const [moved] = next.splice(currentDrag, 1);
-                    next.splice(currentOver, 0, moved);
-                    setOrderedCats(next);
-                    if (onReorderCategories) onReorderCategories(next);
-                }
-
+                // (2026-07-13) Synchronous reset to eliminate transform lag/skipping. Prev: async jump
                 isDraggingRef.current = false;
                 dragStartIdx.current = null;
                 overIdxRef.current = null;
@@ -6377,6 +6370,16 @@
                 setDraggingIdx(null);
                 setOverIdx(null);
                 setDragOffsetY(0);
+
+                if (currentDrag !== null && currentOver !== null && currentOver !== currentDrag) {
+                    setOrderedCats(prev => {
+                        const next = [...prev];
+                        const [moved] = next.splice(currentDrag, 1);
+                        next.splice(currentOver, 0, moved);
+                        if (onReorderCategories) onReorderCategories(next);
+                        return next;
+                    });
+                }
             };
 
             // --- Inline edit ---
@@ -6491,7 +6494,7 @@
                                                 key={cat}
                                                 data-cat-row={idx}
                                                 style={{
-                                                    transition: isDragging ? 'box-shadow 0.15s' : 'transform 0.2s cubic-bezier(0.2,0,0,1)',
+                                                    transition: isDragging ? 'none' : 'transform 0.18s cubic-bezier(0.2,0,0,1)',
                                                     transform: isDragging 
                                                         ? `translateY(${dragOffsetY}px) scale(1.04)` 
                                                         : (draggingIdx !== null && idx > draggingIdx && idx <= (overIdx ?? draggingIdx))
