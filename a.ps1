@@ -6,7 +6,8 @@ Write-Host "[2/3] Syncing Android project..." -ForegroundColor Cyan
 npx cap sync android
 Write-Host "[3/3] Assembling Debug APK..." -ForegroundColor Cyan
 Set-Location android
-.\gradlew.bat assembleDebug
+# (2026-07-13) Clean gradle assemble to ensure stale assets are deleted. Prev: assembleDebug only
+.\gradlew.bat clean assembleDebug
 Set-Location ..
 $apkPath = "$PSScriptRoot\android\app\build\outputs\apk\debug\com.faiora.app.apk"
 if (Test-Path $apkPath) {

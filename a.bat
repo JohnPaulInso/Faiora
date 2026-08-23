@@ -6,7 +6,8 @@ echo [2/3] Syncing Android project...
 call npx cap sync android
 echo [3/3] Assembling Debug APK...
 cd android
-call gradlew.bat assembleDebug
+rem (2026-07-13) Clean gradle assemble to ensure stale assets are deleted. Prev: assembleDebug only
+call gradlew.bat clean assembleDebug
 cd ..
 echo Build complete.
 explorer.exe /select,"%~dp0android\app\build\outputs\apk\debug\com.faiora.app.apk"
