@@ -6153,7 +6153,7 @@
             const [overIdx, setOverIdx] = useState(null);
             const dragHandleTimer = useRef(null);
             const dragStartIdx = useRef(null);
-            const isDraggingRef = useRef(false);
+            const [pendingDeleteCat, setPendingDeleteCat] = useState(null);
             const listRef = useRef(null);
 
             // Sync if parent categories prop changes
@@ -6404,7 +6404,13 @@
                                                 {/* Delete button */}
                                                 <button
                                                     type="button"
-                                                    onClick={() => onDeleteCategory(cat)}
+                                                    onClick={() => {
+                                                        if (count > 0) {
+                                                            setPendingDeleteCat({ name: cat, count });
+                                                        } else {
+                                                            onDeleteCategory(cat);
+                                                        }
+                                                    }}
                                                     className="p-1.5 text-white/30 hover:text-red-400 transition-colors rounded-lg hover:bg-white/5 flex-shrink-0"
                                                     title="Delete category"
                                                 >
@@ -6441,6 +6447,38 @@
                             </div>
                         )}
                     </div>
+
+                    {/* (2026-07-13) Category deletion confirmation modal if items exist. Prev: direct delete */}
+                    {pendingDeleteCat && (
+                        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[2050] flex items-center justify-center p-6 animate-in fade-in duration-300">
+                            <div className="glass-panel w-full max-w-sm rounded-[2.5rem] border border-white/10 p-8 text-center animate-in zoom-in-95 duration-300 font-montserrat">
+                                <div className="w-16 h-16 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center mx-auto mb-6">
+                                    <span className="material-symbols-outlined text-red-400 text-3xl">warning</span>
+                                </div>
+                                <h3 className="text-xl font-bold text-cream-light mb-3">Delete Category?</h3>
+                                <p className="text-white/60 text-xs leading-relaxed mb-8">
+                                    Category <span className="text-primary font-bold">"{pendingDeleteCat.name}"</span> has <span className="text-white font-bold">{pendingDeleteCat.count}</span> {pendingDeleteCat.count === 1 ? 'task' : 'tasks'}. Deleting it will remove the category tag from these tasks.
+                                </p>
+                                <div className="flex flex-col gap-3">
+                                    <button
+                                        onClick={() => {
+                                            onDeleteCategory(pendingDeleteCat.name);
+                                            setPendingDeleteCat(null);
+                                        }}
+                                        className="w-full py-3.5 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold uppercase tracking-widest text-xs transition-all shadow-lg shadow-red-500/20"
+                                    >
+                                        Delete Category
+                                    </button>
+                                    <button
+                                        onClick={() => setPendingDeleteCat(null)}
+                                        className="w-full py-3.5 bg-white/5 hover:bg-white/10 text-white/70 rounded-2xl font-bold uppercase tracking-widest text-xs transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
