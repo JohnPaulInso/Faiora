@@ -130,13 +130,6 @@ body.faiora-overlay-open .faiora-mobile-banner {
     display: none !important;
 }
 
-/* (2026-07-13) Darkened non-blooming blur backdrop. Prev: glow on white */
-.faiora-modal-backdrop {
-    background-color: rgba(5, 5, 5, 0.75) !important;
-    -webkit-backdrop-filter: blur(12px) brightness(40%) saturate(120%) !important;
-    backdrop-filter: blur(12px) brightness(40%) saturate(120%) !important;
-}
-
 .glass-panel {
     background: rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(16px);
