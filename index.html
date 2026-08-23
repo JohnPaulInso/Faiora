@@ -6224,6 +6224,8 @@
             const [overIdx, setOverIdx] = useState(null);
             const dragHandleTimer = useRef(null);
             const dragStartIdx = useRef(null);
+            // (2026-07-13) isDraggingRef tracks active drag state. Prev: undeclared
+            const isDraggingRef = useRef(false);
             const [pendingDeleteCat, setPendingDeleteCat] = useState(null);
             const listRef = useRef(null);
 
