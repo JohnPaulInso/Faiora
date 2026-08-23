@@ -154,18 +154,36 @@
 
 .faiora-mobile-header {
     position: fixed !important;
-    background-color: #0e0603 !important;
+    animation: mobile-header-pulse 8s ease-in-out infinite !important;
+    opacity: 1 !important;
     border: none !important;
-    box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.75) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
+    backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
     -webkit-transform: translateZ(0) !important;
     transform: translateZ(0) !important;
+}
+
+.faiora-mobile-header::after {
+    content: '' !important;
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 0.5px !important;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 15%, rgba(249, 115, 22, 0.20) 38%, rgba(255, 255, 255, 0.25) 50%, rgba(249, 115, 22, 0.20) 62%, rgba(255, 255, 255, 0.05) 85%, transparent 100%) !important;
+    pointer-events: none !important;
+    z-index: 10 !important;
 }
 
 .faiora-mobile-nav {
     position: fixed !important;
     background-color: #0c0502 !important;
+    opacity: 1 !important;
     border: none !important;
-    box-shadow: 0 -8px 24px 0 rgba(0, 0, 0, 0.8), inset 0 1px 0 0 rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 -12px 36px 0 rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.08) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
+    backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
     -webkit-transform: translateZ(0) !important;
     transform: translateZ(0) !important;
 }
@@ -2009,15 +2027,14 @@
                                 <span className="material-symbols-outlined text-[30px] md:text-4xl group-hover:rotate-90 transition-transform duration-300">add</span>
                             </button>
 
-                            {isFabMenuOpen && (
+                            {/* (2026-07-13) Portal FAB backdrop to document.body to blur entire screen. Prev: child of main */}
+                            {isFabMenuOpen && typeof document !== 'undefined' && ReactDOM.createPortal(
                                 <React.Fragment>
-                                    {/* (2026-07-13) Darkened 85% blurred backdrop for FAB. Prev: bg-black/70 */}
                                     <div 
-                                        className="fixed inset-0 bg-black/85 backdrop-blur-md z-[350] animate-in fade-in duration-300"
+                                        className="fixed inset-0 bg-black/85 backdrop-blur-md z-[900] animate-in fade-in duration-300 pointer-events-auto"
                                         onClick={() => setIsFabMenuOpen(false)}
                                     />
-                                    <div className="fixed bottom-[180px] md:bottom-36 right-6 md:right-12 flex flex-col items-end gap-5 z-[400] animate-in slide-in-from-bottom-10 fade-in duration-300">
-                                        {/* (2026-07-13) Swap notes & alarms sorting in FAB menu. Prev: notes top */}
+                                    <div className="fixed bottom-[180px] md:bottom-36 right-6 md:right-12 flex flex-col items-end gap-5 z-[950] animate-in slide-in-from-bottom-10 fade-in duration-300">
                                         {[
                                             { 
                                                 label: 'SET ALARM', 
@@ -2053,7 +2070,6 @@
                                                 onClick={item.onClick}
                                                 className="flex items-center gap-4 group"
                                             >
-                                                {/* FIX 2026-04-22: Added text labels to FAB menu as requested */}
                                                 <span className="text-[10px] font-black text-white px-4 py-2 bg-white/5 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-[0.25em]">{item.label}</span>
                                                 <div className={`w-14 h-14 md:w-16 md:h-16 ${item.color} rounded-[1.25rem] md:rounded-3xl flex items-center justify-center text-white shadow-2xl hover:scale-110 transition-transform active:scale-95 border border-white/10`}>
                                                     <span className="material-symbols-outlined text-2xl md:text-3xl">{item.icon}</span>
@@ -2061,7 +2077,8 @@
                                             </button>
                                         ))}
                                     </div>
-                                </React.Fragment>
+                                </React.Fragment>,
+                                document.body
                             )}
                         </div>
                     )}
