@@ -1844,8 +1844,7 @@
             );
         };
 
-        // LABEL: PullToRefresh — Implements mobile "pull down to refresh" gestures
-        // FIX 2026-04-20: Added labels and IDs for easier tracking
+        // (2026-07-13) Google-style PTR: drops from top, arc on pull, spinner on refresh. Prev: floating indicator
         const PullToRefresh = ({ children, onRefresh, disabled = false }) => {
             const [pullDistance, setPullDistance] = useState(0);
             const [status, setStatus] = useState('idle'); // idle, pulling, ready, refreshing
@@ -1854,8 +1853,7 @@
             const startY = useRef(0);
             const statusRef = useRef('idle');
             const contentRef = useRef(null);
-            const THRESHOLD = 85;
-            const gestureCancelled = useRef(false);
+            const THRESHOLD = 72;
 
             useEffect(() => {
                 if (disabled) return;
@@ -1865,47 +1863,35 @@
                 const handleTouchStart = (e) => {
                     const scrollContainer = e.target.closest('.overflow-y-auto');
                     if (scrollContainer && scrollContainer.scrollTop > 0) return;
-                    
                     isPulling.current = true;
                     startY.current = e.touches[0].pageY;
-                    gestureCancelled.current = false;
                 };
 
                 const handleTouchMove = (e) => {
                     if (!isPulling.current) return;
-                    const y = e.touches[0].pageY;
-                    const diffY = y - startY.current;
-
-                    if (diffY < 0) {
-                        isPulling.current = false;
-                        return;
-                    }
-
+                    const diffY = e.touches[0].pageY - startY.current;
+                    if (diffY < 0) { isPulling.current = false; return; }
                     if (diffY > 5) {
-                        const currentPull = Math.min(180, diffY * 0.4);
-                        pullDistanceRef.current = currentPull;
-                        setPullDistance(currentPull);
-                        
-                        const newStatus = currentPull > THRESHOLD ? 'ready' : 'pulling';
+                        // (2026-07-13) Logarithmic resistance curve matching Chrome PTR feel
+                        const raw = Math.min(160, diffY * 0.45);
+                        const clamped = raw < THRESHOLD ? raw : THRESHOLD + (raw - THRESHOLD) * 0.25;
+                        pullDistanceRef.current = clamped;
+                        setPullDistance(clamped);
+                        const newStatus = clamped >= THRESHOLD ? 'ready' : 'pulling';
                         statusRef.current = newStatus;
                         setStatus(newStatus);
-
-                        if (currentPull > 5 && e.cancelable) {
-                             e.preventDefault();
-                        }
+                        if (diffY > 8 && e.cancelable) e.preventDefault();
                     }
                 };
 
                 const handleTouchEnd = () => {
                     if (!isPulling.current) return;
-                    const currentDistance = pullDistanceRef.current;
                     isPulling.current = false;
-
-                    if (currentDistance > THRESHOLD && !gestureCancelled.current) {
+                    if (pullDistanceRef.current >= THRESHOLD) {
                         statusRef.current = 'refreshing';
                         setStatus('refreshing');
-                        pullDistanceRef.current = 100;
-                        setPullDistance(100);
+                        setPullDistance(THRESHOLD);
+                        pullDistanceRef.current = THRESHOLD;
                         if (onRefresh) {
                             onRefresh().finally(() => {
                                 setTimeout(() => {
@@ -1913,7 +1899,7 @@
                                     setStatus('idle');
                                     pullDistanceRef.current = 0;
                                     setPullDistance(0);
-                                }, 500);
+                                }, 400);
                             });
                         }
                     } else {
@@ -1927,7 +1913,6 @@
                 el.addEventListener('touchstart', handleTouchStart, { passive: true });
                 el.addEventListener('touchmove', handleTouchMove, { passive: false });
                 el.addEventListener('touchend', handleTouchEnd, { passive: true });
-
                 return () => {
                     el.removeEventListener('touchstart', handleTouchStart);
                     el.removeEventListener('touchmove', handleTouchMove);
@@ -1935,55 +1920,99 @@
                 };
             }, [disabled, onRefresh]);
 
+            // Indicator travels from hidden above the header to 20px below it
+            const HEADER_H = 56; // px — mobile header height
+            const indicatorSize = 40;
+            const progress = Math.min(1, pullDistance / THRESHOLD);
+            const arcCircumference = 2 * Math.PI * 14;
+            // translateY: starts at -(HEADER_H + indicatorSize/2), lands at HEADER_H + 12
+            const minY = -(HEADER_H + indicatorSize / 2 + 4);
+            const maxY = HEADER_H + 12;
+            const translateY = status === 'idle' && pullDistance === 0
+                ? minY
+                : minY + (maxY - minY) * Math.min(1, pullDistance / THRESHOLD);
+
             return (
-                <div id="faiora_pull_to_refresh_wrapper" ref={contentRef} className="flex-1 h-full flex flex-col relative touch-pan-x touch-pan-y">
-                    {/* (2026-07-13) Clean ring+spinner PTR. Prev: icon rotate/scale hack */}
-                    <div 
+                <div id="faiora_pull_to_refresh_wrapper" ref={contentRef} className="flex-1 h-full flex flex-col relative">
+                    {/* (2026-07-13) Google-style PTR circle: drops from top header edge. Prev: absolute floating mid-page */}
+                    <div
                         id="faiora_pull_to_refresh_indicator"
-                        className="absolute left-0 w-full flex flex-col items-center justify-center pointer-events-none z-[150]"
-                        style={{ 
-                            top: '80px',
-                            opacity: pullDistance > 20 ? Math.min(1, (pullDistance - 20) / 40) : 0,
-                            transform: `translateY(${Math.min(pullDistance * 0.4, 32)}px)`,
-                            transition: status === 'refreshing' ? 'opacity 0.2s' : 'none'
+                        className="fixed left-1/2 pointer-events-none z-[9999]"
+                        style={{
+                            top: 0,
+                            transform: `translateX(-50%) translateY(${translateY}px)`,
+                            transition: (status === 'refreshing' || status === 'idle') && pullDistance === 0
+                                ? 'transform 0.28s cubic-bezier(0.4,0,0.2,1)'
+                                : 'none',
+                            opacity: pullDistance > 2 || status === 'refreshing' ? 1 : 0,
+                            width: indicatorSize,
+                            height: indicatorSize,
                         }}
                     >
-                        <div className="relative w-11 h-11 flex items-center justify-center">
+                        <div
+                            style={{
+                                width: indicatorSize,
+                                height: indicatorSize,
+                                borderRadius: '50%',
+                                background: '#1a0a04',
+                                boxShadow: '0 2px 12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                position: 'relative',
+                                overflow: 'hidden',
+                            }}
+                        >
                             {status === 'refreshing' ? (
-                                /* Standard spinner ring for syncing */
-                                <div className="w-11 h-11 rounded-full border-[3px] border-white/10 border-t-primary animate-spin" />
-                            ) : (
-                                /* SVG arc that fills as user pulls */
-                                <svg className="w-11 h-11 -rotate-90" viewBox="0 0 44 44">
-                                    <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3" />
-                                    <circle
-                                        cx="22" cy="22" r="18"
+                                /* (2026-07-13) Standard spinner on refresh. Prev: static icon */
+                                <svg width="26" height="26" viewBox="0 0 26 26" style={{ animation: 'ptr-spin 0.8s linear infinite' }}>
+                                    <circle cx="13" cy="13" r="9" fill="none" stroke="rgba(249,115,22,0.2)" strokeWidth="2.5" />
+                                    <path
+                                        d="M 13 4 A 9 9 0 0 1 22 13"
                                         fill="none"
                                         stroke="#f97316"
-                                        strokeWidth="3"
+                                        strokeWidth="2.5"
                                         strokeLinecap="round"
-                                        strokeDasharray={`${2 * Math.PI * 18}`}
-                                        strokeDashoffset={`${2 * Math.PI * 18 * (1 - Math.min(1, pullDistance / 85))}`}
-                                        style={{ transition: 'stroke-dashoffset 0.05s linear' }}
+                                    />
+                                </svg>
+                            ) : (
+                                /* Arc that fills as user pulls — rotates when ready */
+                                <svg
+                                    width="26" height="26" viewBox="0 0 26 26"
+                                    style={{ transform: status === 'ready' ? 'rotate(180deg)' : 'rotate(-90deg)', transition: 'transform 0.2s ease' }}
+                                >
+                                    <circle cx="13" cy="13" r="9" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="2.5" />
+                                    <circle
+                                        cx="13" cy="13" r="9"
+                                        fill="none"
+                                        stroke={status === 'ready' ? '#f97316' : 'rgba(249,115,22,0.7)'}
+                                        strokeWidth="2.5"
+                                        strokeLinecap="round"
+                                        strokeDasharray={arcCircumference}
+                                        strokeDashoffset={arcCircumference * (1 - progress)}
+                                        style={{ transition: 'stroke-dashoffset 0.04s linear, stroke 0.15s ease' }}
+                                    />
+                                    {/* Arrow tip */}
+                                    <path
+                                        d="M 13 7 L 11 10 L 13 9 L 15 10 Z"
+                                        fill={status === 'ready' ? '#f97316' : 'rgba(249,115,22,0.7)'}
+                                        style={{ opacity: progress > 0.3 ? 1 : 0, transition: 'opacity 0.1s' }}
                                     />
                                 </svg>
                             )}
-                            {/* Center icon */}
-                            <span
-                                className="material-symbols-outlined absolute text-[18px] transition-colors duration-200"
-                                style={{ color: status === 'ready' ? '#f97316' : 'rgba(255,255,255,0.5)', fontVariationSettings: '"FILL" 1' }}
-                            >
-                                {status === 'refreshing' ? 'sync' : status === 'ready' ? 'arrow_upward' : 'arrow_downward'}
-                            </span>
                         </div>
-                        <p className="text-[9px] font-bold text-white/40 tracking-[0.25em] mt-2 uppercase">
-                            {status === 'refreshing' ? 'Syncing' : status === 'ready' ? 'Release' : 'Pull'}
-                        </p>
+                        <style>{`
+                            @keyframes ptr-spin {
+                                from { transform: rotate(0deg); }
+                                to { transform: rotate(360deg); }
+                            }
+                        `}</style>
                     </div>
                     {children}
                 </div>
             );
         };
+
 
         // LABEL: Layout — The main shell of the application including sidebar, navigation, and pull-to-refresh
         // FIX 2026-04-20: Added labels and IDs for easier tracking
