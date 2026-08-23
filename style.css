@@ -49,22 +49,22 @@
     animation: fire-glow-pulse 2.5s ease-in-out infinite alternate !important;
 }
 
-/* (2026-07-13) Dynamic color-shifting pulse for mobile header. Prev: static */
+/* (2026-07-13) Set 100% opacity for mobile header & bottom nav. Prev: 0.98 */
 @keyframes mobile-header-pulse {
     0% {
-        background-color: rgba(14, 6, 3, 0.98);
+        background-color: #0e0603;
     }
     25% {
-        background-color: rgba(45, 16, 6, 0.98);
+        background-color: #2d1006;
     }
     50% {
-        background-color: rgba(20, 8, 4, 0.98);
+        background-color: #140804;
     }
     75% {
-        background-color: rgba(54, 20, 8, 0.98);
+        background-color: #361408;
     }
     100% {
-        background-color: rgba(14, 6, 3, 0.98);
+        background-color: #0e0603;
     }
 }
 
@@ -75,6 +75,8 @@
 .faiora-mobile-header {
     position: fixed !important;
     animation: mobile-header-pulse 8s ease-in-out infinite !important;
+    background-color: #0e0603 !important;
+    opacity: 1 !important;
     border: none !important;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6) !important;
     -webkit-backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
@@ -98,6 +100,7 @@
 .faiora-mobile-nav {
     position: fixed !important;
     background-color: #0c0502 !important;
+    opacity: 1 !important;
     border: none !important;
     box-shadow: 0 -12px 36px 0 rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.08) !important;
     -webkit-backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
