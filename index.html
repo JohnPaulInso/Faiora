@@ -5723,9 +5723,11 @@
                             <span className={`material-symbols-outlined text-xl md:text-2xl ${theme.icon}`} style={note.isPinned ? {fontVariationSettings: "'FILL' 1"} : {}}>{note.noteIcon || 'push_pin'}</span>
                         </div>
                         <div className="mt-auto w-full flex flex-col gap-0.5 text-left min-w-0">
-                            {/* (2026-07-13) Add PINNED/PRIORITY label above title. Prev: title only */}
-                            <p className={`text-[8px] md:text-[9px] font-extrabold uppercase tracking-[0.2em] font-montserrat ${theme.label}`}>{note.isPinned ? 'PINNED' : 'PRIORITY'}</p>
-                            <h3 className={`text-xl sm:text-xl md:text-lg lg:text-base xl:text-lg font-bold tracking-tight font-display line-clamp-2 leading-snug w-full ${theme.text}`}>{formatTitle(note.title) || "Untitled"}</h3>
+                            {/* (2026-07-13) Bump PINNED badge size & add classnames. Prev: text-[8px] */}
+                            {/* homepage-note-card-badge: category label above card title */}
+                            <p className={`homepage-note-card-badge text-[10px] sm:text-[11px] md:text-[10px] font-extrabold uppercase tracking-[0.2em] font-montserrat ${theme.label}`}>{note.isPinned ? 'PINNED' : 'PRIORITY'}</p>
+                            {/* homepage-note-card-title: primary title of notepad card */}
+                            <h3 className={`homepage-note-card-title text-xl sm:text-xl md:text-lg lg:text-base xl:text-lg font-bold tracking-tight font-display line-clamp-2 leading-snug w-full ${theme.text}`}>{formatTitle(note.title) || "Untitled"}</h3>
                         </div>
                     </div>
                 );
