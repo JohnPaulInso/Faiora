@@ -9092,6 +9092,33 @@
                 if (showToast) showToast(`Category "${clean}" deleted`);
             };
 
+            // (2026-07-13) Multi-select state for batch delete in QuickTasksPage. Prev: undeclared
+            const [isSelectionMode, setIsSelectionMode] = useState(false);
+            const [selectedTasks, setSelectedTasks] = useState([]);
+            const [pendingDeleteBatch, setPendingDeleteBatch] = useState(false);
+
+            const handleToggleSelectTask = (taskId) => {
+                setSelectedTasks(prev =>
+                    prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]
+                );
+            };
+
+            const handleSelectAll = () => {
+                setSelectedTasks(prev =>
+                    prev.length === filteredTasks.length ? [] : filteredTasks.map(t => t.id)
+                );
+            };
+
+            const handleConfirmBatchDelete = () => {
+                if (typeof onUpdateQuickTasks === 'function') {
+                    onUpdateQuickTasks((quickTasks || []).filter(t => !selectedTasks.includes(t.id)));
+                }
+                setSelectedTasks([]);
+                setIsSelectionMode(false);
+                setPendingDeleteBatch(false);
+                if (showToast) showToast(`${selectedTasks.length} task${selectedTasks.length !== 1 ? 's' : ''} deleted`);
+            };
+
             // (2026-07-13) Add Past Due section before today in QuickTasksPage. Prev: none
             const [visibleSections, setVisibleSections] = useState(() => {
                 try {
