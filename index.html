@@ -13178,14 +13178,14 @@
             const startYRef = useRef(0);
             const currentYRef = useRef(0);
 
-            const handleTouchStart = (e) => {
+            const handleStart = (e) => {
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                 startYRef.current = clientY;
                 currentYRef.current = clientY;
                 setIsDragging(true);
             };
 
-            const handleTouchMove = (e) => {
+            const handleMove = (e) => {
                 if (!startYRef.current) return;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                 currentYRef.current = clientY;
@@ -13195,9 +13195,9 @@
                 }
             };
 
-            const handleTouchEnd = () => {
+            const handleEnd = () => {
                 const diff = currentYRef.current - startYRef.current;
-                if (diff > 30) {
+                if (diff > 25) {
                     setDragY(100);
                     setTimeout(() => {
                         onDismiss(toast.id);
@@ -13212,12 +13212,13 @@
 
             return (
                 <div
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                    onMouseDown={handleTouchStart}
-                    onMouseMove={(e) => { if (isDragging) handleTouchMove(e); }}
-                    onMouseUp={handleTouchEnd}
+                    onTouchStart={handleStart}
+                    onTouchMove={handleMove}
+                    onTouchEnd={handleEnd}
+                    onTouchCancel={handleEnd}
+                    onMouseDown={handleStart}
+                    onMouseMove={(e) => { if (isDragging) handleMove(e); }}
+                    onMouseUp={handleEnd}
                     className="toast-pill flex items-center justify-between gap-3 select-none cursor-grab active:cursor-grabbing"
                     style={{
                         pointerEvents: 'auto',
@@ -13244,6 +13245,84 @@
                             {toast.action.label || 'Undo'}
                         </button>
                     )}
+                </div>
+            );
+        };
+
+        // (2026-07-13) Swipe-down-to-dismiss task snackbar component. Prev: static div
+        const TaskSnackbarItem = ({ snack, onDismiss }) => {
+            const [dragY, setDragY] = useState(0);
+            const [isDragging, setIsDragging] = useState(false);
+            const startYRef = useRef(0);
+            const currentYRef = useRef(0);
+
+            const handleStart = (e) => {
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                startYRef.current = clientY;
+                currentYRef.current = clientY;
+                setIsDragging(true);
+            };
+
+            const handleMove = (e) => {
+                if (!startYRef.current) return;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                currentYRef.current = clientY;
+                const diff = currentYRef.current - startYRef.current;
+                if (diff > 0) {
+                    setDragY(diff);
+                }
+            };
+
+            const handleEnd = () => {
+                const diff = currentYRef.current - startYRef.current;
+                if (diff > 25) {
+                    setDragY(100);
+                    setTimeout(() => {
+                        onDismiss(snack.id);
+                    }, 120);
+                } else {
+                    setDragY(0);
+                }
+                setIsDragging(false);
+                startYRef.current = 0;
+                currentYRef.current = 0;
+            };
+
+            return (
+                <div
+                    onTouchStart={handleStart}
+                    onTouchMove={handleMove}
+                    onTouchEnd={handleEnd}
+                    onTouchCancel={handleEnd}
+                    onMouseDown={handleStart}
+                    onMouseMove={(e) => { if (isDragging) handleMove(e); }}
+                    onMouseUp={handleEnd}
+                    className="task-snackbar group select-none cursor-grab active:cursor-grabbing"
+                    style={{
+                        pointerEvents: 'auto',
+                        touchAction: 'none',
+                        transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
+                        opacity: dragY > 0 ? Math.max(0, 1 - dragY / 80) : undefined,
+                        transition: isDragging ? 'none' : 'transform 0.2s ease, opacity 0.2s ease'
+                    }}
+                >
+                    <div className="flex items-center gap-3 pointer-events-none min-w-0">
+                        <span className="material-symbols-outlined text-primary text-xl flex-shrink-0">
+                            {snack.message && snack.message.includes('deleted') ? 'delete' : 'check_circle'}
+                        </span>
+                        <span className="text-sm font-medium truncate">{snack.message}</span>
+                    </div>
+                    <button 
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (snack.onUndo) snack.onUndo();
+                            onDismiss(snack.id);
+                        }}
+                        className="text-primary text-xs font-bold uppercase tracking-wider px-3 py-1.5 hover:bg-primary/10 rounded-lg transition-colors active:scale-95 pointer-events-auto flex-shrink-0"
+                    >
+                        Undo
+                    </button>
                 </div>
             );
         };
@@ -16494,24 +16573,13 @@
                                 box-shadow: 0 -20px 40px rgba(0,0,0,0.4);
                             }
                         `}</style>
+                        {/* (2026-07-13) Swipe-down-to-dismiss task snackbars. Prev: static */}
                         {taskSnackbars.slice(-1).map(snack => (
-                            <div key={snack.id} className="task-snackbar group">
-                                <div className="flex items-center gap-3">
-                                    <span className="material-symbols-outlined text-primary text-xl">
-                                        {snack.message.includes('deleted') ? 'delete' : 'check_circle'}
-                                    </span>
-                                    <span className="text-sm font-medium">{snack.message}</span>
-                                </div>
-                                <button 
-                                    onClick={() => {
-                                        snack.onUndo();
-                                        setTaskSnackbars(prev => prev.filter(s => s.id !== snack.id));
-                                    }}
-                                    className="text-primary text-xs font-bold uppercase tracking-wider px-3 py-1.5 hover:bg-primary/10 rounded-lg transition-colors"
-                                >
-                                    Undo
-                                </button>
-                            </div>
+                            <TaskSnackbarItem
+                                key={snack.id}
+                                snack={snack}
+                                onDismiss={(id) => setTaskSnackbars(prev => prev.filter(s => s.id !== id))}
+                            />
                         ))}
                     </div>
                     </FaioraErrorBoundary>
