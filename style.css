@@ -49,19 +49,19 @@
     animation: fire-glow-pulse 2.5s ease-in-out infinite alternate !important;
 }
 
-/* (2026-07-13) Set 100% opacity for mobile header & bottom nav. Prev: 0.98 */
+/* (2026-07-13) Dynamic color-shifting pulse for 100% opacity header. Prev: static */
 @keyframes mobile-header-pulse {
     0% {
         background-color: #0e0603;
     }
     25% {
-        background-color: #2d1006;
+        background-color: #381507;
     }
     50% {
-        background-color: #140804;
+        background-color: #190904;
     }
     75% {
-        background-color: #361408;
+        background-color: #481b09;
     }
     100% {
         background-color: #0e0603;
@@ -75,7 +75,6 @@
 .faiora-mobile-header {
     position: fixed !important;
     animation: mobile-header-pulse 8s ease-in-out infinite !important;
-    background-color: #0e0603 !important;
     opacity: 1 !important;
     border: none !important;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6) !important;
