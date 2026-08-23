@@ -5686,20 +5686,20 @@
             const isLocked = !!note.isLocked;
             const preview = isLocked ? "" : stripHtml(note.content);
 
-            // (2026-07-13) Square aspect ratio for priority note cards. Prev: fixed h
+            // (2026-07-13) Reduce priority card title font size for desktop. Prev: text-3xl
             if (variant === 'priority') {
                 return (
                     <div 
                         onClick={onClick}
-                        className={`card-glow sticky-note-${(index % 5) + 1} rounded-[1.75rem] md:rounded-[2rem] p-4 md:p-5 aspect-square flex flex-col justify-between border-b-4 group cursor-pointer relative overflow-hidden font-montserrat ${theme.bg} ${theme.border}`}
+                        className={`card-glow sticky-note-${(index % 5) + 1} rounded-[1.5rem] md:rounded-[1.75rem] p-3.5 md:p-4 aspect-square flex flex-col justify-between border-b-4 group cursor-pointer relative overflow-hidden font-montserrat ${theme.bg} ${theme.border}`}
                     >
                         <div className="flex justify-start items-start">
-                            <span className={`material-symbols-outlined text-2xl md:text-3xl ${theme.icon}`} style={note.isPinned ? {fontVariationSettings: "'FILL' 1"} : {}}>{note.noteIcon || 'push_pin'}</span>
+                            <span className={`material-symbols-outlined text-xl md:text-2xl ${theme.icon}`} style={note.isPinned ? {fontVariationSettings: "'FILL' 1"} : {}}>{note.noteIcon || 'push_pin'}</span>
                         </div>
-                        <div className="mt-auto w-full flex flex-col gap-1 text-left">
+                        <div className="mt-auto w-full flex flex-col gap-0.5 text-left min-w-0">
                             {/* (2026-07-13) Add PINNED/PRIORITY label above title. Prev: title only */}
-                            <p className={`text-[9px] font-extrabold uppercase tracking-[0.2em] font-montserrat ${theme.label}`}>{note.isPinned ? 'PINNED' : 'PRIORITY'}</p>
-                            <h3 className={`text-xl sm:text-2xl md:text-3xl font-bold tracking-tight font-display line-clamp-2 leading-tight w-full ${theme.text}`}>{formatTitle(note.title) || "Untitled"}</h3>
+                            <p className={`text-[8px] md:text-[9px] font-extrabold uppercase tracking-[0.2em] font-montserrat ${theme.label}`}>{note.isPinned ? 'PINNED' : 'PRIORITY'}</p>
+                            <h3 className={`text-sm sm:text-base md:text-lg lg:text-base xl:text-lg font-bold tracking-tight font-display line-clamp-2 leading-snug w-full ${theme.text}`}>{formatTitle(note.title) || "Untitled"}</h3>
                         </div>
                     </div>
                 );
@@ -7172,12 +7172,12 @@
                                             ) : (
                                                 <button 
                                                     onClick={onOpenCreator}
-                                                    className="sticky-note-add aspect-square border-2 border-dashed border-primary/40 rounded-[1.75rem] md:rounded-[2rem] flex flex-col items-center justify-center group cursor-pointer hover:bg-orange-500/15 active:bg-orange-500/25 hover:border-orange-400 active:border-orange-400 hover:shadow-[0_0_20px_rgba(249,115,22,0.35)] active:shadow-[0_0_20px_rgba(249,115,22,0.35)] hover:scale-[1.01] active:scale-95 transition-all duration-200 p-4 select-none"
+                                                    className="sticky-note-add aspect-square border-2 border-dashed border-primary/40 rounded-[1.5rem] md:rounded-[1.75rem] flex flex-col items-center justify-center group cursor-pointer hover:bg-orange-500/15 active:bg-orange-500/25 hover:border-orange-400 active:border-orange-400 hover:shadow-[0_0_20px_rgba(249,115,22,0.35)] active:shadow-[0_0_20px_rgba(249,115,22,0.35)] hover:scale-[1.01] active:scale-95 transition-all duration-200 p-3.5 md:p-4 select-none"
                                                 >
-                                                    <div className="w-9 h-9 md:w-10 md:h-10 mb-2 md:mb-3 rounded-full bg-primary/10 group-hover:bg-orange-500/30 group-active:bg-orange-500/35 group-hover:shadow-[0_0_12px_rgba(249,115,22,0.4)] group-hover:scale-110 flex items-center justify-center text-primary group-hover:text-orange-200 group-active:text-orange-200 transition-all shrink-0">
-                                                        <span className="material-symbols-outlined text-lg md:text-2xl group-hover:rotate-90 transition-transform duration-300">add</span>
+                                                    <div className="w-8 h-8 md:w-9 md:h-9 mb-1.5 md:mb-2 rounded-full bg-primary/10 group-hover:bg-orange-500/30 group-active:bg-orange-500/35 group-hover:shadow-[0_0_12px_rgba(249,115,22,0.4)] group-hover:scale-110 flex items-center justify-center text-primary group-hover:text-orange-200 group-active:text-orange-200 transition-all shrink-0">
+                                                        <span className="material-symbols-outlined text-base md:text-xl group-hover:rotate-90 transition-transform duration-300">add</span>
                                                     </div>
-                                                    <p className="text-[11px] md:text-xs font-bold text-primary/80 group-hover:text-orange-200 group-active:text-orange-200 uppercase tracking-widest text-center px-1 transition-colors">Add Note</p>
+                                                    <p className="text-[10px] md:text-[11px] font-bold text-primary/80 group-hover:text-orange-200 group-active:text-orange-200 uppercase tracking-widest text-center px-1 transition-colors">Add Note</p>
                                                 </button>
                                             )
                                         )}
