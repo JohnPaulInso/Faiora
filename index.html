@@ -9333,7 +9333,8 @@
                         <div className="flex items-center gap-4 mt-16 md:mt-10 mb-2 md:mb-3">
                             <div className="flex items-center gap-2">
                                 {/* FIX 2026-04-22: Page Header style matched to homepage serif aesthetic (non-italic) for consistency */}
-                                <h1 className="text-xl md:text-3xl font-display font-bold text-cream-light tracking-[0.15em] md:tracking-[0.25em] uppercase">Quick Tasks</h1>
+                                {/* (2026-07-13) whitespace-nowrap keeps title 1 line. Prev: wrapped */}
+                                <h1 className="text-xl md:text-3xl font-display font-bold text-cream-light tracking-[0.15em] md:tracking-[0.25em] uppercase whitespace-nowrap">Quick Tasks</h1>
                                 <button
                                     type="button"
                                     onClick={() => setIsManageCategoriesOpen(true)}
@@ -9344,22 +9345,7 @@
                                 </button>
                             </div>
                             <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
-                            {/* (2026-07-13) Select btn: icon-only, standard/daily only. Prev: text+icon, always shown */}
-                            {(viewMode === 'standard' || viewMode === 'daily') && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsSelectionMode(prev => {
-                                            if (prev) setSelectedTasks([]);
-                                            return !prev;
-                                        });
-                                    }}
-                                    className={`w-8 h-8 rounded-full border transition-all flex items-center justify-center shrink-0 ${isSelectionMode ? 'bg-primary text-white border-primary shadow-sm shadow-primary/30' : 'bg-white/[0.03] text-cream-light/50 hover:text-cream-light border-white/10 hover:bg-white/5'}`}
-                                    title={isSelectionMode ? 'Exit selection' : 'Select multiple tasks'}
-                                >
-                                    <span className="material-symbols-outlined text-[16px]">{isSelectionMode ? 'close' : 'checklist'}</span>
-                                </button>
-                            )}
+
                             {/* (2026-07-13) Fix white focus outline on mode switch. Prev: white ring */}
                             <div className="flex items-center bg-white/[0.03] p-1 rounded-full border border-white/10 backdrop-blur-md shadow-inner gap-0.5 shrink-0">
                                 <button
@@ -9394,6 +9380,25 @@
                                 >
                                     <span className="material-symbols-outlined text-[15px]">category</span>
                                 </button>
+                                {/* (2026-07-13) Select icon in pill group, standard/daily only. Prev: separate button */}
+                                {(viewMode === 'standard' || viewMode === 'daily') && (
+                                    <>
+                                        <div className="w-px h-4 bg-white/10 mx-0.5 shrink-0" />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsSelectionMode(prev => {
+                                                    if (prev) setSelectedTasks([]);
+                                                    return !prev;
+                                                });
+                                            }}
+                                            className={`viewmode-btn w-7 h-7 rounded-full border transition-all duration-150 flex items-center justify-center select-none ${isSelectionMode ? 'bg-primary/20 text-primary border-primary/40' : 'border-transparent text-cream-light/40 hover:text-cream-light/90 hover:bg-white/5'}`}
+                                            title={isSelectionMode ? 'Exit selection' : 'Select multiple tasks'}
+                                        >
+                                            <span className="material-symbols-outlined text-[15px]">{isSelectionMode ? 'close' : 'checklist'}</span>
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         </div>
 
