@@ -49,22 +49,22 @@
     animation: fire-glow-pulse 2.5s ease-in-out infinite alternate !important;
 }
 
-/* (2026-07-13) Increased navbar opacity to 0.99. Prev: 0.95/0.97 */
+/* (2026-07-13) Opaque mobile header and navbars. Prev: 0.99 */
 @keyframes mobile-header-pulse {
     0% {
-        background-color: rgba(14, 6, 3, 0.99);
+        background-color: #0e0603;
     }
     25% {
-        background-color: rgba(30, 11, 4, 0.995);
+        background-color: #1e0b04;
     }
     50% {
-        background-color: rgba(18, 7, 3, 0.99);
+        background-color: #120703;
     }
     75% {
-        background-color: rgba(34, 13, 5, 0.995);
+        background-color: #220d05;
     }
     100% {
-        background-color: rgba(14, 6, 3, 0.99);
+        background-color: #0e0603;
     }
 }
 
@@ -74,6 +74,7 @@
 
 .faiora-mobile-header {
     position: fixed !important;
+    background-color: #0e0603 !important;
     animation: mobile-header-pulse 8s ease-in-out infinite !important;
     border: none !important;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6) !important;
@@ -97,7 +98,7 @@
 
 .faiora-mobile-nav {
     position: fixed !important;
-    background-color: rgba(12, 5, 2, 0.99) !important;
+    background-color: #0c0502 !important;
     border: none !important;
     box-shadow: 0 -12px 36px 0 rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.08) !important;
     -webkit-backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
