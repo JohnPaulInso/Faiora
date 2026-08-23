@@ -510,16 +510,18 @@
                 thisWeek: [],
                 nextWeek: [],
                 upcoming: [],
+                noDate: [],
                 completed: []
             };
 
+            // (2026-07-13) Route tasks without dates to dedicated noDate group. Prev: today
             sortedQuickTasks.forEach(task => {
                 if (task.completed) {
                     groups.completed.push(task);
                     return;
                 }
                 if (!task.dueDate) {
-                    groups.today.push(task);
+                    groups.noDate.push(task);
                     return;
                 }
 
@@ -576,20 +578,22 @@
             const todayTasks = [];
             const tomorrowTasks = [];
             const futureMap = new Map();
+            const noDateTasks = [];
             const completed = [];
 
+            // (2026-07-13) Separate tasks without deadlines into noDateTasks. Prev: todayTasks
             sorted.forEach(task => {
                 if (task.completed) {
                     completed.push(task);
                     if (!includeCompleted) return;
                 }
                 if (!task.dueDate) {
-                    todayTasks.push(task);
+                    noDateTasks.push(task);
                     return;
                 }
                 const due = new Date(`${task.dueDate}T00:00:00`);
                 if (Number.isNaN(due.getTime())) {
-                    todayTasks.push(task);
+                    noDateTasks.push(task);
                     return;
                 }
 
@@ -662,6 +666,18 @@
                     totalCount: futureMap.get(dStr).length
                 });
             });
+
+            // (2026-07-13) Dedicated NO DEADLINE section for notepad view. Prev: merged in today
+            if (noDateTasks.length > 0) {
+                sections.push({
+                    key: 'noDate',
+                    label: 'NO DEADLINE',
+                    shortLabel: 'NO DEADLINE',
+                    items: noDateTasks,
+                    totalCount: noDateTasks.length,
+                    isNoDate: true
+                });
+            }
 
             return {
                 sections,
@@ -6242,14 +6258,15 @@
                 setEditValue('');
             };
 
-            // (2026-07-13) Add Past Due section option in settings modal. Prev: none
+            // (2026-07-13) Add No Deadline option in settings modal. Prev: none
             const sectionOptions = [
                 { key: 'pastDue', label: 'Past Due', sub: 'Overdue quick tasks', alwaysOn: true },
                 { key: 'today', label: 'Today', sub: 'Tasks due today', alwaysOn: true },
                 { key: 'tomorrow', label: 'Tomorrow', sub: "Tomorrow's tasks", alwaysOn: false },
                 { key: 'thisWeek', label: 'This Week', sub: 'Tasks due this week', alwaysOn: false },
                 { key: 'nextWeek', label: 'Next Week', sub: 'Tasks due next week', alwaysOn: false },
-                { key: 'upcoming', label: 'Upcoming', sub: 'Next 2 weeks after next week', alwaysOn: false }
+                { key: 'upcoming', label: 'Upcoming', sub: 'Next 2 weeks after next week', alwaysOn: false },
+                { key: 'noDate', label: 'No Deadline', sub: 'Tasks without set dates', alwaysOn: false }
             ];
 
             // (2026-07-13) Set modal wrapper z-950 below nav & FAB. Prev: z-999
@@ -9174,7 +9191,7 @@
                 return () => obs.disconnect();
             }, [finishedLimit, completedTasksSorted.length]);
 
-            // (2026-07-13) Skeletons, this/next week sections & compact padding. Prev: basic
+            // (2026-07-13) Skeletons, this/next week sections & No Deadline. Prev: basic
             const sections = [
                 { key: 'pastDue', label: 'Past Due', items: groupedQuickTasks.pastDue || [], totalCount: (groupedQuickTasks.pastDue || []).length },
                 { key: 'today', label: 'Today', items: groupedQuickTasks.today, totalCount: groupedQuickTasks.today.length },
@@ -9182,6 +9199,7 @@
                 { key: 'thisWeek', label: 'This Week', items: groupedQuickTasks.thisWeek || [], totalCount: (groupedQuickTasks.thisWeek || []).length },
                 { key: 'nextWeek', label: 'Next Week', items: groupedQuickTasks.nextWeek || [], totalCount: (groupedQuickTasks.nextWeek || []).length },
                 { key: 'upcoming', label: 'Upcoming', items: groupedQuickTasks.upcoming || [], totalCount: (groupedQuickTasks.upcoming || []).length },
+                { key: 'noDate', label: 'No Deadline', items: groupedQuickTasks.noDate || [], totalCount: (groupedQuickTasks.noDate || []).length },
                 { key: 'completed', label: 'Finished', items: completedTasksSorted.slice(0, finishedLimit), totalCount: completedTasksSorted.length }
             ];
 
@@ -11894,8 +11912,9 @@
             };
 
             const [text, setText] = useState((initialData && initialData.text) || '');
-            const [dueDate, setDueDate] = useState((initialData && initialData.dueDate) || prefillDate || initialLater.date);
-            const [dueTime, setDueTime] = useState((initialData && initialData.dueTime) || (prefillDate ? '10:00' : initialLater.time));
+            // (2026-07-13) Allow optional/empty dueDate and dueTime. Prev: fallback forced initialLater
+            const [dueDate, setDueDate] = useState((initialData && initialData.dueDate !== undefined) ? initialData.dueDate : (prefillDate || ''));
+            const [dueTime, setDueTime] = useState((initialData && initialData.dueTime !== undefined) ? initialData.dueTime : (prefillDate ? '10:00' : ''));
             // (2026-07-13) Add progress history state to QuickTaskModal. Prev: none
             const [progress, setProgress] = useState(() => {
                 if (initialData) {
@@ -12065,6 +12084,10 @@
 
                 if (showCustom || selectedPreset === 'custom') {
                     return { label: 'Custom', sub: `${formatD(dueDate)}, ${formatTime(dueTime)}`, icon: 'schedule' };
+                }
+
+                if (!dueDate && !dueTime) {
+                    return { label: 'No Deadline', sub: 'No due date set', icon: 'event_busy' };
                 }
 
                 // Fallback smart matching if preset is somehow lost or doesn't match
