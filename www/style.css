@@ -78,28 +78,16 @@ html, body {
     animation: mobile-header-pulse 8s ease-in-out infinite !important;
 }
 
+/* (2026-07-13) Lightweight solid GPU-accelerated header and nav. Prev: heavy backdrop-filter 36px */
 .faiora-mobile-header {
     position: fixed !important;
-    animation: mobile-header-pulse 8s ease-in-out infinite !important;
+    background-color: #0e0603 !important;
     opacity: 1 !important;
     border: none !important;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6) !important;
-    -webkit-backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
-    backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
+    box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.75) !important;
     -webkit-transform: translateZ(0) !important;
     transform: translateZ(0) !important;
-}
-
-.faiora-mobile-header::after {
-    content: '' !important;
-    position: absolute !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    height: 0.5px !important;
-    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 15%, rgba(249, 115, 22, 0.20) 38%, rgba(255, 255, 255, 0.25) 50%, rgba(249, 115, 22, 0.20) 62%, rgba(255, 255, 255, 0.05) 85%, transparent 100%) !important;
-    pointer-events: none !important;
-    z-index: 10 !important;
+    will-change: transform;
 }
 
 .faiora-mobile-nav {
@@ -107,11 +95,10 @@ html, body {
     background-color: #0c0502 !important;
     opacity: 1 !important;
     border: none !important;
-    box-shadow: 0 -12px 36px 0 rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.08) !important;
-    -webkit-backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
-    backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
+    box-shadow: 0 -8px 24px 0 rgba(0, 0, 0, 0.8), inset 0 1px 0 0 rgba(255, 255, 255, 0.08) !important;
     -webkit-transform: translateZ(0) !important;
     transform: translateZ(0) !important;
+    will-change: transform;
 }
 
 .faiora-mobile-nav::before {
@@ -371,19 +358,21 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     height: 100%;
     object-fit: cover;
     z-index: 0;
-    opacity: 0; /* Changed to 0 by default to fix broken placeholder icon on slow load */
-    mix-blend-mode: screen;
+    opacity: 0;
     pointer-events: none;
     backface-visibility: hidden;
-    transform: translateZ(0);
-    /* (2026-07-13) Smooth 2s fade-in for delayed video load. Prev: 0.8s */
-    transition: opacity 2s cubic-bezier(0.4, 0, 0.2, 1);
+    -webkit-backface-visibility: hidden;
+    transform: translate3d(0, 0, 0);
+    -webkit-transform: translate3d(0, 0, 0);
+    will-change: opacity;
+    /* (2026-07-13) Direct hardware composition without mix-blend-mode. Prev: mix-blend-mode screen */
+    transition: opacity 1.5s ease-out;
 }
 
 /* LABEL: FIRE-BG-READY — Revealed state for background video */
 /* NEW 2026-04-16: Prevents "play button" flickering on initial load */
 .fire-bg-video.is-ready {
-    opacity: 0.4;
+    opacity: 0.35;
 }
 
 /* (2026-07-13) Restore gradient bg. Prev: missing */
