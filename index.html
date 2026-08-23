@@ -6308,16 +6308,73 @@
                 if (showToast) showToast(`Category "${clean}" added`);
             };
 
-            // (2026-07-13) Move category up/down & persist order. Prev: drag and drop
-            const moveCategory = (idx, direction) => {
-                const targetIdx = idx + direction;
-                if (targetIdx < 0 || targetIdx >= orderedCats.length) return;
-                const next = [...orderedCats];
-                const [moved] = next.splice(idx, 1);
-                next.splice(targetIdx, 0, moved);
-                setOrderedCats(next);
-                if (onReorderCategories) onReorderCategories(next);
-                if (navigator.vibrate) try { navigator.vibrate(20); } catch {}
+            // (2026-07-13) High-performance pointer capture drag to sort. Prev: document listener
+            const [dragOffsetY, setDragOffsetY] = useState(0);
+            const dragHandleRef = useRef(null);
+
+            const handlePointerDown = (e, idx) => {
+                if (e.target.closest('button, input')) return;
+                const target = e.currentTarget;
+                try { target.setPointerCapture(e.pointerId); } catch {}
+                
+                isDraggingRef.current = true;
+                dragStartIdx.current = idx;
+                dragHandleRef.current = { pointerId: e.pointerId, startY: e.clientY, target };
+                setDraggingIdx(idx);
+                setOverIdx(idx);
+                setDragOffsetY(0);
+                if (navigator.vibrate) try { navigator.vibrate(35); } catch {}
+            };
+
+            const handlePointerMove = (e) => {
+                if (!isDraggingRef.current || !dragHandleRef.current || !listRef.current) return;
+                const dy = e.clientY - dragHandleRef.current.startY;
+                setDragOffsetY(dy);
+
+                const currentIdx = dragStartIdx.current;
+                const rows = Array.from(listRef.current.querySelectorAll('[data-cat-row]'));
+                let targetIdx = currentIdx;
+
+                rows.forEach((row, i) => {
+                    const rect = row.getBoundingClientRect();
+                    if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                        targetIdx = i;
+                    }
+                });
+
+                if (targetIdx !== overIdx) {
+                    setOverIdx(targetIdx);
+                    if (navigator.vibrate) try { navigator.vibrate(15); } catch {}
+                }
+            };
+
+            const handlePointerUp = (e) => {
+                if (!isDraggingRef.current) return;
+                const currentDrag = dragStartIdx.current;
+                const currentOver = overIdx;
+
+                if (dragHandleRef.current && dragHandleRef.current.target) {
+                    try { dragHandleRef.current.target.releasePointerCapture(dragHandleRef.current.pointerId); } catch {}
+                }
+
+                if (currentDrag !== null && currentOver !== null && currentOver !== currentDrag) {
+                    setOrderedCats(prev => {
+                        const next = [...prev];
+                        const [moved] = next.splice(currentDrag, 1);
+                        next.splice(currentOver, 0, moved);
+                        setTimeout(() => {
+                            if (onReorderCategories) onReorderCategories(next);
+                        }, 0);
+                        return next;
+                    });
+                }
+
+                isDraggingRef.current = false;
+                dragStartIdx.current = null;
+                dragHandleRef.current = null;
+                setDraggingIdx(null);
+                setOverIdx(null);
+                setDragOffsetY(0);
             };
 
             // --- Inline edit ---
@@ -6434,28 +6491,32 @@
                                         return (
                                             <div
                                                 key={cat}
-                                                className="flex items-center gap-2.5 p-3 rounded-2xl border transition-all select-none bg-white/[0.03] border-white/5 hover:border-white/10"
+                                                data-cat-row={idx}
+                                                style={{
+                                                    transition: isDragging ? 'box-shadow 0.15s, transform 0.05s linear' : 'transform 0.2s cubic-bezier(0.2,0,0,1)',
+                                                    transform: isDragging 
+                                                        ? `translateY(${dragOffsetY}px) scale(1.05)` 
+                                                        : (draggingIdx !== null && idx > draggingIdx && idx <= (overIdx ?? draggingIdx))
+                                                            ? 'translateY(-48px)'
+                                                            : (draggingIdx !== null && idx < draggingIdx && idx >= (overIdx ?? draggingIdx))
+                                                                ? 'translateY(48px)'
+                                                                : 'none',
+                                                    zIndex: isDragging ? 100 : 1,
+                                                    position: 'relative',
+                                                    touchAction: 'none'
+                                                }}
+                                                className={`flex items-center gap-2.5 p-3 rounded-2xl border transition-all select-none ${isDragging ? 'bg-[#1e130c] border-primary shadow-[0_12px_30px_rgba(249,115,22,0.35)] ring-2 ring-primary/60 cursor-grabbing' : 'bg-white/[0.03] border-white/5 hover:border-white/10'}`}
                                             >
-                                                {/* Up / Down sort arrows */}
-                                                <div className="flex flex-col items-center justify-center -space-y-1 flex-shrink-0">
-                                                    <button
-                                                        type="button"
-                                                        disabled={idx === 0}
-                                                        onClick={() => moveCategory(idx, -1)}
-                                                        className="p-0.5 text-white/30 hover:text-primary disabled:opacity-10 disabled:hover:text-white/30 transition-colors flex items-center justify-center"
-                                                        title="Move up"
-                                                    >
-                                                        <span className="material-symbols-outlined text-[16px]">keyboard_arrow_up</span>
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        disabled={idx === orderedCats.length - 1}
-                                                        onClick={() => moveCategory(idx, 1)}
-                                                        className="p-0.5 text-white/30 hover:text-primary disabled:opacity-10 disabled:hover:text-white/30 transition-colors flex items-center justify-center"
-                                                        title="Move down"
-                                                    >
-                                                        <span className="material-symbols-outlined text-[16px]">keyboard_arrow_down</span>
-                                                    </button>
+                                                {/* 3-line drag handle */}
+                                                <div
+                                                    onPointerDown={(e) => handlePointerDown(e, idx)}
+                                                    onPointerMove={handlePointerMove}
+                                                    onPointerUp={handlePointerUp}
+                                                    onPointerCancel={handlePointerUp}
+                                                    className={`p-1.5 rounded-xl transition-all flex items-center justify-center touch-none flex-shrink-0 cursor-grab active:cursor-grabbing ${isDragging ? 'bg-primary text-white shadow-md' : 'text-white/40 hover:text-primary hover:bg-white/5'}`}
+                                                    title="Hold and drag to reorder"
+                                                >
+                                                    <span className="material-symbols-outlined text-[18px]">drag_handle</span>
                                                 </div>
 
                                                 <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0"></span>
