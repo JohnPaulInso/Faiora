@@ -6308,73 +6308,16 @@
                 if (showToast) showToast(`Category "${clean}" added`);
             };
 
-            // (2026-07-13) Safe pointer-down handler without illegal passive preventDefault. Prev: preventDefault on touch
-            const [dragOffsetY, setDragOffsetY] = useState(0);
-            const handleDragPointerDown = (e, idx) => {
-                e.stopPropagation();
-                if (e.target.closest('button, input')) return;
-                
-                const startClientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-                isDraggingRef.current = true;
-                dragStartIdx.current = idx;
-                setDraggingIdx(idx);
-                setOverIdx(idx);
-                setDragOffsetY(0);
-                if (navigator.vibrate) try { navigator.vibrate(40); } catch {}
-
-                const onMove = (moveEvent) => {
-                    if (!isDraggingRef.current || !listRef.current) return;
-                    const clientY = moveEvent.clientY || (moveEvent.touches && moveEvent.touches[0] ? moveEvent.touches[0].clientY : 0);
-                    setDragOffsetY(clientY - startClientY);
-
-                    const rows = Array.from(listRef.current.querySelectorAll('[data-cat-row]'));
-                    let newOver = idx;
-                    rows.forEach((el, i) => {
-                        const rect = el.getBoundingClientRect();
-                        if (clientY >= rect.top && clientY <= rect.bottom) newOver = i;
-                        else if (clientY > rect.bottom) newOver = i;
-                    });
-                    setOverIdx(prev => {
-                        if (prev !== newOver) {
-                            if (navigator.vibrate) try { navigator.vibrate(15); } catch {}
-                            return newOver;
-                        }
-                        return prev;
-                    });
-                };
-
-                const onUp = (upEvent) => {
-                    document.removeEventListener('pointermove', onMove);
-                    document.removeEventListener('pointerup', onUp);
-                    document.removeEventListener('touchmove', onMove);
-                    document.removeEventListener('touchend', onUp);
-                    
-                    const finalDrag = dragStartIdx.current;
-                    setOverIdx(latestOver => {
-                        if (finalDrag !== null && latestOver !== null && latestOver !== finalDrag) {
-                            setOrderedCats(prev => {
-                                const next = [...prev];
-                                const [moved] = next.splice(finalDrag, 1);
-                                next.splice(latestOver, 0, moved);
-                                // (2026-07-13) Defer parent update out of render cycle. Prev: setState in render warning
-                                setTimeout(() => {
-                                    if (onReorderCategories) onReorderCategories(next);
-                                }, 0);
-                                return next;
-                            });
-                        }
-                        return null;
-                    });
-                    setDraggingIdx(null);
-                    isDraggingRef.current = false;
-                    dragStartIdx.current = null;
-                    setDragOffsetY(0);
-                };
-
-                document.addEventListener('pointermove', onMove, { passive: false });
-                document.addEventListener('pointerup', onUp);
-                document.addEventListener('touchmove', onMove, { passive: false });
-                document.addEventListener('touchend', onUp);
+            // (2026-07-13) Move category up/down & persist order. Prev: drag and drop
+            const moveCategory = (idx, direction) => {
+                const targetIdx = idx + direction;
+                if (targetIdx < 0 || targetIdx >= orderedCats.length) return;
+                const next = [...orderedCats];
+                const [moved] = next.splice(idx, 1);
+                next.splice(targetIdx, 0, moved);
+                setOrderedCats(next);
+                if (onReorderCategories) onReorderCategories(next);
+                if (navigator.vibrate) try { navigator.vibrate(20); } catch {}
             };
 
             // --- Inline edit ---
@@ -6491,29 +6434,28 @@
                                         return (
                                             <div
                                                 key={cat}
-                                                data-cat-row={idx}
-                                                style={{
-                                                    transition: isDragging ? 'box-shadow 0.15s, transform 0.05s linear' : 'transform 0.2s cubic-bezier(0.2,0,0,1)',
-                                                    transform: isDragging 
-                                                        ? `translateY(${dragOffsetY}px) scale(1.05)` 
-                                                        : (draggingIdx !== null && idx > draggingIdx && idx <= (overIdx ?? draggingIdx))
-                                                            ? 'translateY(-48px)'
-                                                            : (draggingIdx !== null && idx < draggingIdx && idx >= (overIdx ?? draggingIdx))
-                                                                ? 'translateY(48px)'
-                                                                : 'none',
-                                                    zIndex: isDragging ? 100 : 1,
-                                                    position: 'relative',
-                                                    touchAction: 'none'
-                                                }}
-                                                className={`flex items-center gap-2.5 p-3 rounded-2xl border transition-all select-none ${isDragging ? 'bg-[#1e130c] border-primary shadow-[0_12px_30px_rgba(249,115,22,0.35)] ring-2 ring-primary/60 cursor-grabbing' : 'bg-white/[0.03] border-white/5 hover:border-white/10'}`}
+                                                className="flex items-center gap-2.5 p-3 rounded-2xl border transition-all select-none bg-white/[0.03] border-white/5 hover:border-white/10"
                                             >
-                                                {/* 3-line drag handle */}
-                                                <div
-                                                    onPointerDown={(e) => handleDragPointerDown(e, idx)}
-                                                    className={`p-1.5 rounded-xl transition-all flex items-center justify-center touch-none flex-shrink-0 cursor-grab active:cursor-grabbing ${isDragging ? 'bg-primary text-white shadow-md' : 'text-white/40 hover:text-primary hover:bg-white/5'}`}
-                                                    title="Hold and drag to reorder"
-                                                >
-                                                    <span className="material-symbols-outlined text-[18px]">drag_handle</span>
+                                                {/* Up / Down sort arrows */}
+                                                <div className="flex flex-col items-center justify-center -space-y-1 flex-shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        disabled={idx === 0}
+                                                        onClick={() => moveCategory(idx, -1)}
+                                                        className="p-0.5 text-white/30 hover:text-primary disabled:opacity-10 disabled:hover:text-white/30 transition-colors flex items-center justify-center"
+                                                        title="Move up"
+                                                    >
+                                                        <span className="material-symbols-outlined text-[16px]">keyboard_arrow_up</span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={idx === orderedCats.length - 1}
+                                                        onClick={() => moveCategory(idx, 1)}
+                                                        className="p-0.5 text-white/30 hover:text-primary disabled:opacity-10 disabled:hover:text-white/30 transition-colors flex items-center justify-center"
+                                                        title="Move down"
+                                                    >
+                                                        <span className="material-symbols-outlined text-[16px]">keyboard_arrow_down</span>
+                                                    </button>
                                                 </div>
 
                                                 <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0"></span>
