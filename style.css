@@ -1775,3 +1775,23 @@ body.dragging-image-active { cursor: grabbing !important; user-select: none !imp
     opacity: 1;
 }
 
+/* (2026-07-13) Clean custom visible scrollbar for category list. Prev: no-scrollbar */
+.qt-categories-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(249, 115, 22, 0.4) transparent;
+}
+.qt-categories-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    display: block;
+}
+.qt-categories-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.qt-categories-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(249, 115, 22, 0.45);
+    border-radius: 9999px;
+}
+.qt-categories-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(249, 115, 22, 0.75);
+}
+

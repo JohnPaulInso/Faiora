@@ -6507,10 +6507,10 @@
 
                         {activeTab === 'categories' && (
                             <div className="flex flex-col flex-1 min-h-0 space-y-3">
-                                {/* (2026-07-13) Clean non-intrusive scrollbar for category list. Prev: visible track */}
+                                {/* (2026-07-13) Clean custom visible scrollbar for category list. Prev: no-scrollbar */}
                                 <div
                                     ref={listRef}
-                                    className="flex-1 overflow-y-auto space-y-2 pr-1 pb-2 no-scrollbar"
+                                    className="flex-1 overflow-y-auto space-y-2 pr-1 pb-2 qt-categories-scrollbar"
                                 >
                                     {orderedCats.map((cat, idx) => {
                                         const count = (quickTasks || []).filter(t => {
