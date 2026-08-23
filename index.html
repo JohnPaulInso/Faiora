@@ -6306,14 +6306,7 @@
                 if (showToast) showToast(`Category "${clean}" added`);
             };
 
-            // (2026-07-13) Add up/down sort & visible scrollbar indicator. Prev: drag only
-            const moveCategory = (idx, direction) => {
-                const targetIdx = idx + direction;
-                if (targetIdx < 0 || targetIdx >= orderedCats.length) return;
-                const next = [...orderedCats];
-                const [moved] = next.splice(idx, 1);
-                next.splice(targetIdx, 0, moved);
-              // (2026-07-13) 3-line drag handle pointer down with quick activation. Prev: up/down buttons
+            // (2026-07-13) 3-line drag handle pointer down with quick activation. Prev: up/down buttons
             const handleDragPointerDown = (e, idx) => {
                 e.stopPropagation();
                 if (e.target.closest('button, input')) return;
