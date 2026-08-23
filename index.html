@@ -9382,38 +9382,21 @@
                                 >
                                     <span className="material-symbols-outlined text-[15px]">category</span>
                                 </button>
-                                {/* (2026-07-13) Select icon in pill group, standard/daily only. Prev: separate button */}
-                                {(viewMode === 'standard' || viewMode === 'daily') && (
-                                    <>
-                                        <div className="w-px h-4 bg-white/10 mx-0.5 shrink-0" />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setIsSelectionMode(prev => {
-                                                    if (prev) setSelectedTasks([]);
-                                                    return !prev;
-                                                });
-                                            }}
-                                            className={`viewmode-btn w-7 h-7 rounded-full border transition-all duration-150 flex items-center justify-center select-none ${isSelectionMode ? 'bg-primary/20 text-primary border-primary/40' : 'border-transparent text-cream-light/40 hover:text-cream-light/90 hover:bg-white/5'}`}
-                                            title={isSelectionMode ? 'Exit selection' : 'Select multiple tasks'}
-                                        >
-                                            <span className="material-symbols-outlined text-[15px]">{isSelectionMode ? 'close' : 'checklist'}</span>
-                                        </button>
-                                    </>
-                                )}
                             </div>
                         </div>
 
                         {/* (2026-07-13) Add shimmer to category preloader badges. Prev: pulse */}
+                        {/* (2026-07-13) Select btn pinned right of category row. Prev: inside pill */}
+                        <div className="flex items-center gap-2 mb-4 md:mb-5">
                         {(isProbing || !isFirstSyncDone) ? (
-                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 mb-4 md:mb-5 -mx-4 px-4 md:mx-0 md:px-0">
+                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 flex-1 -mx-4 px-4 md:mx-0 md:px-0">
                                 <div className="h-8 w-14 rounded-full shimmer border border-white/5 flex-shrink-0"></div>
                                 <div className="h-8 w-20 rounded-full shimmer border border-white/5 flex-shrink-0"></div>
                                 <div className="h-8 w-16 rounded-full shimmer border border-white/5 flex-shrink-0"></div>
                                 <div className="h-8 w-14 rounded-full shimmer border border-white/5 flex-shrink-0"></div>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 mb-4 md:mb-5 -mx-4 px-4 md:mx-0 md:px-0">
+                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 flex-1 -mx-4 px-4 md:mx-0 md:px-0">
                                 <button
                                     onClick={() => setSelectedCategory('ALL')}
                                     className={`h-8 px-3.5 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-[0.15em] font-montserrat transition-all duration-200 whitespace-nowrap flex items-center justify-center active:scale-95 ${selectedCategory === 'ALL' ? 'bg-primary/20 text-primary border border-primary/40 shadow-sm shadow-primary/10 active:bg-primary/30' : 'bg-white/[0.04] hover:bg-white/[0.08] hover:border-primary/30 hover:text-primary text-cream-light/50 border border-white/[0.08] active:bg-white/[0.1] active:border-primary/40 active:text-primary'}`}
@@ -9479,6 +9462,23 @@
                                 )}
                             </div>
                         )}
+                        {/* Pinned select icon — only in standard/daily mode */}
+                        {(viewMode === 'standard' || viewMode === 'daily') && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsSelectionMode(prev => {
+                                        if (prev) setSelectedTasks([]);
+                                        return !prev;
+                                    });
+                                }}
+                                className={`w-8 h-8 rounded-full border transition-all flex-shrink-0 flex items-center justify-center ${isSelectionMode ? 'bg-primary/20 text-primary border-primary/40 shadow-sm shadow-primary/10' : 'bg-white/[0.03] text-cream-light/40 hover:text-cream-light border-white/10 hover:bg-white/5'}`}
+                                title={isSelectionMode ? 'Exit selection' : 'Select multiple tasks'}
+                            >
+                                <span className="material-symbols-outlined text-[16px]">{isSelectionMode ? 'close' : 'checklist'}</span>
+                            </button>
+                        )}
+                        </div>
 
                         <div className="space-y-6">
 
