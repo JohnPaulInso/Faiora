@@ -6059,10 +6059,11 @@
                 };
             }, [tasks, showCheckedTasks]);
 
-            // (2026-07-13) Only count duplicates for tasks with 2 or more words. Prev: all texts
+            // (2026-07-13) Only count duplicates among visible tasks with exact match (>= 2 words). Prev: all tasks
             const duplicateTextCounts = useMemo(() => {
                 const map = new Map();
-                (tasks || []).forEach(t => {
+                const visible = showCheckedTasks ? (tasks || []) : (tasks || []).filter(t => !t.completed);
+                visible.forEach(t => {
                     const text = (t.text || '').trim().toLowerCase();
                     const words = text.split(/\s+/).filter(Boolean);
                     if (words.length >= 2) {
@@ -6070,7 +6071,7 @@
                     }
                 });
                 return map;
-            }, [tasks]);
+            }, [tasks, showCheckedTasks]);
 
             const viewData = groupBy === 'category' ? categoryData : dailyData;
             const [isSaving, setIsSaving] = useState(false);
