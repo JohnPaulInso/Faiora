@@ -1402,12 +1402,29 @@
                 }
             };
 
-            // ------------------------------------------------------------------
-            // LABEL: NOTIF-LOCAL-SFX — Play notification sound effect
-            // ------------------------------------------------------------------
-            const playNotifSFX = () => {
+            // (2026-07-13) Singleton AudioContext to prevent duplicate audio. Prev: new ctx per call
+            let _sfxCtx = null;
+            const getSFXCtx = () => {
                 try {
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    if (!_sfxCtx || _sfxCtx.state === 'closed') {
+                        _sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    if (_sfxCtx.state === 'suspended') {
+                        _sfxCtx.resume().catch(() => {});
+                    }
+                    return _sfxCtx;
+                } catch (e) { return null; }
+            };
+
+            // LABEL: NOTIF-LOCAL-SFX — Play notification sound effect
+            let _notifSFXPending = false;
+            const playNotifSFX = () => {
+                if (_notifSFXPending) return;
+                _notifSFXPending = true;
+                setTimeout(() => { _notifSFXPending = false; }, 400);
+                try {
+                    const ctx = getSFXCtx();
+                    if (!ctx) return;
                     const playTone = (freq, start, dur, vol = 0.15) => {
                         const osc = ctx.createOscillator();
                         const gain = ctx.createGain();
@@ -1421,9 +1438,9 @@
                         osc.stop(ctx.currentTime + start + dur);
                     };
                     // Pleasant Chime: C6 -> E6 -> G6
-                    playTone(1046.50, 0, 0.15, 0.12); 
-                    playTone(1318.51, 0.12, 0.15, 0.1); 
-                    playTone(1567.98, 0.24, 0.25, 0.08); 
+                    playTone(1046.50, 0, 0.15, 0.12);
+                    playTone(1318.51, 0.12, 0.15, 0.1);
+                    playTone(1567.98, 0.24, 0.25, 0.08);
                 } catch(e) { /* AudioContext not available */ }
             };
 
@@ -1483,9 +1500,15 @@
                 }
             };
 
+            // (2026-07-13) Reuse singleton AudioContext for check SFX. Prev: new ctx per call
+            let _checkSFXPending = false;
             const playCheckSFX = () => {
+                if (_checkSFXPending) return;
+                _checkSFXPending = true;
+                setTimeout(() => { _checkSFXPending = false; }, 300);
                 try {
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const ctx = getSFXCtx();
+                    if (!ctx) return;
                     const playTone = (freq, start, dur, vol = 0.1) => {
                         const osc = ctx.createOscillator();
                         const gain = ctx.createGain();
@@ -1542,6 +1565,7 @@
                     return;
                 }
                 if (!swRegistration) return;
+                // (2026-07-13) Single playNotifSFX call per notification path. Prev: called twice
                 playNotifSFX();
                 swRegistration.showNotification(title, {
                     body,
