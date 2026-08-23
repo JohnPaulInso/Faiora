@@ -6712,6 +6712,47 @@
                 setIsAddingCategory(false);
             };
 
+            // (2026-07-13) Multi-select state for homepage quick tasks. Prev: none
+            const [isSelectionMode, setIsSelectionMode] = useState(false);
+            const [selectedTasks, setSelectedTasks] = useState([]);
+            const [pendingDeleteBatch, setPendingDeleteBatch] = useState(false);
+            const [showAssignCategorySheet, setShowAssignCategorySheet] = useState(false);
+
+            const handleToggleSelectTask = (taskId) => {
+                setSelectedTasks(prev =>
+                    prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]
+                );
+            };
+
+            const handleSelectAll = () => {
+                setSelectedTasks(prev =>
+                    prev.length === filteredQuickTasks.length ? [] : filteredQuickTasks.map(t => t.id)
+                );
+            };
+
+            const handleConfirmBatchDelete = () => {
+                if (typeof onUpdateQuickTasks === 'function') {
+                    onUpdateQuickTasks((quickTasks || []).filter(t => !selectedTasks.includes(t.id)));
+                }
+                setSelectedTasks([]);
+                setIsSelectionMode(false);
+                setPendingDeleteBatch(false);
+                if (showToast) showToast(`${selectedTasks.length} task${selectedTasks.length !== 1 ? 's' : ''} deleted`);
+            };
+
+            const handleAssignCategory = (cat) => {
+                if (typeof onUpdateQuickTasks === 'function') {
+                    onUpdateQuickTasks((quickTasks || []).map(t => {
+                        if (!selectedTasks.includes(t.id)) return t;
+                        return { ...t, categories: [cat], category: cat };
+                    }));
+                }
+                setShowAssignCategorySheet(false);
+                setSelectedTasks([]);
+                setIsSelectionMode(false);
+                if (showToast) showToast(`Category "${cat}" assigned to ${selectedTasks.length} task${selectedTasks.length !== 1 ? 's' : ''}`);
+            };
+
             // (2026-07-13) Independent homepage view mode in localStorage. Prev: shared
             const [viewMode, setViewMode] = useState(() => {
                 try { return localStorage.getItem('faiora_home_qt_view_mode') || 'standard'; } catch { return 'standard'; }
@@ -7204,6 +7245,20 @@
                                         >
                                             <span className="material-symbols-outlined text-sm md:text-base leading-none">tune</span>
                                         </button>
+                                        {/* (2026-07-13) Select mode toggle for homepage quick tasks. Prev: none */}
+                                        {(viewMode === 'standard' || viewMode === 'daily') && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsSelectionMode(prev => !prev);
+                                                    setSelectedTasks([]);
+                                                }}
+                                                className={`text-cream-light/35 hover:text-primary transition-colors flex items-center justify-center p-0.5 ${isSelectionMode ? 'text-primary' : ''}`}
+                                                title={isSelectionMode ? 'Exit Selection' : 'Select Tasks'}
+                                            >
+                                                <span className="material-symbols-outlined text-sm md:text-base leading-none">{isSelectionMode ? 'checklist' : 'checklist'}</span>
+                                            </button>
+                                        )}
                                     </div>
                                     <Link 
                                         to="/quick-tasks"
@@ -7384,12 +7439,15 @@
                                                                 <QuickTaskItem
                                                                     key={task.id}
                                                                     task={task}
-                                                                    onToggle={onToggleQuickTask}
+                                                                    onToggle={isSelectionMode ? null : onToggleQuickTask}
                                                                     onDelete={onDeleteQuickTask}
                                                                     onEdit={onEditQuickTask}
                                                                     onUpdateQuickTask={onUpdateQuickTask}
                                                                     showToast={showToast}
                                                                     hideDateSubtitle={true}
+                                                                    isSelectionMode={isSelectionMode}
+                                                                    isSelected={selectedTasks.includes(task.id)}
+                                                                    onSelectToggle={handleToggleSelectTask}
                                                                 />
                                                             ))}
                                                         </div>
@@ -7412,11 +7470,14 @@
                                                                 <QuickTaskItem
                                                                     key={task.id}
                                                                     task={task}
-                                                                    onToggle={onToggleQuickTask}
+                                                                    onToggle={isSelectionMode ? null : onToggleQuickTask}
                                                                     onDelete={onDeleteQuickTask}
                                                                     onEdit={onEditQuickTask}
                                                                     onUpdateQuickTask={onUpdateQuickTask}
                                                                     showToast={showToast}
+                                                                    isSelectionMode={isSelectionMode}
+                                                                    isSelected={selectedTasks.includes(task.id)}
+                                                                    onSelectToggle={handleToggleSelectTask}
                                                                 />
                                                             ))}
                                                         </div>
@@ -7491,6 +7552,114 @@
                             visibleSections={visibleSections}
                             onToggleVisibleSection={handleToggleVisibleSection}
                         />
+                    )}
+
+                    {/* (2026-07-13) Homepage selection action bar. Prev: none */}
+                    {isSelectionMode && (
+                        <div className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-[300] w-[92%] max-w-lg bg-[#0e0603]/95 border border-primary/30 rounded-3xl p-3 md:p-4 shadow-2xl backdrop-blur-xl flex items-center justify-between animate-in slide-in-from-bottom-5 duration-300 font-montserrat">
+                            <div className="flex items-center gap-3 pl-2">
+                                <span className="text-xs md:text-sm font-bold text-cream-light">
+                                    {selectedTasks.length} <span className="text-white/40 font-normal">selected</span>
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={handleSelectAll}
+                                    className="text-[11px] font-bold text-primary hover:text-primary-dark transition-colors uppercase tracking-wider underline"
+                                >
+                                    {selectedTasks.length === filteredQuickTasks.length ? 'Deselect All' : 'Select All'}
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    disabled={selectedTasks.length === 0}
+                                    onClick={() => setShowAssignCategorySheet(true)}
+                                    className={`w-9 h-9 rounded-2xl text-xs font-bold flex items-center justify-center transition-all ${selectedTasks.length > 0 ? 'bg-white/10 hover:bg-white/15 text-cream-light active:scale-95' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
+                                    title="Assign category to selected"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">label</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={selectedTasks.length === 0}
+                                    onClick={() => setPendingDeleteBatch(true)}
+                                    className={`w-9 h-9 rounded-2xl text-xs font-bold flex items-center justify-center transition-all ${selectedTasks.length > 0 ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30 active:scale-95' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
+                                    title="Delete selected"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setIsSelectionMode(false); setSelectedTasks([]); }}
+                                    className="w-9 h-9 rounded-2xl bg-white/5 hover:bg-white/10 text-white/50 flex items-center justify-center transition-all active:scale-95"
+                                    title="Exit selection"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">close</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* (2026-07-13) Homepage batch delete confirm dialog. Prev: none */}
+                    {pendingDeleteBatch && (
+                        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[2050] flex items-center justify-center p-6 animate-in fade-in duration-300">
+                            <div className="glass-panel w-full max-w-sm rounded-[2.5rem] border border-white/10 p-8 text-center animate-in zoom-in-95 duration-300 font-montserrat">
+                                <div className="w-16 h-16 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center mx-auto mb-6">
+                                    <span className="material-symbols-outlined text-red-400 text-3xl">warning</span>
+                                </div>
+                                <h3 className="text-xl font-bold text-cream-light mb-3">Delete {selectedTasks.length} {selectedTasks.length === 1 ? 'Task' : 'Tasks'}?</h3>
+                                <p className="text-white/60 text-xs leading-relaxed mb-8">
+                                    Are you sure you want to delete {selectedTasks.length} selected quick {selectedTasks.length === 1 ? 'task' : 'tasks'}?
+                                </p>
+                                <div className="flex flex-col gap-3">
+                                    <button
+                                        onClick={handleConfirmBatchDelete}
+                                        className="w-full py-3.5 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold uppercase tracking-widest text-xs transition-all shadow-lg shadow-red-500/20"
+                                    >
+                                        Delete {selectedTasks.length} {selectedTasks.length === 1 ? 'Task' : 'Tasks'}
+                                    </button>
+                                    <button
+                                        onClick={() => setPendingDeleteBatch(false)}
+                                        className="w-full py-3.5 bg-white/5 hover:bg-white/10 text-white/70 rounded-2xl font-bold uppercase tracking-widest text-xs transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* (2026-07-13) Homepage batch assign category sheet. Prev: none */}
+                    {showAssignCategorySheet && (
+                        <div
+                            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[2050] flex items-end justify-center animate-in fade-in duration-200"
+                            onClick={() => setShowAssignCategorySheet(false)}
+                        >
+                            <div
+                                className="w-full max-w-lg bg-[#120804] border border-white/10 rounded-t-[2rem] p-6 pb-10 shadow-2xl animate-in slide-in-from-bottom-4 duration-300 font-montserrat"
+                                onClick={e => e.stopPropagation()}
+                            >
+                                <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5" />
+                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary mb-4">Assign category to {selectedTasks.length} task{selectedTasks.length !== 1 ? 's' : ''}</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {allCategories.map(cat => (
+                                        <button
+                                            key={cat}
+                                            onClick={() => handleAssignCategory(cat)}
+                                            className="h-9 px-4 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] bg-white/[0.04] hover:bg-primary/20 hover:text-primary border border-white/10 hover:border-primary/40 text-cream-light/70 transition-all active:scale-95"
+                                        >
+                                            {cat}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button
+                                    onClick={() => setShowAssignCategorySheet(false)}
+                                    className="mt-5 w-full py-3 bg-white/5 hover:bg-white/10 text-white/50 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
                     )}
                 </Layout>
             );
