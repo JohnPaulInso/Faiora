@@ -9030,6 +9030,11 @@
 
             const handleSetViewMode = (mode) => {
                 setViewMode(mode);
+                // (2026-07-13) Clear selection when switching to non-selectable views. Prev: state persisted
+                if (mode !== 'standard' && mode !== 'daily') {
+                    setIsSelectionMode(false);
+                    setSelectedTasks([]);
+                }
                 try { localStorage.setItem('faiora_qt_view_mode', mode); } catch {}
             };
 
@@ -9339,21 +9344,22 @@
                                 </button>
                             </div>
                             <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
-                            {/* Select multiple button */}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setIsSelectionMode(prev => {
-                                        if (prev) setSelectedTasks([]);
-                                        return !prev;
-                                    });
-                                }}
-                                className={`px-2.5 py-1 rounded-full text-[11px] md:text-xs font-bold font-montserrat uppercase tracking-wider transition-all border flex items-center gap-1 shrink-0 ${isSelectionMode ? 'bg-primary text-white border-primary shadow-sm shadow-primary/30' : 'bg-white/[0.03] text-cream-light/60 hover:text-cream-light border-white/10 hover:bg-white/5'}`}
-                                title="Select multiple tasks"
-                            >
-                                <span className="material-symbols-outlined text-sm">{isSelectionMode ? 'close' : 'checklist'}</span>
-                                {isSelectionMode ? 'Done' : 'Select'}
-                            </button>
+                            {/* (2026-07-13) Select btn: icon-only, standard/daily only. Prev: text+icon, always shown */}
+                            {(viewMode === 'standard' || viewMode === 'daily') && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsSelectionMode(prev => {
+                                            if (prev) setSelectedTasks([]);
+                                            return !prev;
+                                        });
+                                    }}
+                                    className={`w-8 h-8 rounded-full border transition-all flex items-center justify-center shrink-0 ${isSelectionMode ? 'bg-primary text-white border-primary shadow-sm shadow-primary/30' : 'bg-white/[0.03] text-cream-light/50 hover:text-cream-light border-white/10 hover:bg-white/5'}`}
+                                    title={isSelectionMode ? 'Exit selection' : 'Select multiple tasks'}
+                                >
+                                    <span className="material-symbols-outlined text-[16px]">{isSelectionMode ? 'close' : 'checklist'}</span>
+                                </button>
+                            )}
                             {/* (2026-07-13) Fix white focus outline on mode switch. Prev: white ring */}
                             <div className="flex items-center bg-white/[0.03] p-1 rounded-full border border-white/10 backdrop-blur-md shadow-inner gap-0.5 shrink-0">
                                 <button
