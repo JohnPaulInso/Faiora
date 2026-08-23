@@ -6317,10 +6317,19 @@
             };
 
             // (2026-07-13) Step-based vertical drag sorting with reliable persistence. Prev: bound rect check
+            // (2026-07-13) Auto-scroll loop and edge detection while dragging. Prev: static container
             const [dragOffsetY, setDragOffsetY] = useState(0);
             const dragHandleRef = useRef(null);
             const overIdxRef = useRef(null);
+            const autoScrollTimer = useRef(null);
             const ROW_HEIGHT = 56;
+
+            const stopAutoScroll = () => {
+                if (autoScrollTimer.current) {
+                    clearInterval(autoScrollTimer.current);
+                    autoScrollTimer.current = null;
+                }
+            };
 
             const handlePointerDown = (e, idx) => {
                 if (e.target.closest('button, input')) return;
@@ -6330,7 +6339,7 @@
                 isDraggingRef.current = true;
                 dragStartIdx.current = idx;
                 overIdxRef.current = idx;
-                dragHandleRef.current = { pointerId: e.pointerId, startY: e.clientY, target };
+                dragHandleRef.current = { pointerId: e.pointerId, startY: e.clientY, initialScrollTop: listRef.current ? listRef.current.scrollTop : 0, target };
                 setDraggingIdx(idx);
                 setOverIdx(idx);
                 setDragOffsetY(0);
@@ -6338,9 +6347,32 @@
             };
 
             const handlePointerMove = (e) => {
-                if (!isDraggingRef.current || !dragHandleRef.current) return;
-                const dy = e.clientY - dragHandleRef.current.startY;
+                if (!isDraggingRef.current || !dragHandleRef.current || !listRef.current) return;
+                const list = listRef.current;
+                const scrollDiff = list.scrollTop - dragHandleRef.current.initialScrollTop;
+                const dy = (e.clientY - dragHandleRef.current.startY) + scrollDiff;
                 setDragOffsetY(dy);
+
+                // Auto-scroll when near top or bottom edges of list
+                const listRect = list.getBoundingClientRect();
+                const topZone = listRect.top + 45;
+                const bottomZone = listRect.bottom - 45;
+
+                if (e.clientY < topZone) {
+                    if (!autoScrollTimer.current) {
+                        autoScrollTimer.current = setInterval(() => {
+                            if (listRef.current) listRef.current.scrollTop -= 6;
+                        }, 16);
+                    }
+                } else if (e.clientY > bottomZone) {
+                    if (!autoScrollTimer.current) {
+                        autoScrollTimer.current = setInterval(() => {
+                            if (listRef.current) listRef.current.scrollTop += 6;
+                        }, 16);
+                    }
+                } else {
+                    stopAutoScroll();
+                }
 
                 const currentIdx = dragStartIdx.current;
                 const step = Math.round(dy / ROW_HEIGHT);
@@ -6354,6 +6386,7 @@
             };
 
             const handlePointerUp = (e) => {
+                stopAutoScroll();
                 if (!isDraggingRef.current) return;
                 const currentDrag = dragStartIdx.current;
                 const currentOver = overIdxRef.current;
@@ -6362,7 +6395,6 @@
                     try { dragHandleRef.current.target.releasePointerCapture(dragHandleRef.current.pointerId); } catch {}
                 }
 
-                // (2026-07-13) Synchronous reset to eliminate transform lag/skipping. Prev: async jump
                 isDraggingRef.current = false;
                 dragStartIdx.current = null;
                 overIdxRef.current = null;
@@ -6502,7 +6534,7 @@
                                                                 : 'none',
                                                     zIndex: isDragging ? 100 : 1,
                                                     position: 'relative',
-                                                    touchAction: 'none'
+                                                    touchAction: isDragging ? 'none' : 'pan-y'
                                                 }}
                                                 className={`flex items-center gap-2.5 p-3 rounded-2xl border transition-all select-none ${isDragging ? 'bg-[#1e130c] border-primary shadow-[0_12px_30px_rgba(249,115,22,0.35)] ring-2 ring-primary/60 cursor-grabbing' : 'bg-white/[0.03] border-white/5 hover:border-white/10'}`}
                                             >
