@@ -6313,33 +6313,34 @@
                 const next = [...orderedCats];
                 const [moved] = next.splice(idx, 1);
                 next.splice(targetIdx, 0, moved);
-                setOrderedCats(next);
-                if (onReorderCategories) onReorderCategories(next);
-                if (navigator.vibrate) try { navigator.vibrate(20); } catch {}
-            };
-
-            // --- Drag sort ---
+              // (2026-07-13) 3-line drag handle pointer down with quick activation. Prev: up/down buttons
             const handleDragPointerDown = (e, idx) => {
                 e.stopPropagation();
+                if (e.target.closest('button, input')) return;
+                const touchY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+                dragStartIdx.current = idx;
                 dragHandleTimer.current = setTimeout(() => {
                     isDraggingRef.current = true;
-                    dragStartIdx.current = idx;
                     setDraggingIdx(idx);
                     setOverIdx(idx);
-                    if (navigator.vibrate) try { navigator.vibrate(30); } catch {}
-                }, 100);
+                    if (navigator.vibrate) try { navigator.vibrate(35); } catch {}
+                }, 80);
             };
 
             const handleDragPointerMove = (e) => {
                 if (!isDraggingRef.current || draggingIdx === null || !listRef.current) return;
+                const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
                 const items = Array.from(listRef.current.querySelectorAll('[data-cat-row]'));
                 let newOver = draggingIdx;
                 items.forEach((el, i) => {
                     const rect = el.getBoundingClientRect();
                     const mid = rect.top + rect.height / 2;
-                    if (e.clientY > mid) newOver = i;
+                    if (clientY > mid) newOver = i;
                 });
-                if (newOver !== overIdx) setOverIdx(newOver);
+                if (newOver !== overIdx) {
+                    setOverIdx(newOver);
+                    if (navigator.vibrate) try { navigator.vibrate(10); } catch {}
+                }
             };
 
             const handleDragPointerUp = () => {
@@ -6452,7 +6453,7 @@
 
                         {activeTab === 'categories' && (
                             <div className="flex flex-col flex-1 min-h-0 space-y-3">
-                                {/* (2026-07-13) Sortable list with up/down controls and custom scrollbar. Prev: hidden scroll */}
+                                {/* (2026-07-13) Sortable list with drag handle and custom scrollbar. Prev: up/down buttons */}
                                 <div
                                     ref={listRef}
                                     className="flex-1 overflow-y-auto space-y-2 pr-1 pb-2"
@@ -6482,28 +6483,15 @@
                                                     zIndex: isDragging ? 10 : 1,
                                                     position: 'relative'
                                                 }}
-                                                className={`flex items-center gap-2 p-3 rounded-2xl border transition-all ${isDragging ? 'bg-primary/10 border-primary/40 shadow-lg shadow-primary/10' : isOver ? 'bg-white/[0.05] border-primary/20' : 'bg-white/[0.03] border-white/5 hover:border-white/10'}`}
+                                                className={`flex items-center gap-2 p-3 rounded-2xl border transition-all select-none ${isDragging ? 'bg-primary/10 border-primary/40 shadow-lg shadow-primary/10' : isOver ? 'bg-white/[0.05] border-primary/20' : 'bg-white/[0.03] border-white/5 hover:border-white/10'}`}
                                             >
-                                                {/* Up / Down reorder arrows */}
-                                                <div className="flex flex-col items-center justify-center -space-y-1 flex-shrink-0">
-                                                    <button
-                                                        type="button"
-                                                        disabled={idx === 0}
-                                                        onClick={() => moveCategory(idx, -1)}
-                                                        className="p-0.5 text-white/30 hover:text-primary disabled:opacity-10 disabled:hover:text-white/30 transition-colors flex items-center justify-center"
-                                                        title="Move up"
-                                                    >
-                                                        <span className="material-symbols-outlined text-[15px]">keyboard_arrow_up</span>
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        disabled={idx === orderedCats.length - 1}
-                                                        onClick={() => moveCategory(idx, 1)}
-                                                        className="p-0.5 text-white/30 hover:text-primary disabled:opacity-10 disabled:hover:text-white/30 transition-colors flex items-center justify-center"
-                                                        title="Move down"
-                                                    >
-                                                        <span className="material-symbols-outlined text-[15px]">keyboard_arrow_down</span>
-                                                    </button>
+                                                {/* 3-line drag handle */}
+                                                <div
+                                                    onPointerDown={(e) => handleDragPointerDown(e, idx)}
+                                                    className="p-1 text-white/30 hover:text-primary cursor-grab active:cursor-grabbing transition-colors flex items-center justify-center touch-none flex-shrink-0"
+                                                    title="Hold and drag to reorder"
+                                                >
+                                                    <span className="material-symbols-outlined text-[18px]">drag_handle</span>
                                                 </div>
 
                                                 <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0"></span>
@@ -6740,6 +6728,12 @@
                 setSelectedCategory(clean);
                 setNewCategoryName('');
                 setIsAddingCategory(false);
+            };
+
+            // (2026-07-13) Save reordered category sequence to localStorage. Prev: no reorder handler
+            const handleReorderCategories = (newOrder) => {
+                setCustomCategories(newOrder);
+                try { localStorage.setItem('faiora_qt_categories', JSON.stringify(newOrder)); } catch {}
             };
 
             // (2026-07-13) Multi-select state for homepage quick tasks. Prev: none
@@ -7579,6 +7573,7 @@
                             onClose={() => setIsManageCategoriesOpen(false)}
                             onDeleteCategory={handleDeleteCategory}
                             onAddCategory={handleCreateCategory}
+                            onReorderCategories={handleReorderCategories}
                             visibleSections={visibleSections}
                             onToggleVisibleSection={handleToggleVisibleSection}
                         />
@@ -9402,6 +9397,12 @@
                 setIsAddingCategory(false);
             };
 
+            // (2026-07-13) Save reordered category sequence to localStorage. Prev: no reorder handler
+            const handleReorderCategories = (newOrder) => {
+                setCustomCategories(newOrder);
+                try { localStorage.setItem('faiora_qt_categories', JSON.stringify(newOrder)); } catch {}
+            };
+
             const filteredTasks = useMemo(() => {
                 let list = quickTasks || [];
                 if (selectedCategory !== 'ALL') {
@@ -9973,6 +9974,7 @@
                             onClose={() => setIsManageCategoriesOpen(false)}
                             onDeleteCategory={handleDeleteCategory}
                             onAddCategory={handleCreateCategory}
+                            onReorderCategories={handleReorderCategories}
                             visibleSections={visibleSections}
                             onToggleVisibleSection={handleToggleVisibleSection}
                         />
