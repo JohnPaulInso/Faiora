@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Faiora</string>
+    <string name="title_activity_main">Faiora</string>
+    <string name="package_name">com.faiora.app</string>
+    <string name="custom_url_scheme">com.faiora.app</string>
+    <!-- (2026-07-13) Set default_web_client_id. Prev: missing in strings.xml -->
+    <string name="default_web_client_id">752265363994-e3b37t5hptlfg64tn9bq7d4d073a0kds.apps.googleusercontent.com</string>
+</resources>

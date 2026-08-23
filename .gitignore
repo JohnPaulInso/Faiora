@@ -1,0 +1,20 @@
+# Node / dependencies
+node_modules/
+dist/
+
+# Android build outputs
+android/.gradle/
+android/app/build/
+android/build/
+android/captures/
+android/.idea/
+*.apk
+*.aab
+
+# Editor & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+.sixth/

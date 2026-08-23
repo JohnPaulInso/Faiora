@@ -357,7 +357,8 @@
 <body class="dark overflow-x-hidden">
     <div id="root" class="w-full min-h-screen flex items-center justify-center p-4 relative z-10"></div>
 
-    <script type="text/babel" data-presets="env,react">
+    <!-- (2026-07-13) Add data-type module to script. Prev: data-presets env,react -->
+    <script type="text/babel" data-presets="env,react" data-type="module">
         const { useState, useEffect, useRef, useMemo, useCallback } = React;
         const { createRoot } = ReactDOM;
 
@@ -1950,18 +1951,27 @@
                                                  </button>
                                                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400 font-montserrat">Add Label</span>
                                              </div>
-                                             <div className="flex flex-col gap-1 mb-2 max-h-40 overflow-y-auto no-scrollbar">
-                                                 {["PRIORITY", "PERSONAL", "WORK", "URGENT", "STRATEGY"].map(l => (
-                                                     <button key={l} onClick={() => { 
-                                                         const newLabels = labels.includes(l) ? labels.filter(x => x !== l) : [...labels, l];
-                                                         setNote(prev => ({...prev, labels: newLabels})); 
-                                                         setHasChanges(true); 
-                                                     }} className="menu-item !py-2 justify-between font-montserrat">
-                                                         <span>{l}</span>
-                                                         {labels.includes(l) && <span className="material-symbols-outlined text-primary text-sm">check</span>}
-                                                     </button>
-                                                 ))}
-                                             </div>
+                                             <div className="flex flex-col gap-1 mb-2 max-h-48 overflow-y-auto no-scrollbar">
+                                                  {/* (2026-07-13) Pin PRIORITY at top of label menu. Prev: plain */}
+                                                  {["PRIORITY", "PERSONAL", "WORK", "URGENT", "STRATEGY"].map(l => {
+                                                      const isPri = l === 'PRIORITY';
+                                                      const isSelected = labels.includes(l);
+                                                      return (
+                                                          <button key={l} onClick={() => { 
+                                                              const newLabels = labels.includes(l) ? labels.filter(x => x !== l) : [...labels, l];
+                                                              setNote(prev => ({...prev, labels: newLabels})); 
+                                                              setHasChanges(true); 
+                                                          }} className={`menu-item !py-2 justify-between font-montserrat ${isPri ? 'bg-primary/10 text-primary font-bold hover:bg-primary/15' : ''}`}>
+                                                              <span className="flex items-center gap-1.5">
+                                                                  {isPri && <span className="material-symbols-outlined text-sm text-primary">local_fire_department</span>}
+                                                                  <span>{l}</span>
+                                                                  {isPri && <span className="text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold">PIN</span>}
+                                                              </span>
+                                                              {isSelected && <span className="material-symbols-outlined text-primary text-sm font-bold">check</span>}
+                                                          </button>
+                                                      );
+                                                  })}
+                                              </div>
                                              <div className="h-px bg-slate-100 my-1"></div>
                                              <div className="flex gap-1 p-1">
                                                  <input 

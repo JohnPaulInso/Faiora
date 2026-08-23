@@ -735,7 +735,7 @@
                             title: entry.title,
                             body: entry.body,
                             channelId: QUICK_TASK_CHANNEL_ID,
-                            smallIcon: 'ic_launcher', // Fix 2026-04-22: Standardize branding across all notifications
+                            smallIcon: 'ic_stat_faiora', // (2026-07-13) Use ic_stat_faiora for notification icon.
                             schedule: { at: new Date(entry.at), allowWhileIdle: true },
                             extra: {
                                 type: 'quick-task',
@@ -804,7 +804,7 @@
                             actionTypeId: 'FAIORA_ALARM_ACTIONS',
                             ongoing: true,
                             autoCancel: false,
-                            smallIcon: 'ic_launcher', // Fix 2026-04-22: Using actual app launcher icon for branding
+                            smallIcon: 'ic_stat_faiora', // (2026-07-13) Use ic_stat_faiora for notification icon.
                             schedule: { at: target, allowWhileIdle: true },
                             extra: {
                                 type: 'alarm',
@@ -1767,11 +1767,13 @@
                                 referrerPolicy="no-referrer"
                                 onLoad={(e) => e.target.classList.remove('opacity-0')}
                                 onError={() => {
-                                    if (avatarIndex < avatarSources.length - 1) {
-                                        setAvatarIndex(prev => prev + 1);
-                                        return;
-                                    }
-                                    setImgError(true);
+                                    setTimeout(() => {
+                                        if (avatarIndex < avatarSources.length - 1) {
+                                            setAvatarIndex(prev => prev + 1);
+                                        } else {
+                                            setImgError(true);
+                                        }
+                                    }, 0);
                                 }}
                             />
                         ) : (
@@ -7713,12 +7715,14 @@
                                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                                                 referrerPolicy="no-referrer"
                                                                 onError={() => {
-                                                                    if (avatarIndex < avatarSources.length - 1) {
-                                                                        setAvatarIndex(prev => prev + 1);
-                                                                        return;
-                                                                    }
-                                                                    setImgError(true);
-                                                                }}
+                                    setTimeout(() => {
+                                        if (avatarIndex < avatarSources.length - 1) {
+                                            setAvatarIndex(prev => prev + 1);
+                                        } else {
+                                            setImgError(true);
+                                        }
+                                    }, 0);
+                                }}
                                                             />
                                                         ) : (
                                                             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-burnt-orange shadow-inner text-white font-black text-3xl">

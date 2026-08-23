@@ -20,5 +20,8 @@
     "@capacitor/cli": "^8.3.0",
     "@capacitor/core": "^8.3.0",
     "@capacitor/local-notifications": "^8.0.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

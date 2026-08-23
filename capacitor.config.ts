@@ -9,7 +9,9 @@ const config: CapacitorConfig = {
       skipNativeAuth: true,
       providers: ['google.com']
     },
+    // (2026-07-13) Set smallIcon to ic_stat_faiora for notifications. Prev: none
     LocalNotifications: {
+      smallIcon: 'ic_stat_faiora',
       iconColor: '#f97316',
       sound: 'fire_transition_sfx.mp3'
     }

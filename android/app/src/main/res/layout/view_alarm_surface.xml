@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="260dp"
+        android:layout_gravity="top"
+        android:alpha="0.18"
+        android:background="@drawable/alarm_surface_background" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="top|center_horizontal"
+        android:orientation="vertical"
+        android:paddingLeft="24dp"
+        android:paddingTop="112dp"
+        android:paddingRight="24dp"
+        android:paddingBottom="36dp">
+
+        <TextView
+            android:id="@+id/alarmStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="serif"
+            android:includeFontPadding="false"
+            android:letterSpacing="0.28"
+            android:text="ALARM RINGING"
+            android:textAllCaps="true"
+            android:textColor="#E8732B"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:baselineAligned="false"
+            android:gravity="bottom|center_horizontal"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/alarmTimeMain"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="serif"
+                android:includeFontPadding="false"
+                android:letterSpacing="-0.03"
+                android:text="11:45"
+                android:textColor="#F8F1E8"
+                android:textSize="82sp" />
+
+            <TextView
+                android:id="@+id/alarmTimeSuffix"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="8dp"
+                android:layout_marginBottom="18dp"
+                android:fontFamily="sans-serif-black"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.08"
+                android:text="AM"
+                android:textAllCaps="true"
+                android:textColor="#F97316"
+                android:textSize="18sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/alarmTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="-2dp"
+            android:fontFamily="serif"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:maxWidth="280dp"
+            android:text="TEST"
+            android:textAllCaps="true"
+            android:textColor="#7AF4EDE4"
+            android:textSize="28sp"
+            android:textStyle="italic" />
+
+        <com.faiora.app.AlarmSwipeRingView
+            android:id="@+id/alarmSwipeRing"
+            android:layout_width="338dp"
+            android:layout_height="338dp"
+            android:layout_marginTop="106dp" />
+    </LinearLayout>
+
+</FrameLayout>
