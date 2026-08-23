@@ -6372,13 +6372,11 @@
                 setDragOffsetY(0);
 
                 if (currentDrag !== null && currentOver !== null && currentOver !== currentDrag) {
-                    setOrderedCats(prev => {
-                        const next = [...prev];
-                        const [moved] = next.splice(currentDrag, 1);
-                        next.splice(currentOver, 0, moved);
-                        if (onReorderCategories) onReorderCategories(next);
-                        return next;
-                    });
+                    const next = [...orderedCats];
+                    const [moved] = next.splice(currentDrag, 1);
+                    next.splice(currentOver, 0, moved);
+                    setOrderedCats(next);
+                    if (onReorderCategories) onReorderCategories(next);
                 }
             };
 
