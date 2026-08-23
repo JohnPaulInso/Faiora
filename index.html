@@ -5772,8 +5772,8 @@
             );
         });
 
-        // (2026-07-13) Restore card swipe for Tomorrow/Delete. Prev: disabled
-        const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQuickTask, showToast, hideDateSubtitle = false }) => {
+        // (2026-07-13) Support batch selection mode in QuickTaskItem. Prev: no selection
+        const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQuickTask, showToast, hideDateSubtitle = false, isSelectionMode = false, isSelected = false, onSelectToggle = null }) => {
             const { label: dueDateStr, isOverdue, isNearDeadline, isDueTomorrow } = formatDueDate(task.dueDate, task.dueTime);
             const timerRef = useRef(null);
             const isLongPressRef = useRef(false);
@@ -5786,6 +5786,7 @@
             const [isPressed, setIsPressed] = useState(false);
 
             const handlePointerDown = (e) => {
+                if (isSelectionMode) return;
                 if (e.button && e.button !== 0) return;
                 isPointerDownRef.current = true;
                 isLongPressRef.current = false;
@@ -5808,7 +5809,7 @@
             };
 
             const handlePointerMove = (e) => {
-                if (!isPointerDownRef.current) return;
+                if (isSelectionMode || !isPointerDownRef.current) return;
                 const dx = e.clientX - startPosRef.current.x;
                 const dy = Math.abs(e.clientY - startPosRef.current.y);
 
@@ -5849,6 +5850,7 @@
             };
 
             const handlePointerUp = () => {
+                if (isSelectionMode) return;
                 isPointerDownRef.current = false;
                 setIsPressed(false);
                 setIsLongPressing(false);
@@ -5884,6 +5886,10 @@
             };
 
             const handleClick = (e) => {
+                if (isSelectionMode) {
+                    if (onSelectToggle) onSelectToggle(task.id);
+                    return;
+                }
                 if (isLongPressRef.current || isSwipingRef.current || Math.abs(swipeOffset) > 10) {
                     isLongPressRef.current = false;
                     return;
@@ -5925,7 +5931,7 @@
                     )}
 
                     <div 
-                        className={`glass-panel rounded-2xl ${hideDateSubtitle ? 'py-2 px-3 md:py-2.5 md:px-3.5' : 'py-2.5 px-3 md:py-3 md:px-4'} flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${task.completed ? 'opacity-40 grayscale-[0.5]' : ''} ${isLongPressing ? 'border-primary/80 shadow-[0_0_0_2px_rgba(249,115,22,0.4)] bg-primary/10 scale-[0.98]' : isPressed ? 'border-primary/50 bg-white/[0.08] shadow-md shadow-primary/15 scale-[0.99]' : isOverdue && !task.completed ? 'border-red-500/30' : isNearDeadline && !task.completed ? 'border-amber-500/20' : 'border-white/5'} ${isNearDeadline && !task.completed ? 'near-deadline-glow' : ''} ${isDueTomorrow && !task.completed ? 'tomorrow-glow' : ''}`}
+                        className={`glass-panel rounded-2xl ${hideDateSubtitle ? 'py-2 px-3 md:py-2.5 md:px-3.5' : 'py-2.5 px-3 md:py-3 md:px-4'} flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${isSelectionMode && isSelected ? '!border-primary !bg-primary/15 shadow-md shadow-primary/20 scale-[0.99]' : ''} ${task.completed && !isSelectionMode ? 'opacity-40 grayscale-[0.5]' : ''} ${isLongPressing ? 'border-primary/80 shadow-[0_0_0_2px_rgba(249,115,22,0.4)] bg-primary/10 scale-[0.98]' : isPressed && !isSelectionMode ? 'border-primary/50 bg-white/[0.08] shadow-md shadow-primary/15 scale-[0.99]' : isOverdue && !task.completed && !isSelectionMode ? 'border-red-500/30' : isNearDeadline && !task.completed && !isSelectionMode ? 'border-amber-500/20' : 'border-white/5'} ${isNearDeadline && !task.completed && !isSelectionMode ? 'near-deadline-glow' : ''} ${isDueTomorrow && !task.completed && !isSelectionMode ? 'tomorrow-glow' : ''}`}
                         style={{ 
                             minHeight: (hideDateSubtitle && !task.dueTime) ? '42px' : (window.innerWidth < 768 ? '52px' : 'auto'), 
                             touchAction: 'pan-y',
@@ -5939,11 +5945,11 @@
                         onPointerCancel={handlePointerUp}
                         onContextMenu={(e) => {
                             e.preventDefault();
-                            if (onEdit) onEdit(task);
+                            if (!isSelectionMode && onEdit) onEdit(task);
                         }}
                     >
                         <div className="flex items-center gap-2.5 md:gap-3 pointer-events-none flex-1 min-w-0 pr-2">
-                            <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${task.completed ? 'bg-primary border-primary text-white scale-105' : 'border-white/30 text-transparent group-hover:border-white/60'}`}>
+                            <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${isSelectionMode ? (isSelected ? 'bg-primary border-primary text-white scale-105 shadow-sm shadow-primary/30' : 'border-white/40 text-transparent group-hover:border-white/70') : (task.completed ? 'bg-primary border-primary text-white scale-105' : 'border-white/30 text-transparent group-hover:border-white/60')}`}>
                                 <span className="material-symbols-outlined text-xs font-bold">check</span>
                             </div>
                             <div className="flex flex-col justify-center flex-1 min-w-0">
@@ -9262,6 +9268,21 @@
                                 </button>
                             </div>
                             <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
+                            {/* Select multiple button */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsSelectionMode(prev => {
+                                        if (prev) setSelectedTasks([]);
+                                        return !prev;
+                                    });
+                                }}
+                                className={`px-2.5 py-1 rounded-full text-[11px] md:text-xs font-bold font-montserrat uppercase tracking-wider transition-all border flex items-center gap-1 shrink-0 ${isSelectionMode ? 'bg-primary text-white border-primary shadow-sm shadow-primary/30' : 'bg-white/[0.03] text-cream-light/60 hover:text-cream-light border-white/10 hover:bg-white/5'}`}
+                                title="Select multiple tasks"
+                            >
+                                <span className="material-symbols-outlined text-sm">{isSelectionMode ? 'close' : 'checklist'}</span>
+                                {isSelectionMode ? 'Done' : 'Select'}
+                            </button>
                             {/* (2026-07-13) Fix white focus outline on mode switch. Prev: white ring */}
                             <div className="flex items-center bg-white/[0.03] p-1 rounded-full border border-white/10 backdrop-blur-md shadow-inner gap-0.5 shrink-0">
                                 <button
@@ -9426,6 +9447,9 @@
                                                                 onUpdateQuickTask={onUpdateQuickTask}
                                                                 showToast={showToast}
                                                                 hideDateSubtitle={true}
+                                                                isSelectionMode={isSelectionMode}
+                                                                isSelected={selectedTasks.includes(task.id)}
+                                                                onSelectToggle={handleToggleSelectTask}
                                                             />
                                                         ))}
                                                     </div>
@@ -9450,6 +9474,9 @@
                                                                 onUpdateQuickTask={onUpdateQuickTask}
                                                                 showToast={showToast}
                                                                 hideDateSubtitle={true}
+                                                                isSelectionMode={isSelectionMode}
+                                                                isSelected={selectedTasks.includes(task.id)}
+                                                                onSelectToggle={handleToggleSelectTask}
                                                             />
                                                         ))}
                                                     </div>
@@ -9477,6 +9504,9 @@
                                                                     onEdit={onEditQuickTask}
                                                                     onUpdateQuickTask={onUpdateQuickTask}
                                                                     showToast={showToast}
+                                                                    isSelectionMode={isSelectionMode}
+                                                                    isSelected={selectedTasks.includes(task.id)}
+                                                                    onSelectToggle={handleToggleSelectTask}
                                                                 />
                                                             ))}
                                                             {section.key === 'completed' && section.totalCount > section.items.length && (
@@ -9501,6 +9531,65 @@
                             )}
                         </div>
                     </div>
+
+                    {/* (2026-07-13) Batch selection action bar. Prev: none */}
+                    {isSelectionMode && (
+                        <div className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-[300] w-[92%] max-w-lg bg-[#0e0603]/95 border border-primary/30 rounded-3xl p-3 md:p-4 shadow-2xl backdrop-blur-xl flex items-center justify-between animate-in slide-in-from-bottom-5 duration-300 font-montserrat">
+                            <div className="flex items-center gap-3 pl-2">
+                                <span className="text-xs md:text-sm font-bold text-cream-light">
+                                    {selectedTasks.length} <span className="text-white/40 font-normal">selected</span>
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={handleSelectAll}
+                                    className="text-[11px] font-bold text-primary hover:text-primary-dark transition-colors uppercase tracking-wider underline"
+                                >
+                                    {selectedTasks.length === filteredTasks.length ? 'Deselect All' : 'Select All'}
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    disabled={selectedTasks.length === 0}
+                                    onClick={() => setPendingDeleteBatch(true)}
+                                    className={`px-4 py-2 rounded-2xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all ${selectedTasks.length > 0 ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30 active:scale-95' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
+                                >
+                                    <span className="material-symbols-outlined text-sm">delete</span>
+                                    Delete {selectedTasks.length > 0 ? `(${selectedTasks.length})` : ''}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* (2026-07-13) Batch delete confirmation dialog. Prev: none */}
+                    {pendingDeleteBatch && (
+                        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[2050] flex items-center justify-center p-6 animate-in fade-in duration-300">
+                            <div className="glass-panel w-full max-w-sm rounded-[2.5rem] border border-white/10 p-8 text-center animate-in zoom-in-95 duration-300 font-montserrat">
+                                <div className="w-16 h-16 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center mx-auto mb-6">
+                                    <span className="material-symbols-outlined text-red-400 text-3xl">warning</span>
+                                </div>
+                                <h3 className="text-xl font-bold text-cream-light mb-3">Delete {selectedTasks.length} {selectedTasks.length === 1 ? 'Task' : 'Tasks'}?</h3>
+                                <p className="text-white/60 text-xs leading-relaxed mb-8">
+                                    Are you sure you want to delete {selectedTasks.length} selected quick {selectedTasks.length === 1 ? 'task' : 'tasks'}?
+                                </p>
+                                <div className="flex flex-col gap-3">
+                                    <button
+                                        onClick={handleConfirmBatchDelete}
+                                        className="w-full py-3.5 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold uppercase tracking-widest text-xs transition-all shadow-lg shadow-red-500/20"
+                                    >
+                                        Delete {selectedTasks.length} {selectedTasks.length === 1 ? 'Task' : 'Tasks'}
+                                    </button>
+                                    <button
+                                        onClick={() => setPendingDeleteBatch(false)}
+                                        className="w-full py-3.5 bg-white/5 hover:bg-white/10 text-white/70 rounded-2xl font-bold uppercase tracking-widest text-xs transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {isManageCategoriesOpen && (
                         <ManageQuickTaskCategoriesModal
                             categories={allCategories}
