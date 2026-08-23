@@ -8714,7 +8714,8 @@
                                     searchPlaceholder="Search quick task"
                                 />
                             </div>
-                            <div className="px-4 md:px-0 mx-2 mt-24 md:mt-4">
+                            {/* (2026-07-13) Reduced top margin on calendar. Prev: mt-24 */}
+                            <div className="px-4 md:px-0 mx-2 mt-6 md:mt-4">
                                 <div className="flex items-center justify-between mb-8 md:mb-12">
                                     <div className="flex items-center justify-between w-full">
                                         <button onClick={prevMonth} className="w-10 h-10 glass-panel rounded-full text-cream-light/60 hover:text-primary transition-all flex items-center justify-center border border-white/5 hover:border-primary/20"><span className="material-symbols-outlined text-lg">chevron_left</span></button>
@@ -9906,8 +9907,8 @@
                             <Header user={user} subtitle={alarmsOnly ? 'Manage every alarm' : 'Manage your alarms'} showSearch={true} desktopSearchPlaceholder="Search alarms..." mobileSearchPlaceholder="Search alarms..." />
                         </div>
                         
-                        {/* FIX 2026-04-22: Standardized spacing between Header and Page Title for uniformity */}
-                        <div className="flex items-center mt-24 md:mt-10 mb-10 gap-4">
+                        {/* (2026-07-13) Reduced top margin on alarms. Prev: mt-24 */}
+                        <div className="flex items-center mt-6 md:mt-10 mb-10 gap-4">
                             <h1 className="text-xl md:text-3xl font-display font-bold text-cream-light tracking-[0.15em] md:tracking-[0.25em] uppercase">{alarmsOnly ? 'Alarms' : 'Clock'}</h1>
                             <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
                         </div>
