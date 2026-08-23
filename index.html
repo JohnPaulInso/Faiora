@@ -6160,6 +6160,7 @@
                                         {sec.items.map(task => {
                                             const taskProgress = task.progress !== undefined ? task.progress : (task.completed ? 100 : 0);
                                             const isInProgress = taskProgress > 0 && taskProgress < 100;
+                                            const cleanTaskText = (task.text || '').trim().toLowerCase();
                                             // (2026-07-13) Show duplicate badge on both notepad & category views. Prev: category only
                                             const isDuplicate = cleanTaskText && (duplicateTextCounts.get(cleanTaskText) || 0) > 1;
                                             // (2026-07-13) Align checkbox to first line of text. Prev: items-center
