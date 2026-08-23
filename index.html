@@ -9347,8 +9347,8 @@
                         <div className="sticky top-0 md:static z-[100] py-4 px-4 md:px-8 -mx-4 md:-mx-8 mb-6">
                             <Header user={user} subtitle="All quick tasks" showSearch={true} desktopSearchPlaceholder="Search tasks..." mobileSearchPlaceholder="Search tasks..." />
                         </div>
-                        {/* (2026-07-13) Place settings icon inline next to Quick Tasks title. Prev: in bar */}
-                        <div className="flex items-center gap-4 mt-16 md:mt-10 mb-2 md:mb-3">
+                        {/* (2026-07-13) Place select icon next to settings icon, remove divider. Prev: right edge */}
+                        <div className="flex items-center justify-between gap-4 mt-16 md:mt-10 mb-2 md:mb-3">
                             <div className="flex items-center gap-2">
                                 {/* FIX 2026-04-22: Page Header style matched to homepage serif aesthetic (non-italic) for consistency */}
                                 {/* (2026-07-13) whitespace-nowrap keeps title 1 line. Prev: wrapped */}
@@ -9361,8 +9361,22 @@
                                 >
                                     <span className="material-symbols-outlined text-base md:text-lg">tune</span>
                                 </button>
+                                {(viewMode === 'standard' || viewMode === 'daily') && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsSelectionMode(prev => {
+                                                if (prev) setSelectedTasks([]);
+                                                return !prev;
+                                            });
+                                        }}
+                                        className={`transition-colors flex items-center justify-center p-0.5 ${isSelectionMode ? 'text-primary' : 'text-cream-light/35 hover:text-primary'}`}
+                                        title={isSelectionMode ? 'Exit selection' : 'Select multiple tasks'}
+                                    >
+                                        <span className="material-symbols-outlined text-base md:text-lg">{isSelectionMode ? 'close' : 'checklist'}</span>
+                                    </button>
+                                )}
                             </div>
-                            <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
 
                             {/* (2026-07-13) Fix white focus outline on mode switch. Prev: white ring */}
                             <div className="flex items-center bg-white/[0.03] p-1 rounded-full border border-white/10 backdrop-blur-md shadow-inner gap-0.5 shrink-0">
@@ -9402,17 +9416,15 @@
                         </div>
 
                         {/* (2026-07-13) Add shimmer to category preloader badges. Prev: pulse */}
-                        {/* (2026-07-13) Select btn pinned right of category row. Prev: inside pill */}
-                        <div className="flex items-center gap-2 mb-4 md:mb-5">
                         {(isProbing || !isFirstSyncDone) ? (
-                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 flex-1 -mx-4 px-4 md:mx-0 md:px-0">
+                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 mb-4 md:mb-5 -mx-4 px-4 md:mx-0 md:px-0">
                                 <div className="h-8 w-14 rounded-full shimmer border border-white/5 flex-shrink-0"></div>
                                 <div className="h-8 w-20 rounded-full shimmer border border-white/5 flex-shrink-0"></div>
                                 <div className="h-8 w-16 rounded-full shimmer border border-white/5 flex-shrink-0"></div>
                                 <div className="h-8 w-14 rounded-full shimmer border border-white/5 flex-shrink-0"></div>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 flex-1 -mx-4 px-4 md:mx-0 md:px-0">
+                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 mb-4 md:mb-5 -mx-4 px-4 md:mx-0 md:px-0">
                                 <button
                                     onClick={() => setSelectedCategory('ALL')}
                                     className={`h-8 px-3.5 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-[0.15em] font-montserrat transition-all duration-200 whitespace-nowrap flex items-center justify-center active:scale-95 ${selectedCategory === 'ALL' ? 'bg-primary/20 text-primary border border-primary/40 shadow-sm shadow-primary/10 active:bg-primary/30' : 'bg-white/[0.04] hover:bg-white/[0.08] hover:border-primary/30 hover:text-primary text-cream-light/50 border border-white/[0.08] active:bg-white/[0.1] active:border-primary/40 active:text-primary'}`}
@@ -9478,23 +9490,6 @@
                                 )}
                             </div>
                         )}
-                        {/* Pinned select icon — only in standard/daily mode */}
-                        {(viewMode === 'standard' || viewMode === 'daily') && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setIsSelectionMode(prev => {
-                                        if (prev) setSelectedTasks([]);
-                                        return !prev;
-                                    });
-                                }}
-                                className={`w-8 h-8 rounded-full border transition-all flex-shrink-0 flex items-center justify-center ${isSelectionMode ? 'bg-primary/20 text-primary border-primary/40 shadow-sm shadow-primary/10' : 'bg-white/[0.03] text-cream-light/40 hover:text-cream-light border-white/10 hover:bg-white/5'}`}
-                                title={isSelectionMode ? 'Exit selection' : 'Select multiple tasks'}
-                            >
-                                <span className="material-symbols-outlined text-[16px]">{isSelectionMode ? 'close' : 'checklist'}</span>
-                            </button>
-                        )}
-                        </div>
 
                         <div className="space-y-6">
 
