@@ -6349,21 +6349,23 @@
                     document.removeEventListener('touchmove', onMove);
                     document.removeEventListener('touchend', onUp);
                     
+                    const finalDrag = dragStartIdx.current;
                     setOverIdx(latestOver => {
-                        setDraggingIdx(latestDrag => {
-                            if (latestDrag !== null && latestOver !== null && latestOver !== latestDrag) {
-                                setOrderedCats(prev => {
-                                    const next = [...prev];
-                                    const [moved] = next.splice(latestDrag, 1);
-                                    next.splice(latestOver, 0, moved);
+                        if (finalDrag !== null && latestOver !== null && latestOver !== finalDrag) {
+                            setOrderedCats(prev => {
+                                const next = [...prev];
+                                const [moved] = next.splice(finalDrag, 1);
+                                next.splice(latestOver, 0, moved);
+                                // (2026-07-13) Defer parent update out of render cycle. Prev: setState in render warning
+                                setTimeout(() => {
                                     if (onReorderCategories) onReorderCategories(next);
-                                    return next;
-                                });
-                            }
-                            return null;
-                        });
+                                }, 0);
+                                return next;
+                            });
+                        }
                         return null;
                     });
+                    setDraggingIdx(null);
                     isDraggingRef.current = false;
                     dragStartIdx.current = null;
                     setDragOffsetY(0);
