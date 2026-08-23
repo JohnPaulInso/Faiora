@@ -1933,11 +1933,11 @@
                     {children}
                     {showFab && (
                         <div className="relative">
-                            {/* (2026-07-13) Clean simple darkening for FAB press. Prev: extra shadow */}
+                            {/* (2026-07-13) Set FAB z-400 above backdrop. Prev: z-120 */}
                             <button 
                                 id="faiora_mobile_fab"
                                 onClick={handleMainFabClick}
-                                className={`faiora-mobile-fab fixed bottom-[100px] md:bottom-12 right-5 md:right-12 w-[64px] h-[64px] md:w-20 md:h-20 ${isFabMenuOpen ? 'bg-zinc-800 rotate-45 shadow-xl' : 'bg-gradient-to-br from-[#fb923c] via-[#ea580c] to-[#c2410c] shadow-[0_8px_25px_rgba(234,88,12,0.45)] border border-white/20'} text-white rounded-full flex items-center justify-center transition-all duration-200 hover:brightness-105 active:brightness-75 active:scale-95 z-[120] group select-none`}
+                                className={`faiora-mobile-fab fixed bottom-[100px] md:bottom-12 right-5 md:right-12 w-[64px] h-[64px] md:w-20 md:h-20 ${isFabMenuOpen ? 'bg-zinc-800 rotate-45 shadow-xl z-[400]' : 'bg-gradient-to-br from-[#fb923c] via-[#ea580c] to-[#c2410c] shadow-[0_8px_25px_rgba(234,88,12,0.45)] border border-white/20 z-[120]'} text-white rounded-full flex items-center justify-center transition-all duration-200 hover:brightness-105 active:brightness-75 active:scale-95 group select-none`}
                             >
                                 <span className="material-symbols-outlined text-[30px] md:text-4xl group-hover:rotate-90 transition-transform duration-300">add</span>
                             </button>
@@ -11948,7 +11948,7 @@
 
             // (2026-07-13) Set modal wrapper z-2000 above nav & FAB. Prev: z-950
             return (
-                <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[2000] flex items-center justify-center p-0">
                     <style>{`
                         /* (2026-07-13) Invert picker indicator to white for dark inputs. Prev: black */
                         .quick-task-input:focus {
