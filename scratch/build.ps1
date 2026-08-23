@@ -1,15 +1,23 @@
-# (2026-07-13) Sync root web files to www folder for Capacitor Android build. Prev: missing build script
+# (2026-07-13) Clean and sync root web files to www folder for Capacitor Android build. Prev: stale files accumulated
 $ErrorActionPreference = "Stop"
 $root = (Get-Item $PSScriptRoot).Parent.FullName
 
-Write-Host "Syncing web assets from root ($root) to www..." -ForegroundColor Cyan
+Write-Host "Cleaning www directory..." -ForegroundColor Cyan
 
-# Ensure www directory exists
-if (-not (Test-Path "$root\www")) {
-    New-Item -ItemType Directory -Path "$root\www" -Force | Out-Null
+# Clean stale www folder to ensure APK only bundles active files
+if (Test-Path "$root\www") {
+    Remove-Item -Path "$root\www" -Recurse -Force | Out-Null
+}
+New-Item -ItemType Directory -Path "$root\www" -Force | Out-Null
+
+# Clean stale android public assets directory
+if (Test-Path "$root\android\app\src\main\assets\public") {
+    Remove-Item -Path "$root\android\app\src\main\assets\public" -Recurse -Force | Out-Null
 }
 
-# List of files to copy directly
+Write-Host "Syncing active web assets from root to www..." -ForegroundColor Cyan
+
+# List of active files to copy directly
 $files = @(
     "index.html",
     "style.css",
@@ -17,13 +25,10 @@ $files = @(
     "logo.png",
     "applogo.png",
     "fire-wipe-spritesheet.png",
-    "fire_bg_video.mp4",
-    "fire_bg_video_hd.mp4",
     "fire_bg_video_hd_desktop_tablet.mp4",
     "fire_bg_video_hd_mobile.mp4",
     "fire_transition_sfx.mp3",
     "alarm_ringtone.mp3",
-    "alarm_ringtone.ogg",
     "tailwind.cdn.js",
     "sw.js",
     "admin.html",
@@ -40,7 +45,7 @@ foreach ($f in $files) {
 
 # Copy assets folder if present
 if (Test-Path "$root\assets") {
-    Copy-Item -Path "$root\assets" -Destination "$root\www" -Recurse -Force
+    Copy-Item -Path "$root\assets" -Destination "$root\www\assets" -Recurse -Force
 }
 
-Write-Host "Asset synchronization complete." -ForegroundColor Green
+Write-Host "Asset clean synchronization complete." -ForegroundColor Green
