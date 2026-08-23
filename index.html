@@ -673,7 +673,8 @@
             // (2026-07-13) Split NO DEADLINE tasks by category in Notepad view. Prev: single section
             if (noDateTasks.length > 0) {
                 const noDateCatMap = new Map();
-                    // (2026-07-13) Fallback to UNCATEGORIZED for tasks without category. Prev: GENERAL
+                // (2026-07-13) Fallback to UNCATEGORIZED for tasks without category. Prev: GENERAL
+                noDateTasks.forEach(task => {
                     const cats = Array.isArray(task.categories) && task.categories.length > 0
                         ? task.categories
                         : (task.category ? [task.category] : ['UNCATEGORIZED']);
