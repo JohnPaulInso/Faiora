@@ -673,11 +673,11 @@
             // (2026-07-13) Split NO DEADLINE tasks by category in Notepad view. Prev: single section
             if (noDateTasks.length > 0) {
                 const noDateCatMap = new Map();
-                noDateTasks.forEach(task => {
+                    // (2026-07-13) Fallback to UNCATEGORIZED for tasks without category. Prev: GENERAL
                     const cats = Array.isArray(task.categories) && task.categories.length > 0
                         ? task.categories
-                        : (task.category ? [task.category] : ['GENERAL']);
-                    const primaryCat = (cats[0] || 'GENERAL').toUpperCase();
+                        : (task.category ? [task.category] : ['UNCATEGORIZED']);
+                    const primaryCat = (cats[0] || 'UNCATEGORIZED').toUpperCase();
                     if (!noDateCatMap.has(primaryCat)) noDateCatMap.set(primaryCat, []);
                     noDateCatMap.get(primaryCat).push(task);
                 });
@@ -6031,12 +6031,13 @@
                 const catMap = new Map();
 
                 filtered.forEach(task => {
+                    // (2026-07-13) Fallback to UNCATEGORIZED section in Category mode. Prev: GENERAL
                     const rawCats = Array.isArray(task.categories) && task.categories.length > 0
                         ? task.categories
-                        : (task.category ? [task.category] : ['GENERAL']);
+                        : (task.category ? [task.category] : ['UNCATEGORIZED']);
                     
                     rawCats.forEach(c => {
-                        const clean = (c || 'GENERAL').toUpperCase().trim();
+                        const clean = (c || 'UNCATEGORIZED').toUpperCase().trim();
                         if (!catMap.has(clean)) catMap.set(clean, []);
                         catMap.get(clean).push(task);
                     });
@@ -9314,10 +9315,11 @@
                 if (list.length === 0) return [];
                 const map = new Map();
                 list.forEach(t => {
+                    // (2026-07-13) Fallback to UNCATEGORIZED for no-deadline split. Prev: GENERAL
                     const cats = Array.isArray(t.categories) && t.categories.length > 0
                         ? t.categories
-                        : (t.category ? [t.category] : ['GENERAL']);
-                    const primaryCat = (cats[0] || 'GENERAL').toUpperCase();
+                        : (t.category ? [t.category] : ['UNCATEGORIZED']);
+                    const primaryCat = (cats[0] || 'UNCATEGORIZED').toUpperCase();
                     if (!map.has(primaryCat)) map.set(primaryCat, []);
                     map.get(primaryCat).push(t);
                 });
