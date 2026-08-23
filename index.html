@@ -6059,6 +6059,18 @@
                 };
             }, [tasks, showCheckedTasks]);
 
+            // (2026-07-13) Detect duplicate task texts for category view badge. Prev: none
+            const duplicateTextCounts = useMemo(() => {
+                const map = new Map();
+                (tasks || []).forEach(t => {
+                    const text = (t.text || '').trim().toLowerCase();
+                    if (text) {
+                        map.set(text, (map.get(text) || 0) + 1);
+                    }
+                });
+                return map;
+            }, [tasks]);
+
             const viewData = groupBy === 'category' ? categoryData : dailyData;
             const [isSaving, setIsSaving] = useState(false);
             const longPressTimer = useRef(null);
@@ -6148,6 +6160,8 @@
                                         {sec.items.map(task => {
                                             const taskProgress = task.progress !== undefined ? task.progress : (task.completed ? 100 : 0);
                                             const isInProgress = taskProgress > 0 && taskProgress < 100;
+                                            const cleanTaskText = (task.text || '').trim().toLowerCase();
+                                            const isDuplicate = groupBy === 'category' && cleanTaskText && (duplicateTextCounts.get(cleanTaskText) || 0) > 1;
                                             // (2026-07-13) Align checkbox to first line of text. Prev: items-center
                                             return (
                                                 <div
@@ -6186,9 +6200,17 @@
                                                             <div className="flex-1 min-w-0">
                                                                 {/* (2026-07-13) Smart 1 vs 2 line clamp on notepad item. Prev: fixed 2 */}
                                                                 {/* (2026-07-13) Orange text on long-press, muted if completed. Prev: static */}
-                                                                <span className={`qt-notepad-item-text text-xs md:text-sm font-montserrat leading-5 transition-all duration-200 ${(isInProgress && (task.text || '').length <= 48) ? 'clamp-1' : 'clamp-2'} ${longPressingId === task.id ? (task.completed ? 'text-primary/40 line-through' : 'text-primary font-semibold') : task.completed ? 'line-through text-white/50' : 'text-cream-light'}`}>
-                                                                    {task.text}
-                                                                </span>
+                                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                                    <span className={`qt-notepad-item-text text-xs md:text-sm font-montserrat leading-5 transition-all duration-200 ${(isInProgress && (task.text || '').length <= 48) ? 'clamp-1' : 'clamp-2'} ${longPressingId === task.id ? (task.completed ? 'text-primary/40 line-through' : 'text-primary font-semibold') : task.completed ? 'line-through text-white/50' : 'text-cream-light'}`}>
+                                                                        {task.text}
+                                                                    </span>
+                                                                    {isDuplicate && (
+                                                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8.5px] font-bold font-montserrat uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0" title="Duplicate task">
+                                                                            <span className="material-symbols-outlined text-[10px]">content_copy</span>
+                                                                            DUP
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         {/* (2026-07-13) Center notepad progress bar vertically. Prev: top-aligned */}
