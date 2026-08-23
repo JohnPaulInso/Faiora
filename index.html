@@ -6473,9 +6473,6 @@
                                         scrollbarWidth: 'thin',
                                         scrollbarColor: 'rgba(249,115,22,0.4) rgba(255,255,255,0.03)'
                                     }}
-                                    onPointerMove={handleDragPointerMove}
-                                    onPointerUp={handleDragPointerUp}
-                                    onPointerLeave={handleDragPointerUp}
                                 >
                                     {orderedCats.map((cat, idx) => {
                                         const count = (quickTasks || []).filter(t => {
