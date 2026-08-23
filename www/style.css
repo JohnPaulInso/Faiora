@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* (2026-07-13) Disable horizontal swipe/scroll across entire app. Prev: unset */
+html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+}
+
 /* (2026-07-13) Local offline Material Symbols font-face. Prev: CDN text flash */
 @font-face {
     font-family: 'Material Symbols Outlined';
@@ -49,22 +55,22 @@
     animation: fire-glow-pulse 2.5s ease-in-out infinite alternate !important;
 }
 
-/* (2026-07-13) Opaque glassmorphic header with real blur. Prev: transparent */
+/* (2026-07-13) Dynamic color-shifting pulse for 100% opacity header. Prev: static */
 @keyframes mobile-header-pulse {
     0% {
-        background-color: rgba(14, 6, 3, 0.90);
+        background-color: #0e0603;
     }
     25% {
-        background-color: rgba(30, 11, 4, 0.92);
+        background-color: #381507;
     }
     50% {
-        background-color: rgba(18, 7, 3, 0.90);
+        background-color: #190904;
     }
     75% {
-        background-color: rgba(34, 13, 5, 0.92);
+        background-color: #481b09;
     }
     100% {
-        background-color: rgba(14, 6, 3, 0.90);
+        background-color: #0e0603;
     }
 }
 
@@ -75,6 +81,7 @@
 .faiora-mobile-header {
     position: fixed !important;
     animation: mobile-header-pulse 8s ease-in-out infinite !important;
+    opacity: 1 !important;
     border: none !important;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6) !important;
     -webkit-backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
@@ -97,7 +104,8 @@
 
 .faiora-mobile-nav {
     position: fixed !important;
-    background-color: rgba(12, 5, 2, 0.90) !important;
+    background-color: #0c0502 !important;
+    opacity: 1 !important;
     border: none !important;
     box-shadow: 0 -12px 36px 0 rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.08) !important;
     -webkit-backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
@@ -746,7 +754,7 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     background-color: rgba(255, 255, 255, 0.04) !important;
 }
 
-/* (2026-07-13) Balanced 1.4s shimmer speed for preloaders. Prev: 1.1s */
+/* (2026-07-13) Faster 1.05s shimmer speed for preloaders. Prev: 1.4s */
 .shimmer::after,
 .fire-shimmer::after,
 .skeleton-priority-card::after,
@@ -762,8 +770,8 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
         rgba(255, 255, 255, 0.03) 80%,
         transparent 100%
     ) !important;
-    animation: full-card-shimmer 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
-    -webkit-animation: full-card-shimmer 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+    animation: full-card-shimmer 1.05s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+    -webkit-animation: full-card-shimmer 1.05s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
     pointer-events: none !important;
     z-index: 5 !important;
 }
@@ -797,18 +805,18 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
 }
 
 .dissolve-layer {
-    transition: opacity 0.3s ease-in-out, filter 0.3s ease-in-out;
+    transition: opacity 0.25s ease-in-out;
 }
 
 .dissolve-out {
     opacity: 0;
-    filter: blur(2px);
 }
 
+/* (2026-07-13) Pure opacity 0.5s dissolve fade-in with fill both. Prev: 0.25s */
+.skeleton-fade-in,
 .dissolve-in {
-    opacity: 1;
-    filter: blur(0);
-    animation: content-fade-in 0.4s ease-out forwards;
+    animation: content-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+    will-change: opacity;
 }
 
 /* (2026-07-13) Set 0.6s duration for route fade-in/fade-out. Prev: 0.57s */
@@ -831,7 +839,7 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-/* (2026-07-13) Timeline styles for Quick Task progress logs. Prev: none */
+/* (2026-07-13) Centered milestone timeline line and dots. Prev: misaligned */
 .task-progress-timeline {
     position: relative;
     padding-left: 1.25rem;
@@ -840,24 +848,45 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
 .task-progress-timeline::before {
     content: '';
     position: absolute;
-    top: 6px;
-    bottom: 6px;
-    left: 5px;
+    top: 9px;
+    bottom: 9px;
+    left: 7px;
     width: 2px;
-    background: linear-gradient(180deg, rgba(249, 115, 22, 0.6) 0%, rgba(255, 255, 255, 0.08) 100%);
+    background: linear-gradient(180deg, rgba(249, 115, 22, 0.7) 0%, rgba(249, 115, 22, 0.15) 100%);
     border-radius: 9999px;
 }
 
 .task-progress-dot {
     position: absolute;
-    left: -1.25rem;
-    top: 4px;
-    width: 12px;
-    height: 12px;
+    left: -17px;
+    top: 3.5px;
+    width: 10px;
+    height: 10px;
     border-radius: 9999px;
     background: #f97316;
     border: 2px solid #0f172a;
-    box-shadow: 0 0 8px rgba(249, 115, 22, 0.7);
+    box-shadow: 0 0 6px rgba(249, 115, 22, 0.8);
+}
+
+/* (2026-07-13) Custom visible scrollbar for progress logs. Prev: no scrollbar */
+.progress-logs-scroll {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(249, 115, 22, 0.4) rgba(255, 255, 255, 0.04);
+}
+.progress-logs-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+.progress-logs-scroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 9999px;
+}
+.progress-logs-scroll::-webkit-scrollbar-thumb {
+    background: rgba(249, 115, 22, 0.4);
+    border-radius: 9999px;
+}
+.progress-logs-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(249, 115, 22, 0.7);
 }
 
 /* FIX 2026-04-15: Clean fade-in without transform */
@@ -1744,5 +1773,25 @@ body.dragging-image-active { cursor: grabbing !important; user-select: none !imp
 }
 .quick-task-input::-webkit-calendar-picker-indicator:hover {
     opacity: 1;
+}
+
+/* (2026-07-13) Clean custom visible scrollbar for category list. Prev: no-scrollbar */
+.qt-categories-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(249, 115, 22, 0.4) transparent;
+}
+.qt-categories-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    display: block;
+}
+.qt-categories-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.qt-categories-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(249, 115, 22, 0.45);
+    border-radius: 9999px;
+}
+.qt-categories-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(249, 115, 22, 0.75);
 }
 
