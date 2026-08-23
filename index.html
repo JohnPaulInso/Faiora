@@ -667,15 +667,29 @@
                 });
             });
 
-            // (2026-07-13) Dedicated NO DEADLINE section for notepad view. Prev: merged in today
+            // (2026-07-13) Split NO DEADLINE tasks by category in Notepad view. Prev: single section
             if (noDateTasks.length > 0) {
-                sections.push({
-                    key: 'noDate',
-                    label: 'NO DEADLINE',
-                    shortLabel: 'NO DEADLINE',
-                    items: noDateTasks,
-                    totalCount: noDateTasks.length,
-                    isNoDate: true
+                const noDateCatMap = new Map();
+                noDateTasks.forEach(task => {
+                    const cats = Array.isArray(task.categories) && task.categories.length > 0
+                        ? task.categories
+                        : (task.category ? [task.category] : ['GENERAL']);
+                    const primaryCat = (cats[0] || 'GENERAL').toUpperCase();
+                    if (!noDateCatMap.has(primaryCat)) noDateCatMap.set(primaryCat, []);
+                    noDateCatMap.get(primaryCat).push(task);
+                });
+
+                const sortedCats = Array.from(noDateCatMap.keys()).sort();
+                sortedCats.forEach(cat => {
+                    const items = noDateCatMap.get(cat);
+                    sections.push({
+                        key: `noDate_${cat}`,
+                        label: `NO DEADLINE — ${cat}`,
+                        shortLabel: `${cat}`,
+                        items: items,
+                        totalCount: items.length,
+                        isNoDate: true
+                    });
                 });
             }
 
@@ -9191,7 +9205,30 @@
                 return () => obs.disconnect();
             }, [finishedLimit, completedTasksSorted.length]);
 
-            // (2026-07-13) Skeletons, this/next week sections & No Deadline. Prev: basic
+            // (2026-07-13) Split No Deadline tasks by category in Quick Tasks page. Prev: single section
+            const noDateSections = useMemo(() => {
+                const list = groupedQuickTasks.noDate || [];
+                if (list.length === 0) return [];
+                const map = new Map();
+                list.forEach(t => {
+                    const cats = Array.isArray(t.categories) && t.categories.length > 0
+                        ? t.categories
+                        : (t.category ? [t.category] : ['GENERAL']);
+                    const primaryCat = (cats[0] || 'GENERAL').toUpperCase();
+                    if (!map.has(primaryCat)) map.set(primaryCat, []);
+                    map.get(primaryCat).push(t);
+                });
+                const sortedCats = Array.from(map.keys()).sort();
+                return sortedCats.map(cat => ({
+                    key: `noDate_${cat}`,
+                    label: `No Deadline — ${cat}`,
+                    shortLabel: `${cat}`,
+                    items: map.get(cat),
+                    totalCount: map.get(cat).length,
+                    isNoDate: true
+                }));
+            }, [groupedQuickTasks.noDate]);
+
             const sections = [
                 { key: 'pastDue', label: 'Past Due', items: groupedQuickTasks.pastDue || [], totalCount: (groupedQuickTasks.pastDue || []).length },
                 { key: 'today', label: 'Today', items: groupedQuickTasks.today, totalCount: groupedQuickTasks.today.length },
@@ -9199,7 +9236,7 @@
                 { key: 'thisWeek', label: 'This Week', items: groupedQuickTasks.thisWeek || [], totalCount: (groupedQuickTasks.thisWeek || []).length },
                 { key: 'nextWeek', label: 'Next Week', items: groupedQuickTasks.nextWeek || [], totalCount: (groupedQuickTasks.nextWeek || []).length },
                 { key: 'upcoming', label: 'Upcoming', items: groupedQuickTasks.upcoming || [], totalCount: (groupedQuickTasks.upcoming || []).length },
-                { key: 'noDate', label: 'No Deadline', items: groupedQuickTasks.noDate || [], totalCount: (groupedQuickTasks.noDate || []).length },
+                ...noDateSections,
                 { key: 'completed', label: 'Finished', items: completedTasksSorted.slice(0, finishedLimit), totalCount: completedTasksSorted.length }
             ];
 
