@@ -9103,6 +9103,8 @@
             const [isSelectionMode, setIsSelectionMode] = useState(false);
             const [selectedTasks, setSelectedTasks] = useState([]);
             const [pendingDeleteBatch, setPendingDeleteBatch] = useState(false);
+            // (2026-07-13) Batch assign category state. Prev: none
+            const [showAssignCategorySheet, setShowAssignCategorySheet] = useState(false);
 
             const handleToggleSelectTask = (taskId) => {
                 setSelectedTasks(prev =>
@@ -9124,6 +9126,20 @@
                 setIsSelectionMode(false);
                 setPendingDeleteBatch(false);
                 if (showToast) showToast(`${selectedTasks.length} task${selectedTasks.length !== 1 ? 's' : ''} deleted`);
+            };
+
+            // (2026-07-13) Assign a category to all selected tasks in bulk. Prev: none
+            const handleAssignCategory = (cat) => {
+                if (typeof onUpdateQuickTasks === 'function') {
+                    onUpdateQuickTasks((quickTasks || []).map(t => {
+                        if (!selectedTasks.includes(t.id)) return t;
+                        return { ...t, categories: [cat], category: cat };
+                    }));
+                }
+                setShowAssignCategorySheet(false);
+                setSelectedTasks([]);
+                setIsSelectionMode(false);
+                if (showToast) showToast(`Category "${cat}" assigned to ${selectedTasks.length} task${selectedTasks.length !== 1 ? 's' : ''}`);
             };
 
             // (2026-07-13) Add Past Due section before today in QuickTasksPage. Prev: none
@@ -9641,14 +9657,24 @@
                                 </button>
                             </div>
                             <div className="flex items-center gap-2">
+                                {/* (2026-07-13) Assign category button in action bar. Prev: none */}
+                                <button
+                                    type="button"
+                                    disabled={selectedTasks.length === 0}
+                                    onClick={() => setShowAssignCategorySheet(true)}
+                                    className={`w-9 h-9 rounded-2xl text-xs font-bold flex items-center justify-center transition-all ${selectedTasks.length > 0 ? 'bg-white/10 hover:bg-white/15 text-cream-light active:scale-95' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
+                                    title="Assign category to selected"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">label</span>
+                                </button>
                                 <button
                                     type="button"
                                     disabled={selectedTasks.length === 0}
                                     onClick={() => setPendingDeleteBatch(true)}
-                                    className={`px-4 py-2 rounded-2xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all ${selectedTasks.length > 0 ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30 active:scale-95' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
+                                    className={`w-9 h-9 rounded-2xl text-xs font-bold flex items-center justify-center transition-all ${selectedTasks.length > 0 ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30 active:scale-95' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
+                                    title="Delete selected"
                                 >
-                                    <span className="material-symbols-outlined text-sm">delete</span>
-                                    Delete {selectedTasks.length > 0 ? `(${selectedTasks.length})` : ''}
+                                    <span className="material-symbols-outlined text-[18px]">delete</span>
                                 </button>
                             </div>
                         </div>
@@ -9679,6 +9705,39 @@
                                         Cancel
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* (2026-07-13) Batch assign category bottom sheet. Prev: none */}
+                    {showAssignCategorySheet && (
+                        <div
+                            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[2050] flex items-end justify-center animate-in fade-in duration-200"
+                            onClick={() => setShowAssignCategorySheet(false)}
+                        >
+                            <div
+                                className="w-full max-w-lg bg-[#120804] border border-white/10 rounded-t-[2rem] p-6 pb-10 shadow-2xl animate-in slide-in-from-bottom-4 duration-300 font-montserrat"
+                                onClick={e => e.stopPropagation()}
+                            >
+                                <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5" />
+                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary mb-4">Assign category to {selectedTasks.length} task{selectedTasks.length !== 1 ? 's' : ''}</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {allCategories.map(cat => (
+                                        <button
+                                            key={cat}
+                                            onClick={() => handleAssignCategory(cat)}
+                                            className="h-9 px-4 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] bg-white/[0.04] hover:bg-primary/20 hover:text-primary border border-white/10 hover:border-primary/40 text-cream-light/70 transition-all active:scale-95"
+                                        >
+                                            {cat}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button
+                                    onClick={() => setShowAssignCategorySheet(false)}
+                                    className="mt-5 w-full py-3 bg-white/5 hover:bg-white/10 text-white/50 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all"
+                                >
+                                    Cancel
+                                </button>
                             </div>
                         </div>
                     )}
