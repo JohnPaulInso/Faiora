@@ -19,6 +19,8 @@ $files = @(
     "fire-wipe-spritesheet.png",
     "fire_bg_video.mp4",
     "fire_bg_video_hd.mp4",
+    "fire_bg_video_hd_desktop_tablet.mp4",
+    "fire_bg_video_hd_mobile.mp4",
     "fire_transition_sfx.mp3",
     "alarm_ringtone.mp3",
     "alarm_ringtone.ogg",

@@ -13687,13 +13687,15 @@
             const [publicNote, setPublicNote] = useState(null);
             const [profileData, setProfileData] = useState({});
             const [settingsData, setSettingsData] = useState({});
-            // (2026-07-13) Move video delay effect after settingsData init. Prev: TDZ error
+            // (2026-07-13) Responsive background video selection for mobile vs desktop/tablet. Prev: single file
             const [videoSrc, setVideoSrc] = useState(null);
 
             useEffect(() => {
                 if (settingsData?.bgVideoEnabled === false) return;
+                const isMobileDevice = typeof window !== 'undefined' && (window.innerWidth < 768 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
+                const targetSrc = isMobileDevice ? "fire_bg_video_hd_mobile.mp4" : "fire_bg_video_hd_desktop_tablet.mp4";
                 const timer = setTimeout(() => {
-                    setVideoSrc("fire_bg_video.mp4");
+                    setVideoSrc(targetSrc);
                 }, 3000);
                 return () => clearTimeout(timer);
             }, [settingsData?.bgVideoEnabled]);
