@@ -1968,9 +1968,9 @@
 
                             {isFabMenuOpen && (
                                 <React.Fragment>
-                                    {/* (2026-07-13) Uniform darkened blur backdrop for FAB. Prev: bg-black/75 */}
+                                    {/* (2026-07-13) Solid dark backdrop, no blur. Prev: bg-black/70 backdrop-blur-md */}
                                     <div 
-                                        className="fixed inset-0 bg-black/70 backdrop-blur-md z-[350] animate-in fade-in duration-300"
+                                        className="fixed inset-0 bg-black/80 z-[350] animate-in fade-in duration-300"
                                         onClick={() => setIsFabMenuOpen(false)}
                                     />
                                     <div className="fixed bottom-[180px] md:bottom-36 right-6 md:right-12 flex flex-col items-end gap-5 z-[400] animate-in slide-in-from-bottom-10 fade-in duration-300">
@@ -4336,7 +4336,8 @@
             // (2026-07-13) Set modal wrapper z-[2000] above nav & FAB. Prev: z-[950]
             return (
                 <div className={"fixed inset-0 z-[2000] flex items-center justify-center transition-all duration-300 " + (isFullscreen ? "p-0" : "p-0 md:p-8") + " " + (isClosing ? 'opacity-0 scale-95 pointer-events-none' : 'animate-in fade-in duration-500')}>
-                    <div className={"absolute inset-0 bg-black/70 backdrop-blur-md transition-opacity duration-300 " + (isClosing ? 'opacity-0' : '')} onClick={handleClose}></div>
+                    {/* (2026-07-13) Solid dark backdrop, no blur. Prev: backdrop-blur-md */}
+                    <div className={"absolute inset-0 bg-black/80 transition-opacity duration-300 " + (isClosing ? 'opacity-0' : '')} onClick={handleClose}></div>
                     
                     <div ref={modalRef} style={{ transform: 'translateY(calc(-1 * var(--faiora-keyboard-offset, 0px)))' }} className={"task-creator-modal w-full max-w-full h-full overflow-hidden flex flex-col relative z-10 shadow-2xl transition-all duration-250 " + (isFullscreen ? "md:max-w-full md:h-[100dvh] md:rounded-none !p-0 !m-0" : "md:max-w-4xl md:h-[85vh] md:rounded-[2rem]") + " " + (isClosing ? 'opacity-0 scale-95 translate-y-20 md:translate-y-0 ease-in' : 'animate-in zoom-in-95 duration-500 ease-out') + ' transition-colors duration-500 ' + currentThemeClass}>
                         
@@ -5492,8 +5493,8 @@
             /* confirmation-modal - raised z-index to 999 */
             // (2026-07-13) Set modal wrapper z-950 below nav & FAB. Prev: z-999
             return (
-                /* (2026-07-13) Uniform dark blurred backdrop. Prev: bg-black/40 backdrop-blur-sm */
-                <div className="fixed inset-0 z-[950] flex items-center justify-center p-4 md:p-10 bg-black/70 backdrop-blur-md animation-fade-in">
+                /* (2026-07-13) Solid dark backdrop, no blur. Prev: bg-black/70 backdrop-blur-md */
+                <div className="fixed inset-0 z-[950] flex items-center justify-center p-4 md:p-10 bg-black/80 animation-fade-in">
                     <div className="w-full max-w-sm bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl border border-white/10 p-8 text-center space-y-6 transform scale-up-center font-montserrat">
                         <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${type === 'danger' ? 'bg-rose-500/10 text-rose-500' : 'bg-primary/10 text-primary'}`}>
                             <span className="material-symbols-outlined text-3xl">{type === 'danger' ? 'warning' : 'info'}</span>
@@ -6254,8 +6255,8 @@
             // (2026-07-13) Set modal wrapper z-950 below nav & FAB. Prev: z-999
             return (
                 <div className={"fixed inset-0 z-[950] flex items-center justify-center p-4 transition-all duration-200 " + (isClosing ? 'opacity-0 scale-95' : 'animate-in fade-in duration-300')}>
-                    {/* (2026-07-13) Uniform dark blurred backdrop. Prev: absolute inset-0 bg-black/40 */}
-                    <div className="fixed inset-0 bg-black/70 backdrop-blur-md" onClick={handleClose}></div>
+                    {/* (2026-07-13) Solid dark backdrop, no blur. Prev: bg-black/70 backdrop-blur-md */}
+                    <div className="fixed inset-0 bg-black/80" onClick={handleClose}></div>
                     {/* (2026-07-13) Fixed height to prevent stretching on tab switch. Prev: auto */}
                     <div className="bg-[#0f172a] w-full max-w-sm rounded-[2rem] p-5 md:p-6 relative z-10 shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200 flex flex-col h-[520px] max-h-[85vh]">
                         <div className="flex justify-between items-center pb-3 border-b border-white/5 flex-shrink-0">
@@ -8488,7 +8489,8 @@
 
                         {/* (2026-07-13) Set modal wrapper z-950 below nav & FAB. Prev: z-999 */}
                         {pendingDeleteSection && (
-                            <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[950] flex items-center justify-center p-6 animate-in fade-in duration-300">
+                            {/* (2026-07-13) Solid dark backdrop, no blur. Prev: backdrop-blur-md */}
+                            <div className="fixed inset-0 bg-black/80 z-[950] flex items-center justify-center p-6 animate-in fade-in duration-300">
                                 <div className="glass-panel w-full max-w-md rounded-[2.5rem] border border-white/10 p-10 text-center animate-in zoom-in-95 duration-300 font-montserrat">
                                     <div className="w-20 h-20 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center mx-auto mb-8">
                                         <span className="material-symbols-outlined text-red-400 text-4xl">warning</span>
@@ -9989,8 +9991,9 @@
 
                                     // (2026-07-13) Uniform darkened blur for alarm modal. Prev: black/40 blur-3xl
                                     return (
+                                        {/* (2026-07-13) Solid dark backdrop, no blur. Prev: backdrop-blur-md */}
                                         <div 
-                                            className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300"
+                                            className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300"
                                             onClick={handleCancelForm}
                                         >
                                             <div 
@@ -12004,9 +12007,9 @@
                             color: #f97316;
                         }
                     `}</style>
-                    {/* (2026-07-13) Uniform dark blurred backdrop. Prev: absolute inset-0 bg-black/70 */}
+                    {/* (2026-07-13) Solid dark backdrop, no blur. Prev: bg-black/70 backdrop-blur-md */}
                     <div 
-                        className={`fixed inset-0 bg-black/70 backdrop-blur-md ${isClosing ? 'qt-modal-backdrop-out' : 'qt-modal-backdrop-in'}`} 
+                        className={`fixed inset-0 bg-black/80 ${isClosing ? 'qt-modal-backdrop-out' : 'qt-modal-backdrop-in'}`} 
                         onClick={handleClose}
                     ></div>
                     {/* (2026-07-13) Compact modal container and form spacing. Prev: 90vh & space-y-3 */}
@@ -12418,8 +12421,8 @@
                             75% { transform: translateX(10px); }
                         }
                     `}</style>
-                    {/* (2026-07-13) Uniform dark blurred backdrop. Prev: absolute inset-0 bg-black/70 */}
-                    <div className="fixed inset-0 bg-black/70 backdrop-blur-md" onClick={handleClose}></div>
+                    {/* (2026-07-13) Solid dark backdrop, no blur. Prev: bg-black/70 backdrop-blur-md */}
+                    <div className="fixed inset-0 bg-black/80" onClick={handleClose}></div>
                     <div className="bg-[#0f172a] w-full max-w-sm rounded-[2.5rem] p-8 relative z-[210] shadow-2xl border border-white/5">
                         <div className="text-center mb-8">
                             <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -12551,8 +12554,8 @@
             // (2026-07-13) Set modal wrapper z-2000 above nav & FAB. Prev: z-950
             return (
                 <div className={"fixed inset-0 z-[2000] flex items-center justify-center p-4 transition-all duration-200 " + (isClosing ? 'opacity-0 scale-95' : 'animate-in fade-in zoom-in-95 duration-300')}>
-                    {/* (2026-07-13) Uniform dark blurred backdrop. Prev: absolute inset-0 bg-black/70 */}
-                    <div className="fixed inset-0 bg-black/70 backdrop-blur-md" onClick={handleClose}></div>
+                    {/* (2026-07-13) Solid dark backdrop, no blur. Prev: bg-black/70 backdrop-blur-md */}
+                    <div className="fixed inset-0 bg-black/80" onClick={handleClose}></div>
                     <div className={`bg-[#0f172a] w-full max-w-sm rounded-[2.5rem] p-8 relative z-[210] shadow-2xl border border-white/5 ${isError ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
                         <div className="text-center mb-8">
                             <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
