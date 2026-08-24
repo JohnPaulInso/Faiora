@@ -1,19 +1,37 @@
-# (2026-07-13) Open APK output in Explorer on complete. Prev: no open
+# (2026-08-24) Add strict error handling and per-step exit checks. Prev: no error detection
 param()
-Write-Host "[1/3] Building assets..." -ForegroundColor Cyan
+$ErrorActionPreference = "Stop"
+$root = $PSScriptRoot
+
+Write-Host "============================================" -ForegroundColor DarkGray
+Write-Host " Faiora APK Builder" -ForegroundColor Yellow
+Write-Host "============================================" -ForegroundColor DarkGray
+
+Write-Host "`n[1/3] Building web assets..." -ForegroundColor Cyan
 npm run build
-Write-Host "[2/3] Syncing Android project..." -ForegroundColor Cyan
+if ($LASTEXITCODE -ne 0) { Write-Host "FAILED: npm run build" -ForegroundColor Red; exit 1 }
+
+Write-Host "`n[2/3] Syncing Android project (cap sync)..." -ForegroundColor Cyan
 npx cap sync android
-Write-Host "[3/3] Assembling Debug APK..." -ForegroundColor Cyan
-Set-Location android
+if ($LASTEXITCODE -ne 0) { Write-Host "FAILED: cap sync android" -ForegroundColor Red; exit 1 }
+
+Write-Host "`n[3/3] Assembling Debug APK (clean + assemble)..." -ForegroundColor Cyan
+Set-Location "$root\android"
 # (2026-07-13) Clean gradle assemble to ensure stale assets are deleted. Prev: assembleDebug only
 .\gradlew.bat clean assembleDebug
-Set-Location ..
-$apkPath = "$PSScriptRoot\android\app\build\outputs\apk\debug\com.faiora.app.apk"
+$gradleExit = $LASTEXITCODE
+Set-Location $root
+if ($gradleExit -ne 0) { Write-Host "FAILED: Gradle assembleDebug (exit $gradleExit)" -ForegroundColor Red; exit 1 }
+
+Write-Host "`n============================================" -ForegroundColor DarkGray
+Write-Host " BUILD COMPLETE" -ForegroundColor Green
+Write-Host "============================================" -ForegroundColor DarkGray
+
+$apkPath = "$root\android\app\build\outputs\apk\debug\com.faiora.app.apk"
 if (Test-Path $apkPath) {
+    Write-Host " APK: $apkPath" -ForegroundColor Green
     Start-Process explorer.exe -ArgumentList "/select,`"$apkPath`""
 } else {
-    Start-Process explorer.exe -ArgumentList "$PSScriptRoot\android\app\build\outputs\apk\debug"
+    Write-Host " APK not found at expected path, opening output dir..." -ForegroundColor Yellow
+    Start-Process explorer.exe -ArgumentList "$root\android\app\build\outputs\apk\debug"
 }
-Write-Host "Build complete." -ForegroundColor Green
-
