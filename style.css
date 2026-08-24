@@ -106,6 +106,14 @@ html, body {
     background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 15%, rgba(249, 115, 22, 0.20) 38%, rgba(255, 255, 255, 0.25) 50%, rgba(249, 115, 22, 0.20) 62%, rgba(255, 255, 255, 0.05) 85%, transparent 100%) !important;
     pointer-events: none !important;
     z-index: 10 !important;
+}/* (2026-07-13) Responsive mobile top offset using safe-area. Prev: static */
+@media (max-width: 767px) {
+    .faiora-page-mobile-top {
+        margin-top: calc(58px + env(safe-area-inset-top, 0px)) !important;
+    }
+    .faiora-page-mobile-padding-top {
+        padding-top: calc(58px + env(safe-area-inset-top, 0px)) !important;
+    }
 }
 
 .faiora-mobile-nav {
