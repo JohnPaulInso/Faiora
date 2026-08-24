@@ -153,14 +153,14 @@
     animation: mobile-header-pulse 8s ease-in-out infinite !important;
 }
 
-/* (2026-07-13) Connect header seamlessly to status bar. Prev: fixed 68px */
+/* (2026-07-13) Reduce header height for compact top nav. Prev: 68px */
 .faiora-mobile-header {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
     padding-top: env(safe-area-inset-top, 0px) !important;
-    height: calc(68px + env(safe-area-inset-top, 0px)) !important;
+    height: calc(54px + env(safe-area-inset-top, 0px)) !important;
     animation: mobile-header-pulse 8s ease-in-out infinite !important;
     opacity: 1 !important;
     border: none !important;
@@ -2458,9 +2458,9 @@
                             animation: search-spin 0.6s linear infinite;
                         }
                     `}</style>
-                    {/* (2026-07-13) Support safe-area status bar immersion. Prev: fixed h-68px */}
+                    {/* (2026-07-13) Reduced header height for compact top nav. Prev: h-68px */}
                     <header className="faiora-mobile-header md:hidden fixed top-0 left-0 right-0 z-[100] flex items-center justify-center px-4 animate-mobile-header">
-                        <div className="h-[68px] flex items-center justify-between gap-3 relative z-10 w-full max-w-lg mx-auto">
+                        <div className="h-[54px] flex items-center justify-between gap-3 relative z-10 w-full max-w-lg mx-auto">
                             <button
                                 type="button"
                                 onClick={() => {
@@ -2476,7 +2476,7 @@
                             
                             {/* (2026-07-13) Smaller search icon, refined gap, larger text. Prev: text-xs */}
                             {showSearch ? (
-                                <div className="flex-1 relative flex items-center group h-10">
+                                <div className="flex-1 relative flex items-center group h-9">
                                     <span className="absolute left-3.5 flex items-center justify-center pointer-events-none text-white/40 group-focus-within:text-primary transition-colors">
                                         <span className={`${searchSpinnerActive ? 'search-loader' : ''} flex items-center justify-center`}>
                                             <span className="material-symbols-outlined text-[13.5px]">
@@ -4415,6 +4415,8 @@
                     <div className={"absolute inset-0 bg-black/85 backdrop-blur-md transition-opacity duration-300 " + (isClosing ? 'opacity-0' : '')} onClick={handleClose}></div>
                     
                     <div ref={modalRef} style={{ transform: 'translateY(calc(-1 * var(--faiora-keyboard-offset, 0px)))' }} className={"task-creator-modal w-full max-w-full h-full overflow-hidden flex flex-col relative z-10 shadow-2xl transition-all duration-250 " + (isFullscreen ? "md:max-w-full md:h-[100dvh] md:rounded-none !p-0 !m-0" : "md:max-w-4xl md:h-[85vh] md:rounded-[2rem]") + " " + (isClosing ? 'opacity-0 scale-95 translate-y-20 md:translate-y-0 ease-in' : 'animate-in zoom-in-95 duration-500 ease-out') + ' transition-colors duration-500 ' + currentThemeClass}>
+                        {/* (2026-07-13) Solid black status bar cap for modal. Prev: theme bleed */}
+                        <div className="w-full bg-black shrink-0 pointer-events-none md:hidden" style={{ height: 'env(safe-area-inset-top, 0px)' }}></div>
                         
                         {/* Top Progress Bar Slider */}
                         <div 
@@ -7321,8 +7323,8 @@
                         <div className="py-4 px-4 md:px-0 mb-6">
                             <Header user={user} />
                         </div>
-                        {/* (2026-07-13) Add balanced bottom margin to pinned section. Prev: mb-7 */}
-                        <section className="mt-16 md:mt-8 mb-10 md:mb-12 px-4 md:px-0">
+                        {/* (2026-07-13) Increase top margin for mobile navbar clearance. Prev: mt-16 */}
+                        <section className="mt-24 md:mt-8 mb-10 md:mb-12 px-4 md:px-0">
                             <div className="flex items-center gap-4 mb-4 pt-2 md:mb-6">
                                 {/* ------------------------------------------------------------------
                                    LABEL: SECTION-PRIORITY-NOTES
@@ -8689,7 +8691,8 @@
 
             return (
                 <Layout onOpenCreator={onOpenCreator} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
-                    <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-20 md:pt-12 pb-12">
+                    {/* (2026-07-13) Increase top padding for mobile navbar clearance. Prev: pt-20 */}
+                    <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-28 md:pt-12 pb-12">
                         {selectionMode ? (
                             <React.Fragment>
                                 <div className="fixed top-0 left-0 right-0 z-[200] bg-black backdrop-blur-2xl border-b border-white/5 px-8 py-4 flex items-center justify-between animate-mobile-header font-montserrat">
@@ -9227,8 +9230,8 @@
                                     searchPlaceholder="Search quick task"
                                 />
                             </div>
-                            {/* (2026-07-13) Reduced top margin on calendar. Prev: mt-6 */}
-                            <div className="px-4 md:px-0 mx-2 mt-14 md:mt-4">
+                            {/* (2026-07-13) Increase top margin for mobile navbar clearance. Prev: mt-14 */}
+                            <div className="px-4 md:px-0 mx-2 mt-24 md:mt-4">
                                 <div className="flex items-center justify-between mb-8 md:mb-12">
                                     <div className="flex items-center justify-between w-full">
                                         <button onClick={prevMonth} className="w-10 h-10 glass-panel rounded-full text-cream-light/60 hover:text-primary transition-all flex items-center justify-center border border-white/5 hover:border-primary/20"><span className="material-symbols-outlined text-lg">chevron_left</span></button>
@@ -9755,8 +9758,8 @@
                         <div className="sticky top-0 md:static z-[100] py-4 px-4 md:px-8 -mx-4 md:-mx-8 mb-6">
                             <Header user={user} subtitle="All quick tasks" showSearch={true} desktopSearchPlaceholder="Search tasks..." mobileSearchPlaceholder="Search tasks..." />
                         </div>
-                        {/* (2026-07-13) Place select icon next to settings icon, remove divider. Prev: right edge */}
-                        <div className="flex items-center justify-between gap-4 mt-16 md:mt-10 mb-2 md:mb-3">
+                        {/* (2026-07-13) Increase top margin for mobile navbar clearance. Prev: mt-16 */}
+                        <div className="flex items-center justify-between gap-4 mt-24 md:mt-10 mb-2 md:mb-3">
                             <div className="flex items-center gap-2">
                                 {/* FIX 2026-04-22: Page Header style matched to homepage serif aesthetic (non-italic) for consistency */}
                                 {/* (2026-07-13) whitespace-nowrap keeps title 1 line. Prev: wrapped */}
@@ -10648,8 +10651,8 @@
                             <Header user={user} subtitle={alarmsOnly ? 'Manage every alarm' : 'Manage your alarms'} showSearch={true} desktopSearchPlaceholder="Search alarms..." mobileSearchPlaceholder="Search alarms..." />
                         </div>
                         
-                        {/* (2026-07-13) Reduced top margin on alarms. Prev: mt-6 */}
-                        <div className="flex items-center mt-14 md:mt-10 mb-10 gap-4">
+                        {/* (2026-07-13) Increase top margin for mobile navbar clearance. Prev: mt-14 */}
+                        <div className="flex items-center mt-24 md:mt-10 mb-10 gap-4">
                             <h1 className="text-xl md:text-3xl font-display font-bold text-cream-light tracking-[0.15em] md:tracking-[0.25em] uppercase">{alarmsOnly ? 'Alarms' : 'Clock'}</h1>
                             <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
                         </div>
