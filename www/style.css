@@ -794,8 +794,9 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     overflow: hidden !important;
 }
 
+/* (2026-07-13) Faster 0.35s app fade-in for snappy startup. Prev: 0.8s */
 .faiora-app-loaded #root {
-    animation: app-fade-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: app-fade-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* FIX 2026-04-15: Clean fade-in without scaling/upward movement */
@@ -1407,28 +1408,26 @@ body.dragging-image-active { cursor: grabbing !important; user-select: none !imp
     font-size: 0.85rem;
     color: #1e293b;
 }
-/* (2026-08-14) Animate opacity only (GPU-composited). Prev: box-shadow/border-color animation caused paint per frame */
+/* (2026-07-13) Subtle small breathing glow for 4h deadline. Prev: 22px glow */
 @keyframes deadline-glow {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.75; }
 }
 
 .near-deadline-glow {
     position: relative;
-    border-color: rgba(249, 115, 22, 0.4) !important;
-    border-width: 1.5px !important;
+    border-color: rgba(249, 115, 22, 0.3) !important;
+    border-width: 1px !important;
     background: rgba(249, 115, 22, 0.03) !important;
     overflow: visible;
 }
-/* (2026-08-14) Glow via pseudo so only opacity animates, not layout. Prev: glow on main element */
 .near-deadline-glow::before {
     content: "";
     position: absolute;
-    /* (2026-08-14) inset: 0 flush with card edge; -2px was creating second outline. Prev: inset: -2px */
     inset: 0;
     border-radius: inherit;
-    box-shadow: 0 0 22px rgba(249, 115, 22, 0.35);
-    animation: deadline-glow 2s ease-in-out infinite;
+    box-shadow: 0 0 7px rgba(249, 115, 22, 0.22);
+    animation: deadline-glow 3s ease-in-out infinite;
     will-change: opacity;
     pointer-events: none;
 }

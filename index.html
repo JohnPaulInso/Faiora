@@ -223,8 +223,8 @@
 
             // SAFETY FALLBACK: If React/Auth takes too long, force show the app anyway
             // FIX 2026-04-16: Increased to 6s to allow more time for Firestore sync
-            // FIX 2026-04-17: Reduced to 2.5s for faster feel, ensuring app reveal even if sync is slow [Performance Optimization]
-            setTimeout(trigger, 2500); // setupStartupFallback — Safety timeout for app reveal [FIX 2026-04-17]
+            // (2026-07-13) Faster 1s safety timeout for instant app reveal. Prev: 2.5s
+            setTimeout(trigger, 1000);
         })();
 
 
@@ -2027,17 +2027,17 @@
                                 <span className="material-symbols-outlined text-[30px] md:text-4xl group-hover:rotate-90 transition-transform duration-300">add</span>
                             </button>
 
-                            {/* (2026-07-13) Portal FAB backdrop to document.body to blur entire screen. Prev: child of main */}
+                            {/* (2026-07-13) Gray X FAB and visible action names in menu. Prev: hidden FAB */}
                             {isFabMenuOpen && typeof document !== 'undefined' && ReactDOM.createPortal(
                                 <React.Fragment>
                                     <div 
                                         className="fixed inset-0 bg-black/85 backdrop-blur-md z-[900] animate-in fade-in duration-300 pointer-events-auto"
                                         onClick={() => setIsFabMenuOpen(false)}
                                     />
-                                    <div className="fixed bottom-[180px] md:bottom-36 right-6 md:right-12 flex flex-col items-end gap-5 z-[950] animate-in slide-in-from-bottom-10 fade-in duration-300">
+                                    <div className="fixed bottom-[180px] md:bottom-36 right-5 md:right-12 flex flex-col items-end gap-4 z-[950] animate-in slide-in-from-bottom-10 fade-in duration-300">
                                         {[
                                             { 
-                                                label: 'SET ALARM', 
+                                                label: 'ALARM', 
                                                 icon: 'alarm', 
                                                 color: 'bg-slate-700', 
                                                 onClick: () => { 
@@ -2055,7 +2055,7 @@
                                                 } 
                                             },
                                             { 
-                                                label: 'NEW NOTE', 
+                                                label: 'NOTES', 
                                                 icon: 'description', 
                                                 color: 'bg-primary', 
                                                 onClick: () => { 
@@ -2068,15 +2068,23 @@
                                             <button
                                                 key={i}
                                                 onClick={item.onClick}
-                                                className="flex items-center gap-4 group"
+                                                className="flex items-center gap-3 group active:scale-95 transition-transform"
                                             >
-                                                <span className="text-[10px] font-black text-white px-4 py-2 bg-white/5 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-[0.25em]">{item.label}</span>
-                                                <div className={`w-14 h-14 md:w-16 md:h-16 ${item.color} rounded-[1.25rem] md:rounded-3xl flex items-center justify-center text-white shadow-2xl hover:scale-110 transition-transform active:scale-95 border border-white/10`}>
+                                                <span className="text-[10.5px] font-bold text-cream-light font-montserrat px-3 py-1.5 bg-zinc-900/90 backdrop-blur-xl rounded-xl border border-white/10 shadow-xl uppercase tracking-wider select-none">{item.label}</span>
+                                                <div className={`w-14 h-14 md:w-16 md:h-16 ${item.color} rounded-[1.25rem] md:rounded-3xl flex items-center justify-center text-white shadow-2xl group-hover:scale-105 transition-transform border border-white/10`}>
                                                     <span className="material-symbols-outlined text-2xl md:text-3xl">{item.icon}</span>
                                                 </div>
                                             </button>
                                         ))}
                                     </div>
+                                    <button 
+                                        id="faiora_mobile_fab_close"
+                                        onClick={() => setIsFabMenuOpen(false)}
+                                        className="faiora-mobile-fab fixed bottom-[100px] md:bottom-12 right-5 md:right-12 w-[64px] h-[64px] md:w-20 md:h-20 bg-zinc-800 border border-white/20 shadow-2xl text-white rounded-full flex items-center justify-center z-[950] active:scale-95 transition-all duration-200"
+                                        title="Close Menu"
+                                    >
+                                        <span className="material-symbols-outlined text-[30px] md:text-4xl text-white/90">close</span>
+                                    </button>
                                 </React.Fragment>,
                                 document.body
                             )}
@@ -5494,13 +5502,28 @@
             );
         };
 
+        // (2026-07-13) Scaled login UI with loading and success state. Prev: large UI
         const LoginModal = () => {
+            const [isLoggingIn, setIsLoggingIn] = useState(false);
+            const [loginSuccess, setLoginSuccess] = useState(false);
+
             const handleLogin = () => {
+                if (isLoggingIn) return;
+                setIsLoggingIn(true);
                 signInWithGoogle()
-                    .then(() => localStorage.setItem('faiora_logged_in', 'true'))
+                    .then(() => {
+                        setLoginSuccess(true);
+                        localStorage.setItem('faiora_logged_in', 'true');
+                    })
                     .catch(e => {
-                        console.error("Login failed", e);
-                        alert("Google login failed: " + (e?.message || "Unknown error"));
+                        console.error("Login failed or cancelled", e);
+                        const msg = e?.message || '';
+                        if (!msg.includes('cancelled') && !msg.includes('closed') && !msg.includes('popup-closed-by-user')) {
+                            alert("Google login failed: " + msg);
+                        }
+                    })
+                    .finally(() => {
+                        setIsLoggingIn(false);
                     });
             };
 
@@ -5508,36 +5531,53 @@
             /* welcome-back-modal - raised z-index to 999 */
             /* FIX 2026-04-15: Raised to z-[999] (was 500) */
             return (
-                <div className="faiora-auth-screen fixed inset-0 z-[999] flex items-center justify-center p-6 blur-overlay overflow-hidden">
+                <div className="faiora-auth-screen fixed inset-0 z-[999] flex items-center justify-center p-4 blur-overlay overflow-hidden">
                     <div className="absolute inset-0 z-0">
-                        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[120px] animate-pulse"></div>
-                        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-burnt-orange/30 rounded-full blur-[120px] animate-pulse delay-1000"></div>
+                        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-primary/20 rounded-full blur-[100px] animate-pulse"></div>
+                        <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-burnt-orange/30 rounded-full blur-[100px] animate-pulse delay-1000"></div>
                     </div>
                     
-                    <div className="faiora-auth-panel glass-panel max-w-xl w-full p-12 rounded-[3.5rem] flex flex-col items-center text-center relative z-10 shadow-2xl border-white/10">
-                        <div className="mb-10 relative">
-                             <div className="flame-container flex justify-center !static h-16 mb-4">
+                    <div className="faiora-auth-panel glass-panel max-w-sm sm:max-w-md w-full p-6 sm:p-8 rounded-3xl flex flex-col items-center text-center relative z-10 shadow-2xl border-white/10">
+                        <div className="mb-4 relative">
+                             <div className="flame-container flex justify-center !static h-10 mb-2">
                                  {[...Array(3)].map((_, i) => (
-                                     <div key={i} className="flame-tongue !w-16 !h-24 mx-2" style={{animationDelay: (i * 0.2) + "s"}}></div>
+                                     <div key={i} className="flame-tongue !w-10 !h-14 mx-1.5" style={{animationDelay: (i * 0.2) + "s"}}></div>
                                  ))}
                              </div>
-                             <h2 className="faiora-auth-title text-8xl font-black text-cream-light italic tracking-tighter drop-shadow-[0_0_50px_rgba(249,115,22,0.4)]" style={{ fontFamily: 'inherit' }}>Faiora</h2>
-                             <p className="faiora-auth-eyebrow text-primary font-bold uppercase tracking-[0.8em] text-sm mt-4">Ignite your productivity</p>
+                             <h2 className="faiora-auth-title text-5xl sm:text-6xl font-black text-cream-light italic tracking-tighter drop-shadow-[0_0_30px_rgba(249,115,22,0.4)]" style={{ fontFamily: 'inherit' }}>Faiora</h2>
+                             <p className="faiora-auth-eyebrow text-primary font-bold uppercase tracking-[0.4em] text-xs mt-2">Ignite your productivity</p>
                         </div>
 
-                        <p className="faiora-auth-copy text-cream-light/60 text-lg mb-12 max-w-md font-sans leading-relaxed">
+                        <p className="faiora-auth-copy text-cream-light/60 text-xs sm:text-sm mb-5 max-w-xs font-sans leading-relaxed">
                             Experience a fiery approach to digital planning. Sync your lists, tasks, and goals with Google and light up your potential.
                         </p>
 
                         <button 
                             onClick={handleLogin}
-                            className="faiora-auth-button bg-white text-black py-5 px-8 md:px-10 rounded-3xl font-bold flex items-center justify-center flex-nowrap gap-3 md:gap-4 hover:bg-primary hover:text-white transition-all duration-500 hover:scale-105 active:scale-95 shadow-xl group mb-12 min-w-[260px] md:min-w-[300px]"
+                            disabled={isLoggingIn || loginSuccess}
+                            className={`faiora-auth-button bg-white text-black py-3 px-6 rounded-2xl font-bold flex items-center justify-center flex-nowrap gap-2.5 hover:bg-primary hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-xl group mb-3 min-w-[200px] sm:min-w-[240px] ${isLoggingIn ? 'opacity-70 cursor-not-allowed !scale-100' : ''}`}
                         >
-                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6 group-hover:invert transition-all" alt="Google" />
-                            <span className="text-lg md:text-xl whitespace-nowrap leading-none">Login with Google</span>
+                            {isLoggingIn ? (
+                                <>
+                                    <span className="material-symbols-outlined text-lg animate-spin text-primary group-hover:text-white">progress_activity</span>
+                                    <span className="text-sm whitespace-nowrap leading-none">Connecting...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5 group-hover:invert transition-all" alt="Google" />
+                                    <span className="text-sm sm:text-base whitespace-nowrap leading-none">Login with Google</span>
+                                </>
+                            )}
                         </button>
 
-                        <div className="faiora-auth-links flex gap-8 text-[10px] uppercase tracking-widest font-bold text-cream-light/20">
+                        {loginSuccess && (
+                            <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold font-montserrat uppercase tracking-wider mb-3 animate-pulse">
+                                <span className="material-symbols-outlined text-sm">check_circle</span>
+                                <span>Successful Login</span>
+                            </div>
+                        )}
+
+                        <div className="faiora-auth-links flex gap-6 text-[9px] uppercase tracking-widest font-bold text-cream-light/30 mt-1">
                             <a href="https://zeamarae.github.io/Faiora/#/privacy.html" className="hover:text-primary transition-colors">Privacy Policy</a>
                             <a href="https://zeamarae.github.io/Faiora/#/terms.html" className="hover:text-primary transition-colors">Terms of Service</a>
                         </div>
@@ -12495,9 +12535,9 @@
             };
 
             const [text, setText] = useState((initialData && initialData.text) || '');
-            // (2026-07-13) Allow optional/empty dueDate and dueTime. Prev: fallback forced initialLater
-            const [dueDate, setDueDate] = useState((initialData && initialData.dueDate !== undefined) ? initialData.dueDate : (prefillDate || ''));
-            const [dueTime, setDueTime] = useState((initialData && initialData.dueTime !== undefined) ? initialData.dueTime : (prefillDate ? '10:00' : ''));
+            // (2026-07-13) Default new quick task deadline to Later. Prev: empty string
+            const [dueDate, setDueDate] = useState((initialData && initialData.dueDate !== undefined) ? initialData.dueDate : (prefillDate || initialLater.date));
+            const [dueTime, setDueTime] = useState((initialData && initialData.dueTime !== undefined) ? initialData.dueTime : (prefillDate ? '10:00' : initialLater.time));
             // (2026-07-13) Add progress history state to QuickTaskModal. Prev: none
             const [progress, setProgress] = useState(() => {
                 if (initialData) {
@@ -12721,9 +12761,9 @@
                         className={`fixed inset-0 bg-black/85 backdrop-blur-md ${isClosing ? 'qt-modal-backdrop-out' : 'qt-modal-backdrop-in'}`} 
                         onClick={handleClose}
                     ></div>
-                    {/* (2026-07-13) Compact modal container and form spacing. Prev: 90vh & space-y-3 */}
+                    {/* (2026-07-13) Increase modal height & width for spacious view. Prev: 85vh */}
                     <div 
-                        className={`bg-[#0f172a] w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-3xl p-4 sm:p-4.5 relative z-10 shadow-2xl border border-white/5 custom-scrollbar ${isClosing ? 'qt-modal-card-out' : 'qt-modal-card-in'}`}
+                        className={`bg-[#0f172a] w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl p-5 sm:p-6 relative z-10 shadow-2xl border border-white/5 custom-scrollbar ${isClosing ? 'qt-modal-card-out' : 'qt-modal-card-in'}`}
                     >
                         <div className="flex justify-between items-center mb-2.5">
                             <h3 className="text-base font-bold text-cream-light font-montserrat tracking-wide">{initialData ? 'Edit Task' : 'New Quick Task'}</h3>
@@ -16106,7 +16146,7 @@
                         if (!notesRef.current?.length && !quickTasksRef.current?.length) {
                             setIsProbing(true);
                         }
-                        // Safety Timeout: Force app ready state after 8 seconds (increased for mobile APK reliability) [FIX 2026-04-19]
+                        // (2026-07-13) Faster 1s probe timeout for fast cold start. Prev: 2.5s
                         setTimeout(() => {
                             const hasRecoveredNotes = notesRef.current.length > 0;
                             const hasRecoveredTasks = quickTasksRef.current.length > 0;
@@ -16120,7 +16160,7 @@
                             }
                             setIsProbing(false);
                             setIsFirstSyncDone(true);
-                        }, 2500);
+                        }, 1000);
 
                         // Defer notifications + Firestore probe so this tick only updates auth state (fixes freeze / stuck login UI).
                         setTimeout(() => {

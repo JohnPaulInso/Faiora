@@ -51,6 +51,13 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+        <!-- (2026-07-13) Set default FCM notification icon to flame. Prev: unset -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_faiora" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:value="#f97316" />
     </application>
 
     <!-- Permissions -->
