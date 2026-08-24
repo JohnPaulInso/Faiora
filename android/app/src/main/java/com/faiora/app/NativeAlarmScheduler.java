@@ -136,9 +136,9 @@ final class NativeAlarmScheduler {
     static NotificationCompat.Builder buildAlarmNotification(Context context, AlarmRecord alarm, boolean includeFullScreenIntent) {
         ensureAlarmChannel(context);
         PendingIntent contentIntent = buildAlarmActivityPendingIntent(context, alarm);
-        // (2026-07-13) Use ic_stat_faiora drawable for notification. Prev: mipmap
+        // (2026-07-13) Use ic_notification_logo for notification. Prev: ic_stat_faiora
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, NATIVE_ALARM_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_faiora)
+            .setSmallIcon(R.drawable.ic_notification_logo)
             .setColor(Color.parseColor("#f97316"))
             .setContentTitle(alarm.label == null || alarm.label.trim().isEmpty() ? "Alarm Ringing" : alarm.label)
             .setContentText(formatAlarmDisplayTime(alarm.time))

@@ -187,13 +187,13 @@
     pointer-events: none !important;
     z-index: 10 !important;
 }
-/* (2026-07-13) Responsive mobile top offset using safe-area. Prev: static */
+/* (2026-07-13) Fix mobile top offset for header. Prev: 58px */
 @media (max-width: 767px) {
     .faiora-page-mobile-top {
-        margin-top: calc(58px + env(safe-area-inset-top, 0px)) !important;
+        margin-top: calc(72px + env(safe-area-inset-top, 0px)) !important;
     }
     .faiora-page-mobile-padding-top {
-        padding-top: calc(58px + env(safe-area-inset-top, 0px)) !important;
+        padding-top: calc(72px + env(safe-area-inset-top, 0px)) !important;
     }
 }
 
@@ -1173,8 +1173,8 @@
                             title: entry.title,
                             body: entry.body,
                             channelId: QUICK_TASK_CHANNEL_ID,
-                            // (2026-07-13) Use ic_stat_faiora for notification icon. Prev: ic_launcher
-                            smallIcon: 'ic_stat_faiora',
+                            // (2026-07-13) Set smallIcon to ic_notification_logo. Prev: ic_stat_faiora
+                            smallIcon: 'ic_notification_logo',
                             schedule: { at: new Date(entry.at), allowWhileIdle: true },
                             extra: {
                                 type: 'quick-task',
@@ -1243,8 +1243,8 @@
                             actionTypeId: 'FAIORA_ALARM_ACTIONS',
                             ongoing: true,
                             autoCancel: false,
-                            // (2026-07-13) Use ic_stat_faiora for notification icon. Prev: ic_launcher
-                            smallIcon: 'ic_stat_faiora',
+                            // (2026-07-13) Set smallIcon to ic_notification_logo. Prev: ic_stat_faiora
+                            smallIcon: 'ic_notification_logo',
                             schedule: { at: target, allowWhileIdle: true },
                             extra: {
                                 type: 'alarm',
@@ -7350,7 +7350,8 @@
                         <div className="md:py-4 md:px-0 md:mb-6">
                             <Header user={user} />
                         </div>
-                        <section className="mt-16 md:mt-8 mb-10 md:mb-12 px-4 md:px-0">
+                        {/* (2026-07-13) Fix top margin on dashboard page. Prev: mt-16 */}
+                        <section className="mt-[calc(72px+env(safe-area-inset-top,0px))] md:mt-8 mb-10 md:mb-12 px-4 md:px-0">
                             <div className="flex items-center gap-4 mb-4 pt-2 md:mb-6">
                                 {/* ------------------------------------------------------------------
                                    LABEL: SECTION-PRIORITY-NOTES
@@ -8717,8 +8718,8 @@
 
             return (
                 <Layout onOpenCreator={onOpenCreator} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
-                    {/* (2026-07-13) Set compact mobile top padding. Prev: pt-24 */}
-                    <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-16 md:pt-12 pb-12">
+                    {/* (2026-07-13) Fix top margin on notes tab page. Prev: pt-16 */}
+                    <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-[calc(72px+env(safe-area-inset-top,0px))] md:pt-12 pb-12">
                         {selectionMode ? (
                                           <React.Fragment>
                                 {/* Label: Notes multi-select action header */}
@@ -9261,7 +9262,8 @@
                                     searchPlaceholder="Search quick task"
                                 />
                             </div>
-                            <div className="px-4 md:px-0 mx-2 mt-16 md:mt-4">
+                            {/* (2026-07-13) Fix top margin on calendar tab page. Prev: mt-16 */}
+                            <div className="px-4 md:px-0 mx-2 mt-[calc(72px+env(safe-area-inset-top,0px))] md:mt-4">
                                 <div className="flex items-center justify-between mb-8 md:mb-12">
                                     <div className="flex items-center justify-between w-full">
                                         <button onClick={prevMonth} className="w-10 h-10 glass-panel rounded-full text-cream-light/60 hover:text-primary transition-all flex items-center justify-center border border-white/5 hover:border-primary/20"><span className="material-symbols-outlined text-lg">chevron_left</span></button>
@@ -9840,7 +9842,8 @@
                         <div className="md:py-4 md:px-8 md:mb-6">
                             <Header user={user} subtitle="All quick tasks" showSearch={true} desktopSearchPlaceholder="Search tasks..." mobileSearchPlaceholder="Search tasks..." />
                         </div>
-                        <div className="flex items-center justify-between gap-4 mt-16 md:mt-10 mb-2 md:mb-3">
+                        {/* (2026-07-13) Fix top margin on quick tasks page. Prev: mt-16 */}
+                        <div className="flex items-center justify-between gap-4 mt-[calc(72px+env(safe-area-inset-top,0px))] md:mt-10 mb-2 md:mb-3">
                             <div className="flex items-center gap-2">
                                 {/* FIX 2026-04-22: Page Header style matched to homepage serif aesthetic (non-italic) for consistency */}
                                 {/* (2026-07-13) whitespace-nowrap keeps title 1 line. Prev: wrapped */}
@@ -10733,7 +10736,8 @@
                             <Header user={user} subtitle={alarmsOnly ? 'Manage every alarm' : 'Manage your alarms'} showSearch={true} desktopSearchPlaceholder="Search alarms..." mobileSearchPlaceholder="Search alarms..." />
                         </div>
                         
-                        <div className="flex items-center mt-16 md:mt-10 mb-10 gap-4">
+                        {/* (2026-07-13) Fix top margin on alarms tab page. Prev: mt-16 */}
+                        <div className="flex items-center mt-[calc(72px+env(safe-area-inset-top,0px))] md:mt-10 mb-10 gap-4">
                             <h1 className="text-xl md:text-3xl font-display font-bold text-cream-light tracking-[0.15em] md:tracking-[0.25em] uppercase">{alarmsOnly ? 'Alarms' : 'Clock'}</h1>
                             <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
                         </div>
@@ -13721,7 +13725,10 @@
                     }}
                 >
                     <div className="flex items-center gap-2 min-w-0 pointer-events-none">
-                        <span className="material-symbols-outlined text-primary text-xl flex-shrink-0">check_circle</span>
+                        {/* (2026-07-13) Context icon for delete vs check. Prev: check only */}
+                        <span className="material-symbols-outlined text-primary text-xl flex-shrink-0">
+                            {toast.message && (toast.message.toLowerCase().includes('trash') || toast.message.toLowerCase().includes('delete')) ? 'delete' : 'check_circle'}
+                        </span>
                         <span className="truncate">{toast.message}</span>
                     </div>
                     {toast.action && (
@@ -16009,10 +16016,14 @@
                 const updatedTrash = [nextTrashTask, ...trashQuickTasksRef.current.filter(task => task.id !== id)];
                 handleUpdateQuickTasks(updated, updatedTrash);
                 
-                addTaskSnackbar(`Task moved to Trash`, () => {
-                    const restored = [taskToDelete, ...quickTasksRef.current];
-                    const restoredTrash = trashQuickTasksRef.current.filter(task => task.id !== id);
-                    handleUpdateQuickTasks(restored, restoredTrash);
+                // (2026-07-13) Use showToast with undo for deleting task. Prev: addTaskSnackbar
+                showToast("Task moved to Trash", {
+                    label: 'UNDO',
+                    onClick: () => {
+                        const restored = [taskToDelete, ...quickTasksRef.current];
+                        const restoredTrash = trashQuickTasksRef.current.filter(task => task.id !== id);
+                        handleUpdateQuickTasks(restored, restoredTrash);
+                    }
                 });
             };
 
@@ -16172,14 +16183,17 @@
                     if (updatedTask.completed) {
                         FaioraNotifications.playCheckSFX();
                         FaioraNotifications.cancelForTask(id);
-                        addTaskSnackbar(`Task completed`, () => {
-                            // UNDO: Set it back to incomplete
-                            const reverted = [...quickTasksRef.current];
-                            const undoIndex = reverted.findIndex(t => t.id === id);
-                            if (undoIndex > -1) {
-                                reverted[undoIndex] = { ...reverted[undoIndex], completed: false, completedAt: null };
-                                handleUpdateQuickTasks(reverted);
-                                syncQuickTaskToNotes(id, false);
+                        // (2026-07-13) Use showToast with undo for task toggle. Prev: addTaskSnackbar
+                        showToast("Task completed", {
+                            label: 'UNDO',
+                            onClick: () => {
+                                const reverted = [...quickTasksRef.current];
+                                const undoIndex = reverted.findIndex(t => t.id === id);
+                                if (undoIndex > -1) {
+                                    reverted[undoIndex] = { ...reverted[undoIndex], completed: false, completedAt: null };
+                                    handleUpdateQuickTasks(reverted);
+                                    syncQuickTaskToNotes(id, false);
+                                }
                             }
                         });
                     }
@@ -17004,21 +17018,23 @@
                         />,
                         document.body
                     )}
-                    {/* (2026-08-24) Toast portal with explicit CSS for APK visibility. Prev: class-only with no positioning */}
+                    {/* (2026-07-13) Perfectly centered toast portal container. Prev: left offset */}
                     {typeof document !== 'undefined' && ReactDOM.createPortal(
                         <div style={{
                             position: 'fixed',
                             bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
-                            left: '50%',
-                            transform: 'translateX(-50%)',
+                            left: '0',
+                            right: '0',
                             zIndex: 99999,
                             display: 'flex',
                             flexDirection: 'column-reverse',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                             gap: '10px',
                             pointerEvents: 'none',
                             width: '100%',
-                            maxWidth: '420px',
                             padding: '0 16px',
+                            boxSizing: 'border-box'
                         }}>
                             {toasts.slice(-2).map(toast => (
                                 <ToastPill

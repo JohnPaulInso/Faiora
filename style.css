@@ -639,6 +639,7 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     gap: 10px;
 }
 
+/* (2026-07-13) Center toast-pill and add space-between. Prev: left-aligned */
 .toast-pill {
     background: rgba(15, 23, 42, 0.96);
     color: #fff7ed;
@@ -648,7 +649,8 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 12px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.4);
     animation: toast-in-out 3s ease forwards;
     border: 1px solid rgba(255,255,255,0.1);
@@ -656,6 +658,7 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     opacity: 0;
     max-width: min(calc(100vw - 24px), 420px);
     width: max-content;
+    margin: 0 auto;
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     white-space: nowrap;
