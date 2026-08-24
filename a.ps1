@@ -37,16 +37,15 @@ if (Test-Path $apkPath) {
     Start-Process explorer.exe -ArgumentList "$root\android\app\build\outputs\apk\debug"
 }
 
-# (2026-08-24) Auto-upload to Telegram if configured
+# (2026-08-24) Quick Telegram send - open channel and copy file path
 $telegramConfigPath = "$root\.telegram_config"
-$hasTelegramEnv = $env:TELEGRAM_BOT_TOKEN -and $env:TELEGRAM_CHAT_ID
 $hasTelegramConfig = Test-Path $telegramConfigPath
 
-if ($hasTelegramEnv -or $hasTelegramConfig) {
-    Write-Host "`n[4/4] Uploading to Telegram..." -ForegroundColor Cyan
-    & "$root\upload_telegram.ps1"
+if ($hasTelegramConfig) {
+    Write-Host "`n[4/4] Preparing Telegram upload..." -ForegroundColor Cyan
+    & "$root\telegram_quick_send.ps1"
 } else {
-    Write-Host "`nTip: Opening APK folder..." -ForegroundColor Gray
+    Write-Host "`n[4/4] Opening APK folder..." -ForegroundColor Cyan
     $apkDir = "$root\android\app\build\outputs\apk\debug"
     if (Test-Path $apkDir) {
         Start-Process explorer.exe -ArgumentList $apkDir
