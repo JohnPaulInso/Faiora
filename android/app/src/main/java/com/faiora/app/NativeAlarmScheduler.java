@@ -42,17 +42,19 @@ final class NativeAlarmScheduler {
 
     private NativeAlarmScheduler() {}
 
+    // (2026-07-13) Use setAlarmClock for exact offline alarms. Prev: setExact
     static boolean scheduleAlarm(Context context, AlarmRecord alarm) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) return false;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-            return false;
-        }
 
         PendingIntent receiverIntent = buildReceiverPendingIntent(context, alarm, PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent showIntent = buildAlarmActivityPendingIntent(context, alarm);
         AlarmStore.upsertAlarm(context, alarm);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            AlarmManager.AlarmClockInfo clockInfo = new AlarmManager.AlarmClockInfo(alarm.triggerAtMillis, showIntent);
+            alarmManager.setAlarmClock(clockInfo, receiverIntent);
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, alarm.triggerAtMillis, receiverIntent);
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             alarmManager.setExact(AlarmManager.RTC_WAKEUP, alarm.triggerAtMillis, receiverIntent);

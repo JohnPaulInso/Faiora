@@ -1568,15 +1568,14 @@
                 if (nativePlugin) {
                     const permission = await requestPermission();
                     if (permission !== 'granted') return;
-                    await ensureNativeNotificationsReady();
-                    playNotifSFX();
+                    // (2026-07-13) Synchronize sound with native notification banner. Prev: JS audio first
                     await nativePlugin.schedule({
                         notifications: [{
                             id: hashNotificationId(tag),
                             title,
                             body,
                             channelId: extra.type === 'alarm' ? ALARM_CHANNEL_ID : QUICK_TASK_CHANNEL_ID,
-                            schedule: { at: new Date(Date.now() + 200), allowWhileIdle: true },
+                            schedule: { at: new Date(Date.now()), allowWhileIdle: true },
                             ongoing: extra.type === 'alarm',
                             autoCancel: extra.type !== 'alarm',
                             extra: { ...extra, tag, title, body }
@@ -5844,9 +5843,10 @@
                     return;
                 }
 
-                if (dx > 8 && onUpdateQuickTask) {
+                // (2026-07-13) Swipe left for tomorrow, swipe right for delete. Prev: inverted
+                if (dx > 8 && onDelete) {
                     isSwipingRef.current = true;
-                    const boundedDx = Math.min(Math.max(0, dx), 125);
+                    const boundedDx = Math.min(Math.max(0, dx), 110);
                     setSwipeOffset(boundedDx);
                     if (boundedDx >= 75 && !isTriggeredRef.current) {
                         isTriggeredRef.current = true;
@@ -5854,14 +5854,14 @@
                     } else if (boundedDx < 75) {
                         isTriggeredRef.current = false;
                     }
-                } else if (dx < -8 && onDelete) {
+                } else if (dx < -8 && onUpdateQuickTask) {
                     isSwipingRef.current = true;
-                    const boundedDx = Math.max(Math.min(0, dx), -95);
+                    const boundedDx = Math.max(Math.min(0, dx), -125);
                     setSwipeOffset(boundedDx);
-                    if (boundedDx <= -65 && !isTriggeredRef.current) {
+                    if (boundedDx <= -75 && !isTriggeredRef.current) {
                         isTriggeredRef.current = true;
                         if (navigator.vibrate) try { navigator.vibrate(35); } catch {}
-                    } else if (boundedDx > -65) {
+                    } else if (boundedDx > -75) {
                         isTriggeredRef.current = false;
                     }
                 }
@@ -5877,8 +5877,6 @@
                     timerRef.current = null;
                 }
                 if (isSwipingRef.current) {
-                    // (2026-07-13) Include task name in reschedule toast. Prev: no task title
-                    // Note: App design language sets 8:00 PM (20:00) as cutoff because 8 PM onwards is personal self time unless manually edited.
                     const taskTitle = (task.text || 'Task').trim();
                     const displayName = taskTitle.length > 24 ? taskTitle.slice(0, 22) + '…' : taskTitle;
                     const getSwipeRescheduleTarget = () => {
@@ -5913,7 +5911,7 @@
                         };
                     };
 
-                    if (swipeOffset >= 75 && onUpdateQuickTask) {
+                    if (swipeOffset <= -75 && onUpdateQuickTask) {
                         const target = getSwipeRescheduleTarget();
                         const prevDueDate = task.dueDate;
                         const prevDueTime = task.dueTime;
@@ -5921,13 +5919,13 @@
                         if (navigator.vibrate) try { navigator.vibrate([40, 60, 40]); } catch {}
                         if (showToast) {
                             showToast(target.toastLabel, {
-                                label: 'Undo',
+                                label: 'UNDO',
                                 onClick: () => {
                                     onUpdateQuickTask(task.id, task.text, prevDueDate, prevDueTime, task.categories, task.progress);
                                 }
                             });
                         }
-                    } else if (swipeOffset <= -65 && onDelete) {
+                    } else if (swipeOffset >= 75 && onDelete) {
                         if (navigator.vibrate) try { navigator.vibrate([40, 80]); } catch {}
                         onDelete(task.id);
                     }
@@ -5950,9 +5948,8 @@
                 onToggle(task.id);
             };
 
-            // (2026-07-13) Dynamic swipe reveal target (Later/Tomorrow). Prev: Tomorrow only
-            // Note: 8 PM is self time cutoff in design language.
-            const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
+            // (2026-07-13) Swipe left reveal target (Later/Tomorrow). Prev: swipe right
+            const swipeRescheduleInfo = swipeOffset < 0 ? (() => {
                 const now = new Date();
                 const todayStr = formatDateLocal(now);
                 const isPastDueToday = isOverdue && (!task.dueDate || task.dueDate <= todayStr);
@@ -5969,33 +5966,33 @@
 
             return (
                 <div className="relative overflow-hidden rounded-2xl select-none">
-                    {/* (2026-07-13) Swipe reveal indicator. Prev: Tomorrow only */}
-                    {swipeOffset > 0 && swipeRescheduleInfo && (
+                    {/* (2026-07-13) Delete reveal indicator on right swipe. Prev: left swipe */}
+                    {swipeOffset > 0 && (
                         <div 
                             className="absolute left-0 top-0 bottom-0 overflow-hidden flex items-center pl-3 z-0 select-none pointer-events-none"
-                            style={{ width: `${Math.min(swipeOffset, 125)}px` }}
-                        >
-                            <div 
-                                className="flex items-center gap-1.5 text-primary whitespace-nowrap"
-                                style={{ opacity: Math.min(swipeOffset / 35, 1) }}
-                            >
-                                <span className="material-symbols-outlined text-lg flex-shrink-0">{swipeRescheduleInfo.icon}</span>
-                                <span className={`text-[11px] font-bold font-montserrat uppercase tracking-wide transition-colors ${swipeOffset >= 75 ? 'text-amber-300 font-extrabold drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]' : 'text-primary'}`}>{swipeRescheduleInfo.label}</span>
-                            </div>
-                        </div>
-                    )}
-                    {/* (2026-07-13) Delete swipe reveal indicator. Prev: none */}
-                    {swipeOffset < 0 && (
-                        <div 
-                            className="absolute right-0 top-0 bottom-0 overflow-hidden flex items-center justify-end pr-3 z-0 select-none pointer-events-none"
-                            style={{ width: `${Math.min(Math.abs(swipeOffset), 95)}px` }}
+                            style={{ width: `${Math.min(swipeOffset, 110)}px` }}
                         >
                             <div 
                                 className="flex items-center gap-1.5 text-red-500 whitespace-nowrap"
-                                style={{ opacity: Math.min(Math.abs(swipeOffset) / 30, 1) }}
+                                style={{ opacity: Math.min(swipeOffset / 30, 1) }}
                             >
-                                <span className={`text-[11px] font-bold font-montserrat uppercase tracking-wide transition-colors ${swipeOffset <= -65 ? 'text-red-400 font-extrabold drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'text-red-500'}`}>Delete</span>
                                 <span className="material-symbols-outlined text-lg flex-shrink-0 text-red-500">delete</span>
+                                <span className={`text-[11px] font-bold font-montserrat uppercase tracking-wide transition-colors ${swipeOffset >= 75 ? 'text-red-400 font-extrabold drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'text-red-500'}`}>Delete</span>
+                            </div>
+                        </div>
+                    )}
+                    {/* (2026-07-13) Tomorrow/Later reveal indicator on left swipe. Prev: right swipe */}
+                    {swipeOffset < 0 && swipeRescheduleInfo && (
+                        <div 
+                            className="absolute right-0 top-0 bottom-0 overflow-hidden flex items-center justify-end pr-3 z-0 select-none pointer-events-none"
+                            style={{ width: `${Math.min(Math.abs(swipeOffset), 125)}px` }}
+                        >
+                            <div 
+                                className="flex items-center gap-1.5 text-primary whitespace-nowrap"
+                                style={{ opacity: Math.min(Math.abs(swipeOffset) / 35, 1) }}
+                            >
+                                <span className={`text-[11px] font-bold font-montserrat uppercase tracking-wide transition-colors ${swipeOffset <= -75 ? 'text-amber-300 font-extrabold drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]' : 'text-primary'}`}>{swipeRescheduleInfo.label}</span>
+                                <span className="material-symbols-outlined text-lg flex-shrink-0">{swipeRescheduleInfo.icon}</span>
                             </div>
                         </div>
                     )}
@@ -13731,17 +13728,18 @@
                         </span>
                         <span className="truncate">{toast.message}</span>
                     </div>
+                    {/* (2026-07-13) High-contrast UNDO button. Prev: low-contrast outline */}
                     {toast.action && (
                         <button 
                             type="button"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                try { toast.action.onClick(); } catch {}
+                                try { toast.action.onClick(); } catch (err) { console.error(err); }
                                 onDismiss(toast.id);
                             }}
-                            className="px-2.5 py-1 text-xs font-bold font-montserrat uppercase tracking-wider text-primary hover:text-amber-300 bg-primary/15 hover:bg-primary/25 rounded-lg transition-colors flex-shrink-0 pointer-events-auto shadow-sm active:scale-95"
+                            className="px-3.5 py-1 text-xs font-black font-montserrat uppercase tracking-wider text-slate-950 bg-amber-400 hover:bg-amber-300 active:scale-95 rounded-lg transition-all flex-shrink-0 pointer-events-auto shadow-md shadow-amber-500/30"
                         >
-                            {toast.action.label || 'Undo'}
+                            {toast.action.label || 'UNDO'}
                         </button>
                     )}
                 </div>
@@ -16183,7 +16181,7 @@
                     if (updatedTask.completed) {
                         FaioraNotifications.playCheckSFX();
                         FaioraNotifications.cancelForTask(id);
-                        // (2026-07-13) Use showToast with undo for task toggle. Prev: addTaskSnackbar
+                        // (2026-07-13) Show undo toast for task completion. Prev: conditional check only
                         showToast("Task completed", {
                             label: 'UNDO',
                             onClick: () => {
@@ -16193,6 +16191,20 @@
                                     reverted[undoIndex] = { ...reverted[undoIndex], completed: false, completedAt: null };
                                     handleUpdateQuickTasks(reverted);
                                     syncQuickTaskToNotes(id, false);
+                                }
+                            }
+                        });
+                    } else {
+                        // (2026-07-13) Show undo toast for task uncheck. Prev: no toast
+                        showToast("Task marked active", {
+                            label: 'UNDO',
+                            onClick: () => {
+                                const reverted = [...quickTasksRef.current];
+                                const undoIndex = reverted.findIndex(t => t.id === id);
+                                if (undoIndex > -1) {
+                                    reverted[undoIndex] = { ...reverted[undoIndex], completed: true, completedAt: Date.now() };
+                                    handleUpdateQuickTasks(reverted);
+                                    syncQuickTaskToNotes(id, true);
                                 }
                             }
                         });

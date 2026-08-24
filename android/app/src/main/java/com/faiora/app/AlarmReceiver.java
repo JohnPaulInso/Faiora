@@ -32,6 +32,8 @@ public class AlarmReceiver extends BroadcastReceiver {
             AlarmStore.removeAlarm(context, alarmId);
         }
 
+        // (2026-07-13) Show notification immediately with sound. Prev: async in service
+        NativeAlarmScheduler.showAlarmNotification(context, alarm, true);
         NativeAlarmScheduler.launchAlarmUi(context, alarm);
     }
 }
