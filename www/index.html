@@ -596,62 +596,78 @@
             today.setHours(0, 0, 0, 0);
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
+            // (2026-08-24) Add yesterday tracking for notepad sections
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const twoDaysAgo = new Date(today);
+            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
             const pastDueMap = new Map();
+            const yesterdayTasks = [];
             const todayTasks = [];
             const tomorrowTasks = [];
             const futureMap = new Map();
             const noDateTasks = [];
             const completed = [];
+            const finishedTasks = []; // (2026-08-24) Tasks 2+ days old
 
             // (2026-07-13) Separate tasks without deadlines into noDateTasks. Prev: todayTasks
             sorted.forEach(task => {
+                // Track completed separately but continue processing for Yesterday/Finished sections
                 if (task.completed) {
                     completed.push(task);
-                    if (!includeCompleted) return;
                 }
+                
                 if (!task.dueDate) {
-                    noDateTasks.push(task);
+                    if (!task.completed || includeCompleted) {
+                        noDateTasks.push(task);
+                    }
                     return;
                 }
                 const due = new Date(`${task.dueDate}T00:00:00`);
                 if (Number.isNaN(due.getTime())) {
-                    noDateTasks.push(task);
+                    if (!task.completed || includeCompleted) {
+                        noDateTasks.push(task);
+                    }
                     return;
                 }
 
-                if (due.getTime() < today.getTime()) {
-                    const dateKey = task.dueDate;
-                    if (!pastDueMap.has(dateKey)) pastDueMap.set(dateKey, []);
-                    pastDueMap.get(dateKey).push(task);
+                // (2026-08-24) Separate yesterday tasks and finished tasks (2+ days old)
+                // Include both completed and uncompleted in Yesterday and Finished sections
+                if (due.getTime() < twoDaysAgo.getTime()) {
+                    // Tasks that are 2+ days old go to "Finished" section
+                    finishedTasks.push(task);
+                } else if (due.getTime() === yesterday.getTime()) {
+                    // Tasks from yesterday (completed or not)
+                    yesterdayTasks.push(task);
+                } else if (due.getTime() < today.getTime()) {
+                    // Past due (not yesterday, not 2+ days old)
+                    if (!task.completed || includeCompleted) {
+                        const dateKey = task.dueDate;
+                        if (!pastDueMap.has(dateKey)) pastDueMap.set(dateKey, []);
+                        pastDueMap.get(dateKey).push(task);
+                    }
                 } else if (due.getTime() === today.getTime()) {
-                    todayTasks.push(task);
+                    if (!task.completed || includeCompleted) {
+                        todayTasks.push(task);
+                    }
                 } else if (due.getTime() === tomorrow.getTime()) {
-                    tomorrowTasks.push(task);
+                    if (!task.completed || includeCompleted) {
+                        tomorrowTasks.push(task);
+                    }
                 } else {
-                    const dateKey = task.dueDate;
-                    if (!futureMap.has(dateKey)) futureMap.set(dateKey, []);
-                    futureMap.get(dateKey).push(task);
+                    if (!task.completed || includeCompleted) {
+                        const dateKey = task.dueDate;
+                        if (!futureMap.has(dateKey)) futureMap.set(dateKey, []);
+                        futureMap.get(dateKey).push(task);
+                    }
                 }
             });
 
             const sections = [];
 
-            // Past Due daily groups (sorted oldest to newest)
-            const sortedPastDates = Array.from(pastDueMap.keys()).sort();
-            sortedPastDates.forEach(dStr => {
-                const d = new Date(`${dStr}T00:00:00`);
-                const formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
-                sections.push({
-                    key: `pastDue_${dStr}`,
-                    label: `PAST DUE ${formattedDate}`,
-                    shortLabel: `PAST DUE (${formattedDate})`,
-                    items: pastDueMap.get(dStr),
-                    totalCount: pastDueMap.get(dStr).length,
-                    isPastDue: true
-                });
-            });
-
+            // (2026-08-24) Reordered: Active tasks first, finished tasks at bottom
+            
             // Today
             if (todayTasks.length > 0) {
                 const todayFormatted = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
@@ -714,6 +730,48 @@
                         totalCount: items.length,
                         isNoDate: true
                     });
+                });
+            }
+
+            // (2026-08-24) FINISHED SECTIONS AT BOTTOM
+
+            // Yesterday section (completed and uncompleted)
+            if (yesterdayTasks.length > 0) {
+                const yesterdayFormatted = yesterday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+                sections.push({
+                    key: 'yesterday',
+                    label: 'YESTERDAY',
+                    shortLabel: `YESTERDAY (${yesterdayFormatted})`,
+                    items: yesterdayTasks,
+                    totalCount: yesterdayTasks.length,
+                    isYesterday: true
+                });
+            }
+
+            // Past Due daily groups (sorted newest to oldest) - NOW AT BOTTOM
+            const sortedPastDates = Array.from(pastDueMap.keys()).sort().reverse();
+            sortedPastDates.forEach(dStr => {
+                const d = new Date(`${dStr}T00:00:00`);
+                const formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+                sections.push({
+                    key: `pastDue_${dStr}`,
+                    label: `PAST DUE ${formattedDate}`,
+                    shortLabel: `PAST DUE (${formattedDate})`,
+                    items: pastDueMap.get(dStr),
+                    totalCount: pastDueMap.get(dStr).length,
+                    isPastDue: true
+                });
+            });
+
+            // Finished section (tasks 2+ days old)
+            if (finishedTasks.length > 0) {
+                sections.push({
+                    key: 'finished',
+                    label: 'FINISHED',
+                    shortLabel: 'FINISHED',
+                    items: finishedTasks,
+                    totalCount: finishedTasks.length,
+                    isFinished: true
                 });
             }
 
@@ -12582,24 +12640,29 @@
                 }
 
                 // 3. Detect Relative Entities (tomorrow, next week, wed, thu, thur)
+                // (2026-08-24) Added Bisaya language support: ugma, unya, karon, this week, lunes-domingo
                 const relativePatterns = [
-                    { regex: /\btomorrow\b/i, offset: 1 },
-                    { regex: /\bnext week\b/i, offset: 7 },
-                    { regex: /\b(?:next\s+)?(monday|mon|tuesday|tue|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun)\b/i }
+                    { regex: /\b(tomorrow|ugma)\b/i, offset: 1 },
+                    { regex: /\b(next week|this week)\b/i, offset: 7 },
+                    { regex: /\b(now|karon|unya)\b/i, offset: 0 }, // Today
+                    { regex: /\b(?:next\s+)?(monday|mon|lunes|tuesday|tue|martes|wednesday|wed|merkules|thursday|thu|thur|thurs|huybes|friday|fri|birnes|saturday|sat|sabado|sunday|sun|domingo)\b/i }
                 ];
 
                 for (const p of relativePatterns) {
                     let match = p.regex.exec(lower);
                     if (match) {
                         const target = new Date();
-                        if (p.offset) {
+                        if (p.offset !== undefined) {
                             target.setDate(now.getDate() + p.offset);
                         } else {
+                            // (2026-08-24) Extended weekday mapping with Bisaya days
                             const weekdays = { 
-                                sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, thur: 4, thurs: 4, fri: 5, sat: 6, 
+                                sun: 0, domingo: 0, mon: 1, lunes: 1, tue: 2, martes: 2, wed: 3, merkules: 3, 
+                                thu: 4, thur: 4, thurs: 4, huybes: 4, fri: 5, birnes: 5, sat: 6, sabado: 6,
                                 sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 
                             };
-                            const targetDay = weekdays[match[1].toLowerCase()];
+                            const dayName = match[1].toLowerCase();
+                            const targetDay = weekdays[dayName];
                             // Calculate days until next occurrence
                             let diff = (targetDay + 7 - now.getDay()) % 7;
                             // If it's today, move to next week for "closest future"
