@@ -24,7 +24,9 @@ $files = @(
     "manifest.json",
     "logo.png",
     "applogo.png",
-    "fire-wipe-spritesheet.png",
+    # (2026-07-13) Sync desktop & mobile fire spritesheets. Prev: single sheet
+    "fire-wipe-spritesheet_desktop_tablet.png",
+    "fire-wipe-spritesheet_mobile.png",
     "fire_bg_video_hd_desktop_tablet.mp4",
     "fire_bg_video_hd_mobile.mp4",
     "fire_transition_sfx.mp3",

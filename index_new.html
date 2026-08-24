@@ -373,10 +373,11 @@
             filter: brightness(1.05);
         }
 
+        /* (2026-07-13) Responsive fire wipe spritesheet. Prev: single sheet */
         .fire-wipe-sprite {
             width: 100vw;
             height: 360px; /* 400px * 0.9 */
-            background-image: url('fire-wipe-spritesheet.png');
+            background-image: url('fire-wipe-spritesheet_desktop_tablet.png');
             background-repeat: no-repeat;
             background-size: 100% 1800px; /* 2000px * 0.9 */
             animation: fire-wipe-sprites 0.5s steps(5) infinite;

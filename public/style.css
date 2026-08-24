@@ -72,8 +72,14 @@
     animation: mobile-header-pulse 8s ease-in-out infinite !important;
 }
 
+/* (2026-07-13) Connect header seamlessly to status bar. Prev: fixed 68px */
 .faiora-mobile-header {
     position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    padding-top: env(safe-area-inset-top, 0px) !important;
+    height: calc(68px + env(safe-area-inset-top, 0px)) !important;
     animation: mobile-header-pulse 8s ease-in-out infinite !important;
     border: none !important;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6) !important;
@@ -666,12 +672,13 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     }
 }
 
+/* (2026-07-13) Responsive fire wipe spritesheet. Prev: single sheet */
 .fire-wipe-sprite {
     width: 140vw; 
     min-width: 140vw;
     flex-shrink: 0;
     height: 360px;
-    background-image: url('fire-wipe-spritesheet.png');
+    background-image: url('fire-wipe-spritesheet_desktop_tablet.png');
     background-repeat: no-repeat;
     background-size: 100% 1800px;
     background-position: 0 0;
@@ -714,6 +721,7 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
         min-width: 500vw;
         height: 360px;
         margin-left: -200vw;
+        background-image: url('fire-wipe-spritesheet_mobile.png');
         background-size: 100% 1800px !important;
         background-position: 0 0;
         animation: fire-wipe-sprites-mobile 0.45s steps(5) infinite;

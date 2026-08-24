@@ -2,7 +2,8 @@
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8">
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <!-- (2026-07-13) Add viewport-fit=cover for edge-to-edge status bar. Prev: none -->
+    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
     <title>Faiora — Modern Notetaker</title>
     <!-- 
        LABEL: CONSOLE-PURIFIER — Nuclear Console Proxy (Teacher-approved)
@@ -152,8 +153,14 @@
     animation: mobile-header-pulse 8s ease-in-out infinite !important;
 }
 
+/* (2026-07-13) Connect header seamlessly to status bar. Prev: fixed 68px */
 .faiora-mobile-header {
     position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    padding-top: env(safe-area-inset-top, 0px) !important;
+    height: calc(68px + env(safe-area-inset-top, 0px)) !important;
     animation: mobile-header-pulse 8s ease-in-out infinite !important;
     opacity: 1 !important;
     border: none !important;
@@ -2451,9 +2458,9 @@
                             animation: search-spin 0.6s linear infinite;
                         }
                     `}</style>
-                    {/* (2026-07-13) Scaled logo, search icon, & profile in navbar. Prev: uneven */}
-                    <header className="faiora-mobile-header md:hidden fixed top-0 left-0 right-0 z-[100] h-[68px] flex items-center justify-center px-4 animate-mobile-header">
-                        <div className="flex items-center justify-between gap-3 relative z-10 w-full max-w-lg mx-auto">
+                    {/* (2026-07-13) Support safe-area status bar immersion. Prev: fixed h-68px */}
+                    <header className="faiora-mobile-header md:hidden fixed top-0 left-0 right-0 z-[100] flex items-center justify-center px-4 animate-mobile-header">
+                        <div className="h-[68px] flex items-center justify-between gap-3 relative z-10 w-full max-w-lg mx-auto">
                             <button
                                 type="button"
                                 onClick={() => {
@@ -5931,15 +5938,50 @@
                     timerRef.current = null;
                 }
                 if (isSwipingRef.current) {
-                    if (swipeOffset >= 75 && onUpdateQuickTask) {
+                    // (2026-07-13) Include task name in reschedule toast. Prev: no task title
+                    // Note: App design language sets 8:00 PM (20:00) as cutoff because 8 PM onwards is personal self time unless manually edited.
+                    const taskTitle = (task.text || 'Task').trim();
+                    const displayName = taskTitle.length > 24 ? taskTitle.slice(0, 22) + '…' : taskTitle;
+                    const getSwipeRescheduleTarget = () => {
+                        const now = new Date();
+                        const todayStr = formatDateLocal(now);
+                        const isPastDueToday = isOverdue && (!task.dueDate || task.dueDate <= todayStr);
+                        if (isPastDueToday) {
+                            const laterDate = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+                            const isSameDay = formatDateLocal(laterDate) === todayStr;
+                            const isBeforeCutoff = laterDate.getHours() < 20 || (laterDate.getHours() === 20 && laterDate.getMinutes() === 0);
+                            if (isSameDay && isBeforeCutoff) {
+                                const h = String(laterDate.getHours()).padStart(2, '0');
+                                const m = String(laterDate.getMinutes()).padStart(2, '0');
+                                const laterTime = `${h}:${m}`;
+                                return {
+                                    date: todayStr,
+                                    time: laterTime,
+                                    label: 'Later',
+                                    toastLabel: `Moved "${displayName}" to Later (${formatTime(laterTime)})`,
+                                    icon: 'schedule'
+                                };
+                            }
+                        }
                         const tomorrowTime = '10:00';
                         const tomorrowDate = getTomorrow();
+                        return {
+                            date: tomorrowDate,
+                            time: tomorrowTime,
+                            label: 'Tomorrow',
+                            toastLabel: `Moved "${displayName}" to Tomorrow (${formatTime(tomorrowTime)})`,
+                            icon: 'event_upcoming'
+                        };
+                    };
+
+                    if (swipeOffset >= 75 && onUpdateQuickTask) {
+                        const target = getSwipeRescheduleTarget();
                         const prevDueDate = task.dueDate;
                         const prevDueTime = task.dueTime;
-                        onUpdateQuickTask(task.id, task.text, tomorrowDate, tomorrowTime, task.categories, task.progress);
+                        onUpdateQuickTask(task.id, task.text, target.date, target.time, task.categories, task.progress);
                         if (navigator.vibrate) try { navigator.vibrate([40, 60, 40]); } catch {}
                         if (showToast) {
-                            showToast(`Moved to Tomorrow (${formatTime(tomorrowTime)})`, {
+                            showToast(target.toastLabel, {
                                 label: 'Undo',
                                 onClick: () => {
                                     onUpdateQuickTask(task.id, task.text, prevDueDate, prevDueTime, task.categories, task.progress);
@@ -5969,10 +6011,27 @@
                 onToggle(task.id);
             };
 
+            // (2026-07-13) Dynamic swipe reveal target (Later/Tomorrow). Prev: Tomorrow only
+            // Note: 8 PM is self time cutoff in design language.
+            const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
+                const now = new Date();
+                const todayStr = formatDateLocal(now);
+                const isPastDueToday = isOverdue && (!task.dueDate || task.dueDate <= todayStr);
+                if (isPastDueToday) {
+                    const laterDate = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+                    const isSameDay = formatDateLocal(laterDate) === todayStr;
+                    const isBeforeCutoff = laterDate.getHours() < 20 || (laterDate.getHours() === 20 && laterDate.getMinutes() === 0);
+                    if (isSameDay && isBeforeCutoff) {
+                        return { label: 'Later', icon: 'schedule' };
+                    }
+                }
+                return { label: 'Tomorrow', icon: 'event_upcoming' };
+            })() : null;
+
             return (
                 <div className="relative overflow-hidden rounded-2xl select-none">
-                    {/* (2026-07-13) Tomorrow swipe reveal indicator. Prev: none */}
-                    {swipeOffset > 0 && (
+                    {/* (2026-07-13) Swipe reveal indicator. Prev: Tomorrow only */}
+                    {swipeOffset > 0 && swipeRescheduleInfo && (
                         <div 
                             className="absolute left-0 top-0 bottom-0 overflow-hidden flex items-center pl-3 z-0 select-none pointer-events-none"
                             style={{ width: `${Math.min(swipeOffset, 125)}px` }}
@@ -5981,8 +6040,8 @@
                                 className="flex items-center gap-1.5 text-primary whitespace-nowrap"
                                 style={{ opacity: Math.min(swipeOffset / 35, 1) }}
                             >
-                                <span className="material-symbols-outlined text-lg flex-shrink-0">event_upcoming</span>
-                                <span className={`text-[11px] font-bold font-montserrat uppercase tracking-wide transition-colors ${swipeOffset >= 75 ? 'text-amber-300 font-extrabold drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]' : 'text-primary'}`}>Tomorrow</span>
+                                <span className="material-symbols-outlined text-lg flex-shrink-0">{swipeRescheduleInfo.icon}</span>
+                                <span className={`text-[11px] font-bold font-montserrat uppercase tracking-wide transition-colors ${swipeOffset >= 75 ? 'text-amber-300 font-extrabold drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]' : 'text-primary'}`}>{swipeRescheduleInfo.label}</span>
                             </div>
                         </div>
                     )}
@@ -12309,7 +12368,8 @@
             );
         };
 
-        const QuickTaskModal = ({ onClose, onAdd, onDelete = null, initialData = null, showToast, prefillDate = null }) => {
+        // (2026-07-13) Support quickTasks prop in QuickTaskModal. Prev: no quickTasks
+        const QuickTaskModal = ({ onClose, onAdd, onDelete = null, initialData = null, showToast, prefillDate = null, quickTasks = [] }) => {
             const getTomorrow = () => {
                 const d = new Date();
                 d.setDate(d.getDate() + 1);
@@ -12319,6 +12379,30 @@
                 const d = new Date();
                 d.setDate(d.getDate() + (1 + 7 - d.getDay()) % 7 || 7);
                 return formatDateLocal(d);
+            };
+
+            // (2026-07-13) Calculate PRIO deadline (-10 mins from earliest task today). Prev: none
+            const getPrioTarget = () => {
+                const todayStr = formatDateLocal(new Date());
+                const validTodayTasks = (quickTasks || []).filter(t => t && t.dueDate === todayStr && t.dueTime && (!initialData || t.id !== initialData.id));
+                if (validTodayTasks.length > 0) {
+                    const sorted = [...validTodayTasks].sort((a, b) => a.dueTime.localeCompare(b.dueTime));
+                    const earliest = sorted[0].dueTime;
+                    const [h, m] = earliest.split(':').map(Number);
+                    let totalMins = h * 60 + m - 10;
+                    if (totalMins < 0) totalMins = 0;
+                    const prioH = String(Math.floor(totalMins / 60)).padStart(2, '0');
+                    const prioM = String(totalMins % 60).padStart(2, '0');
+                    return { date: todayStr, time: `${prioH}:${prioM}` };
+                }
+                if (initialData && initialData.dueTime) {
+                    const [h, m] = initialData.dueTime.split(':').map(Number);
+                    let totalMins = Math.max(0, h * 60 + m - 10);
+                    const prioH = String(Math.floor(totalMins / 60)).padStart(2, '0');
+                    const prioM = String(totalMins % 60).padStart(2, '0');
+                    return { date: todayStr, time: `${prioH}:${prioM}` };
+                }
+                return { date: todayStr, time: '09:00' };
             };
              const extractDateFromText = (input) => {
                 let lower = input.toLowerCase();
@@ -12722,9 +12806,9 @@
 
             const selected = getSelectedLabel();
 
-            // (2026-07-13) Set modal wrapper z-2000 above nav & FAB. Prev: z-950
+            // (2026-07-13) Floating modal side margins and PRIO preset. Prev: p-0, no prio
             return (
-                <div className="fixed inset-0 z-[2000] flex items-center justify-center p-0">
+                <div className="fixed inset-0 z-[2000] flex items-center justify-center p-3.5 sm:p-4">
                     <style>{`
                         /* (2026-07-13) Invert picker indicator to white for dark inputs. Prev: black */
                         .quick-task-input:focus {
@@ -12804,17 +12888,21 @@
                                 <div className="flex items-center justify-between px-1">
                                     <label className="text-[9px] font-bold text-cream-light/40 uppercase tracking-[0.2em] font-montserrat">Schedule</label>
                                     <div className="flex items-center gap-1">
+                                        {/* (2026-07-13) Rename Tomorrow preset label to Tomm. Prev: Tmrw */}
                                         {[
-                                            { id: 'later', label: 'Later', date: initialLater.date, t: initialLater.time },
-                                            { id: 'tomorrow', label: 'Tomorrow', date: getTomorrow(), t: '10:00' },
-                                            { id: 'monday', label: 'Mon', date: getNextMonday(), t: '08:00' }
+                                            { id: 'prio', label: 'Prio', getTarget: getPrioTarget },
+                                            { id: 'later', label: 'Later', getTarget: () => ({ date: initialLater.date, time: initialLater.time }) },
+                                            { id: 'tomorrow', label: 'Tomm', getTarget: () => ({ date: getTomorrow(), time: '10:00' }) },
+                                            { id: 'monday', label: 'Mon', getTarget: () => ({ date: getNextMonday(), time: '08:00' }) }
                                         ].map(preset => (
                                             <button
                                                 key={preset.id}
                                                 type="button"
                                                 onClick={() => {
-                                                    setDueDate(preset.date);
-                                                    setDueTime(preset.t);
+                                                    const tgt = preset.getTarget();
+                                                    setDueDate(tgt.date);
+                                                    setDueTime(tgt.time);
+                                                    setSelectedPreset(preset.id);
                                                 }}
                                                 className="text-[8.5px] font-bold font-montserrat uppercase px-2 py-0.5 rounded-md bg-white/[0.04] hover:bg-white/10 hover:text-cream-light hover:border-white/20 border border-white/5 text-white/50 transition-all duration-150 active:scale-95 active:bg-primary/20 active:text-primary shadow-sm"
                                             >
@@ -16767,21 +16855,24 @@
                             }}
                          />
                      )}
+                    {/* (2026-07-13) Pass quickTasks to QuickTaskModal for PRIO calculation. Prev: none */}
                     {isQuickTaskModalOpen && (
                         <QuickTaskModal 
                             prefillDate={prefillDate}
                             onClose={handleCloseQuickTaskModal} 
                             onAdd={handleAddQuickTask} 
                             showToast={showToast} 
+                            quickTasks={quickTasks}
                         />
                     )}
-                    {/* (2026-07-13) Forward progressHistory to quick task update. Prev: no history */}
+                    {/* (2026-07-13) Forward progressHistory and quickTasks. Prev: no history/quickTasks */}
                     {editingQuickTask && (
                         <QuickTaskModal 
                             initialData={editingQuickTask}
                             onClose={handleCloseQuickTaskEditor}
                             onDelete={handleDeleteQuickTask}
                             showToast={showToast}
+                            quickTasks={quickTasks}
                             onAdd={(text, date, time, categories, progress, progressHistory) => {
                                 handleUpdateQuickTask(editingQuickTask.id, text, date, time, categories, progress, progressHistory);
                             }}
