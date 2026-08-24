@@ -9737,6 +9737,7 @@
                 }));
             }, [groupedQuickTasks.noDate]);
 
+            // (2026-07-13) Exclude No Deadline from standard view. Prev: ...noDateSections
             const sections = [
                 { key: 'pastDue', label: 'Past Due', items: groupedQuickTasks.pastDue || [], totalCount: (groupedQuickTasks.pastDue || []).length },
                 { key: 'today', label: 'Today', items: groupedQuickTasks.today, totalCount: groupedQuickTasks.today.length },
@@ -9744,7 +9745,6 @@
                 { key: 'thisWeek', label: 'This Week', items: groupedQuickTasks.thisWeek || [], totalCount: (groupedQuickTasks.thisWeek || []).length },
                 { key: 'nextWeek', label: 'Next Week', items: groupedQuickTasks.nextWeek || [], totalCount: (groupedQuickTasks.nextWeek || []).length },
                 { key: 'upcoming', label: 'Upcoming', items: groupedQuickTasks.upcoming || [], totalCount: (groupedQuickTasks.upcoming || []).length },
-                ...noDateSections,
                 { key: 'completed', label: 'Finished', items: completedTasksSorted.slice(0, finishedLimit), totalCount: completedTasksSorted.length }
             ];
 
