@@ -1,6 +1,7 @@
-# (2026-08-24) Add strict error handling and per-step exit checks. Prev: no error detection
+# (2026-07-13) Allow native stderr without false abort. Prev: Stop
 param()
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
+$PSNativeCommandUseErrorActionPreference = $false
 $root = $PSScriptRoot
 
 Write-Host "============================================" -ForegroundColor DarkGray
