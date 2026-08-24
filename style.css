@@ -639,7 +639,7 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     gap: 10px;
 }
 
-/* (2026-07-13) High visibility toast-pill with guaranteed opacity. Prev: opacity 0 */
+/* (2026-07-13) Responsive toast-pill max-width 480px. Prev: 100vw */
 .toast-pill {
     background: rgba(15, 23, 42, 0.85);
     color: #fff;
@@ -655,12 +655,11 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     border: 1px solid rgba(255, 255, 255, 0.1);
     font-family: 'Montserrat', sans-serif;
     opacity: 1;
-    width: calc(100% - 32px);
-    max-width: calc(100vw - 32px);
+    width: 100%;
+    max-width: 480px;
     margin: 0 auto;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    white-space: nowrap;
     text-align: left;
     animation: toast-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     min-height: 48px;

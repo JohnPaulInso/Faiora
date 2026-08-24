@@ -18,3 +18,6 @@ android/.idea/
 Thumbs.db
 *.log
 .sixth/
+
+# Telegram credentials (2026-08-24)
+.telegram_config

@@ -36,3 +36,15 @@ if (Test-Path $apkPath) {
     Write-Host " APK not found at expected path, opening output dir..." -ForegroundColor Yellow
     Start-Process explorer.exe -ArgumentList "$root\android\app\build\outputs\apk\debug"
 }
+
+# (2026-08-24) Auto-upload to Telegram if configured
+$telegramConfigPath = "$root\.telegram_config"
+$hasTelegramEnv = $env:TELEGRAM_BOT_TOKEN -and $env:TELEGRAM_CHAT_ID
+$hasTelegramConfig = Test-Path $telegramConfigPath
+
+if ($hasTelegramEnv -or $hasTelegramConfig) {
+    Write-Host "`n[4/4] Uploading to Telegram..." -ForegroundColor Cyan
+    & "$root\upload_telegram.ps1"
+} else {
+    Write-Host "`nTip: Set up Telegram auto-upload by running: .\upload_telegram.ps1" -ForegroundColor Gray
+}

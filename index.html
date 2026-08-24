@@ -596,62 +596,78 @@
             today.setHours(0, 0, 0, 0);
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
+            // (2026-08-24) Add yesterday tracking for notepad sections
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const twoDaysAgo = new Date(today);
+            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
             const pastDueMap = new Map();
+            const yesterdayTasks = [];
             const todayTasks = [];
             const tomorrowTasks = [];
             const futureMap = new Map();
             const noDateTasks = [];
             const completed = [];
+            const finishedTasks = []; // (2026-08-24) Tasks 2+ days old
 
             // (2026-07-13) Separate tasks without deadlines into noDateTasks. Prev: todayTasks
             sorted.forEach(task => {
+                // Track completed separately but continue processing for Yesterday/Finished sections
                 if (task.completed) {
                     completed.push(task);
-                    if (!includeCompleted) return;
                 }
+                
                 if (!task.dueDate) {
-                    noDateTasks.push(task);
+                    if (!task.completed || includeCompleted) {
+                        noDateTasks.push(task);
+                    }
                     return;
                 }
                 const due = new Date(`${task.dueDate}T00:00:00`);
                 if (Number.isNaN(due.getTime())) {
-                    noDateTasks.push(task);
+                    if (!task.completed || includeCompleted) {
+                        noDateTasks.push(task);
+                    }
                     return;
                 }
 
-                if (due.getTime() < today.getTime()) {
-                    const dateKey = task.dueDate;
-                    if (!pastDueMap.has(dateKey)) pastDueMap.set(dateKey, []);
-                    pastDueMap.get(dateKey).push(task);
+                // (2026-08-24) Separate yesterday tasks and finished tasks (2+ days old)
+                // Include both completed and uncompleted in Yesterday and Finished sections
+                if (due.getTime() < twoDaysAgo.getTime()) {
+                    // Tasks that are 2+ days old go to "Finished" section
+                    finishedTasks.push(task);
+                } else if (due.getTime() === yesterday.getTime()) {
+                    // Tasks from yesterday (completed or not)
+                    yesterdayTasks.push(task);
+                } else if (due.getTime() < today.getTime()) {
+                    // Past due (not yesterday, not 2+ days old)
+                    if (!task.completed || includeCompleted) {
+                        const dateKey = task.dueDate;
+                        if (!pastDueMap.has(dateKey)) pastDueMap.set(dateKey, []);
+                        pastDueMap.get(dateKey).push(task);
+                    }
                 } else if (due.getTime() === today.getTime()) {
-                    todayTasks.push(task);
+                    if (!task.completed || includeCompleted) {
+                        todayTasks.push(task);
+                    }
                 } else if (due.getTime() === tomorrow.getTime()) {
-                    tomorrowTasks.push(task);
+                    if (!task.completed || includeCompleted) {
+                        tomorrowTasks.push(task);
+                    }
                 } else {
-                    const dateKey = task.dueDate;
-                    if (!futureMap.has(dateKey)) futureMap.set(dateKey, []);
-                    futureMap.get(dateKey).push(task);
+                    if (!task.completed || includeCompleted) {
+                        const dateKey = task.dueDate;
+                        if (!futureMap.has(dateKey)) futureMap.set(dateKey, []);
+                        futureMap.get(dateKey).push(task);
+                    }
                 }
             });
 
             const sections = [];
 
-            // Past Due daily groups (sorted oldest to newest)
-            const sortedPastDates = Array.from(pastDueMap.keys()).sort();
-            sortedPastDates.forEach(dStr => {
-                const d = new Date(`${dStr}T00:00:00`);
-                const formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
-                sections.push({
-                    key: `pastDue_${dStr}`,
-                    label: `PAST DUE ${formattedDate}`,
-                    shortLabel: `PAST DUE (${formattedDate})`,
-                    items: pastDueMap.get(dStr),
-                    totalCount: pastDueMap.get(dStr).length,
-                    isPastDue: true
-                });
-            });
-
+            // (2026-08-24) Reordered: Active tasks first, finished tasks at bottom
+            
             // Today
             if (todayTasks.length > 0) {
                 const todayFormatted = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
@@ -714,6 +730,48 @@
                         totalCount: items.length,
                         isNoDate: true
                     });
+                });
+            }
+
+            // (2026-08-24) FINISHED SECTIONS AT BOTTOM
+
+            // Yesterday section (completed and uncompleted)
+            if (yesterdayTasks.length > 0) {
+                const yesterdayFormatted = yesterday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+                sections.push({
+                    key: 'yesterday',
+                    label: 'YESTERDAY',
+                    shortLabel: `YESTERDAY (${yesterdayFormatted})`,
+                    items: yesterdayTasks,
+                    totalCount: yesterdayTasks.length,
+                    isYesterday: true
+                });
+            }
+
+            // Past Due daily groups (sorted newest to oldest) - NOW AT BOTTOM
+            const sortedPastDates = Array.from(pastDueMap.keys()).sort().reverse();
+            sortedPastDates.forEach(dStr => {
+                const d = new Date(`${dStr}T00:00:00`);
+                const formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+                sections.push({
+                    key: `pastDue_${dStr}`,
+                    label: `PAST DUE ${formattedDate}`,
+                    shortLabel: `PAST DUE (${formattedDate})`,
+                    items: pastDueMap.get(dStr),
+                    totalCount: pastDueMap.get(dStr).length,
+                    isPastDue: true
+                });
+            });
+
+            // Finished section (tasks 2+ days old)
+            if (finishedTasks.length > 0) {
+                sections.push({
+                    key: 'finished',
+                    label: 'FINISHED',
+                    shortLabel: 'FINISHED',
+                    items: finishedTasks,
+                    totalCount: finishedTasks.length,
+                    isFinished: true
                 });
             }
 
@@ -5789,26 +5847,25 @@
             );
         });
 
-        // (2026-07-13) Support batch selection mode in QuickTaskItem. Prev: no selection
+        // (2026-07-13) 1s pause and fade-out on complete, transparent swipe. Prev: instant toggle
         const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQuickTask, showToast, hideDateSubtitle = false, isSelectionMode = false, isSelected = false, onSelectToggle = null }) => {
             const { label: dueDateStr, isOverdue, isNearDeadline, isDueTomorrow } = formatDueDate(task.dueDate, task.dueTime);
             const timerRef = useRef(null);
             const isLongPressRef = useRef(false);
-            const startPosRef = useRef({ x: 0, y: 0 });
-            const [swipeOffset, setSwipeOffset] = useState(0);
-            const isSwipingRef = useRef(false);
-            const isTriggeredRef = useRef(false);
-            const isPointerDownRef = useRef(false);
             const [isLongPressing, setIsLongPressing] = useState(false);
             const [isPressed, setIsPressed] = useState(false);
+            const [swipeOffset, setSwipeOffset] = useState(0);
+            const isSwipingRef = useRef(false);
+            const startPosRef = useRef({ x: 0, y: 0 });
+            const isPointerDownRef = useRef(false);
+            const [isCompleting, setIsCompleting] = useState(false);
 
             const handlePointerDown = (e) => {
-                if (isSelectionMode) return;
+                if (isSelectionMode || isCompleting) return;
                 if (e.button && e.button !== 0) return;
                 isPointerDownRef.current = true;
                 isLongPressRef.current = false;
                 isSwipingRef.current = false;
-                isTriggeredRef.current = false;
                 setIsPressed(true);
                 startPosRef.current = { x: e.clientX, y: e.clientY };
                 if (timerRef.current) clearTimeout(timerRef.current);
@@ -5826,13 +5883,12 @@
             };
 
             const handlePointerMove = (e) => {
-                if (isSelectionMode || !isPointerDownRef.current) return;
+                if (isSelectionMode || !isPointerDownRef.current || isCompleting) return;
                 const dx = e.clientX - startPosRef.current.x;
                 const dy = Math.abs(e.clientY - startPosRef.current.y);
 
-                if (Math.abs(dx) > 10 || dy > 10) {
+                if (Math.abs(dx) > 8 || dy > 8) {
                     setIsPressed(false);
-                    setIsLongPressing(false);
                     if (timerRef.current) {
                         clearTimeout(timerRef.current);
                         timerRef.current = null;
@@ -5843,32 +5899,17 @@
                     return;
                 }
 
-                // (2026-07-13) Swipe left for tomorrow, swipe right for delete. Prev: inverted
-                if (dx > 8 && onDelete) {
+                if (dx > 8 && onUpdateQuickTask) {
                     isSwipingRef.current = true;
-                    const boundedDx = Math.min(Math.max(0, dx), 110);
-                    setSwipeOffset(boundedDx);
-                    if (boundedDx >= 75 && !isTriggeredRef.current) {
-                        isTriggeredRef.current = true;
-                        if (navigator.vibrate) try { navigator.vibrate(35); } catch {}
-                    } else if (boundedDx < 75) {
-                        isTriggeredRef.current = false;
-                    }
-                } else if (dx < -8 && onUpdateQuickTask) {
+                    setSwipeOffset(Math.min(dx, 140));
+                } else if (dx < -8 && onDelete) {
                     isSwipingRef.current = true;
-                    const boundedDx = Math.max(Math.min(0, dx), -125);
-                    setSwipeOffset(boundedDx);
-                    if (boundedDx <= -75 && !isTriggeredRef.current) {
-                        isTriggeredRef.current = true;
-                        if (navigator.vibrate) try { navigator.vibrate(35); } catch {}
-                    } else if (boundedDx > -75) {
-                        isTriggeredRef.current = false;
-                    }
+                    setSwipeOffset(Math.max(dx, -130));
                 }
             };
 
             const handlePointerUp = () => {
-                if (isSelectionMode) return;
+                if (isSelectionMode || isCompleting) return;
                 isPointerDownRef.current = false;
                 setIsPressed(false);
                 setIsLongPressing(false);
@@ -5877,62 +5918,43 @@
                     timerRef.current = null;
                 }
                 if (isSwipingRef.current) {
-                    const taskTitle = (task.text || 'Task').trim();
-                    const displayName = taskTitle.length > 24 ? taskTitle.slice(0, 22) + '…' : taskTitle;
-                    const getSwipeRescheduleTarget = () => {
+                    // (2026-07-13) 8-char cap so "moved to Tomorrow" fits fully. Prev: 12-char
+                    const raw = (task.text || 'Task').trim();
+                    const displayName = raw.length > 8 ? raw.slice(0, 4) + '…' + raw.slice(-3) : raw;
+                    
+                    if (swipeOffset >= 75 && onUpdateQuickTask) {
                         const now = new Date();
                         const todayStr = formatDateLocal(now);
                         const isPastDueToday = isOverdue && (!task.dueDate || task.dueDate <= todayStr);
+                        let targetDate = getTomorrow();
+                        let targetTime = '10:00';
+                        let toastLabel = `Moved "${displayName}" to Tomorrow`;
                         if (isPastDueToday) {
                             const laterDate = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-                            const isSameDay = formatDateLocal(laterDate) === todayStr;
-                            const isBeforeCutoff = laterDate.getHours() < 20 || (laterDate.getHours() === 20 && laterDate.getMinutes() === 0);
-                            if (isSameDay && isBeforeCutoff) {
+                            if (formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 20) {
                                 const h = String(laterDate.getHours()).padStart(2, '0');
                                 const m = String(laterDate.getMinutes()).padStart(2, '0');
-                                const laterTime = `${h}:${m}`;
-                                return {
-                                    date: todayStr,
-                                    time: laterTime,
-                                    label: 'Later',
-                                    toastLabel: `Moved "${displayName}" to Later (${formatTime(laterTime)})`,
-                                    icon: 'schedule'
-                                };
+                                targetDate = todayStr;
+                                targetTime = `${h}:${m}`;
+                                toastLabel = `Moved "${displayName}" to Later (${formatTime(targetTime)})`;
                             }
                         }
-                        const tomorrowTime = '10:00';
-                        const tomorrowDate = getTomorrow();
-                        return {
-                            date: tomorrowDate,
-                            time: tomorrowTime,
-                            label: 'Tomorrow',
-                            toastLabel: `Moved "${displayName}" to Tomorrow (${formatTime(tomorrowTime)})`,
-                            icon: 'event_upcoming'
-                        };
-                    };
-
-                    if (swipeOffset <= -75 && onUpdateQuickTask) {
-                        const target = getSwipeRescheduleTarget();
                         const prevDueDate = task.dueDate;
                         const prevDueTime = task.dueTime;
-                        onUpdateQuickTask(task.id, task.text, target.date, target.time, task.categories, task.progress);
+                        onUpdateQuickTask(task.id, task.text, targetDate, targetTime, task.categories, task.progress);
                         if (navigator.vibrate) try { navigator.vibrate([40, 60, 40]); } catch {}
                         if (showToast) {
-                            showToast(target.toastLabel, {
+                            showToast(toastLabel, {
                                 label: 'UNDO',
-                                onClick: () => {
-                                    onUpdateQuickTask(task.id, task.text, prevDueDate, prevDueTime, task.categories, task.progress);
-                                }
+                                onClick: () => onUpdateQuickTask(task.id, task.text, prevDueDate, prevDueTime, task.categories, task.progress)
                             });
                         }
-                    } else if (swipeOffset >= 75 && onDelete) {
+                    } else if (swipeOffset <= -75 && onDelete) {
                         if (navigator.vibrate) try { navigator.vibrate([40, 80]); } catch {}
                         onDelete(task.id);
                     }
                     setSwipeOffset(0);
-                    setTimeout(() => {
-                        isSwipingRef.current = false;
-                    }, 100);
+                    setTimeout(() => { isSwipingRef.current = false; }, 150);
                 }
             };
 
@@ -5941,66 +5963,80 @@
                     if (onSelectToggle) onSelectToggle(task.id);
                     return;
                 }
-                if (isLongPressRef.current || isSwipingRef.current || Math.abs(swipeOffset) > 10) {
+                if (isLongPressRef.current || isSwipingRef.current || Math.abs(swipeOffset) > 10 || isCompleting) {
                     isLongPressRef.current = false;
                     return;
                 }
-                onToggle(task.id);
+                if (!task.completed) {
+                    setIsCompleting(true);
+                    if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications.playCheckSFX) {
+                        FaioraNotifications.playCheckSFX();
+                    }
+                    // (2026-07-13) Toggle fires immediately so snackbar shows at once. Prev: 2s delay
+                    onToggle(task.id);
+                } else {
+                    onToggle(task.id);
+                }
             };
 
-            // (2026-07-13) Swipe left reveal target (Later/Tomorrow). Prev: swipe right
-            const swipeRescheduleInfo = swipeOffset < 0 ? (() => {
+            const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
                 const now = new Date();
                 const todayStr = formatDateLocal(now);
                 const isPastDueToday = isOverdue && (!task.dueDate || task.dueDate <= todayStr);
                 if (isPastDueToday) {
                     const laterDate = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-                    const isSameDay = formatDateLocal(laterDate) === todayStr;
-                    const isBeforeCutoff = laterDate.getHours() < 20 || (laterDate.getHours() === 20 && laterDate.getMinutes() === 0);
-                    if (isSameDay && isBeforeCutoff) {
-                        return { label: 'Later', icon: 'schedule' };
+                    if (formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 20) {
+                        return { label: 'LATER', icon: 'schedule' };
                     }
                 }
-                return { label: 'Tomorrow', icon: 'event_upcoming' };
+                return { label: 'TOMORROW', icon: 'event_upcoming' };
             })() : null;
 
             return (
-                <div className="relative overflow-hidden rounded-2xl select-none">
-                    {/* (2026-07-13) Delete reveal indicator on right swipe. Prev: left swipe */}
-                    {swipeOffset > 0 && (
+                <div 
+                    // (2026-07-13) Height collapses after fade so blank gap clears fast. Prev: no height anim
+                    className={`relative rounded-2xl select-none overflow-hidden ${isCompleting ? 'pointer-events-none' : ''}`}
+                    style={{
+                        minHeight: isCompleting ? undefined : ((hideDateSubtitle && !task.dueTime) ? '42px' : (window.innerWidth < 768 ? '52px' : 'auto')),
+                        maxHeight: isCompleting ? '0' : '200px',
+                        opacity: isCompleting ? 0 : 1,
+                        transform: isCompleting ? 'scale(0.97) translateY(-2px)' : 'scale(1) translateY(0)',
+                        marginBottom: isCompleting ? '-4px' : undefined,
+                        pointerEvents: isCompleting ? 'none' : undefined,
+                        transition: isCompleting
+                            ? 'opacity 0.4s ease, transform 0.4s ease, max-height 0.35s 0.3s ease, margin-bottom 0.35s 0.3s ease'
+                            : 'opacity 0.2s ease, transform 0.2s ease'
+                    }}
+                >
+                    {swipeOffset > 0 && swipeRescheduleInfo && (
                         <div 
-                            className="absolute left-0 top-0 bottom-0 overflow-hidden flex items-center pl-3 z-0 select-none pointer-events-none"
-                            style={{ width: `${Math.min(swipeOffset, 110)}px` }}
+                            className="absolute inset-y-0 left-0 flex items-center pl-3.5 gap-1.5 z-0 pointer-events-none"
+                            // (2026-07-13) Clip to exposed gap only so text won't bleed through transparent card. Prev: full-width absolute
+                            style={{ opacity: Math.min(swipeOffset / 20, 1), width: `${Math.max(0, swipeOffset)}px`, overflow: 'hidden' }}
                         >
-                            <div 
-                                className="flex items-center gap-1.5 text-red-500 whitespace-nowrap"
-                                style={{ opacity: Math.min(swipeOffset / 30, 1) }}
-                            >
-                                <span className="material-symbols-outlined text-lg flex-shrink-0 text-red-500">delete</span>
-                                <span className={`text-[11px] font-bold font-montserrat uppercase tracking-wide transition-colors ${swipeOffset >= 75 ? 'text-red-400 font-extrabold drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'text-red-500'}`}>Delete</span>
-                            </div>
+                            <span className="material-symbols-outlined text-lg text-primary drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]">{swipeRescheduleInfo.icon}</span>
+                            <span className={`text-[11px] md:text-xs font-black font-montserrat uppercase tracking-wider ${swipeOffset >= 75 ? 'text-amber-300 drop-shadow-[0_0_12px_rgba(249,115,22,1)]' : 'text-primary drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]'}`}>
+                                {swipeRescheduleInfo.label}
+                            </span>
                         </div>
                     )}
-                    {/* (2026-07-13) Tomorrow/Later reveal indicator on left swipe. Prev: right swipe */}
-                    {swipeOffset < 0 && swipeRescheduleInfo && (
+                    {swipeOffset < 0 && (
                         <div 
-                            className="absolute right-0 top-0 bottom-0 overflow-hidden flex items-center justify-end pr-3 z-0 select-none pointer-events-none"
-                            style={{ width: `${Math.min(Math.abs(swipeOffset), 125)}px` }}
+                            className="absolute inset-y-0 right-0 flex items-center justify-end pr-3.5 gap-1.5 z-0 pointer-events-none"
+                            // (2026-07-13) Clip to exposed gap only so text won't bleed through transparent card. Prev: full-width absolute
+                            style={{ opacity: Math.min(Math.abs(swipeOffset) / 20, 1), width: `${Math.max(0, -swipeOffset)}px`, overflow: 'hidden' }}
                         >
-                            <div 
-                                className="flex items-center gap-1.5 text-primary whitespace-nowrap"
-                                style={{ opacity: Math.min(Math.abs(swipeOffset) / 35, 1) }}
-                            >
-                                <span className={`text-[11px] font-bold font-montserrat uppercase tracking-wide transition-colors ${swipeOffset <= -75 ? 'text-amber-300 font-extrabold drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]' : 'text-primary'}`}>{swipeRescheduleInfo.label}</span>
-                                <span className="material-symbols-outlined text-lg flex-shrink-0">{swipeRescheduleInfo.icon}</span>
-                            </div>
+                            <span className={`text-[11px] md:text-xs font-black font-montserrat uppercase tracking-wider ${swipeOffset <= -75 ? 'text-red-400 drop-shadow-[0_0_12px_rgba(239,68,68,1)]' : 'text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]'}`}>
+                                DELETE
+                            </span>
+                            <span className="material-symbols-outlined text-lg text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]">delete</span>
                         </div>
                     )}
 
                     <div 
-                        className={`glass-panel rounded-2xl ${hideDateSubtitle ? 'py-2 px-3 md:py-2.5 md:px-3.5' : 'py-2.5 px-3 md:py-3 md:px-4'} flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${isSelectionMode && isSelected ? '!border-primary !bg-primary/15 shadow-md shadow-primary/20 scale-[0.99]' : ''} ${task.completed && !isSelectionMode ? 'opacity-40 grayscale-[0.5]' : ''} ${isLongPressing ? 'border-primary/80 shadow-[0_0_0_2px_rgba(249,115,22,0.4)] bg-primary/10 scale-[0.98]' : isPressed && !isSelectionMode ? 'border-primary/50 bg-white/[0.08] shadow-md shadow-primary/15 scale-[0.99]' : isOverdue && !task.completed && !isSelectionMode ? 'border-red-500/30' : isNearDeadline && !task.completed && !isSelectionMode ? 'border-amber-500/20' : 'border-white/5'} ${isNearDeadline && !task.completed && !isSelectionMode ? 'near-deadline-glow' : ''} ${isDueTomorrow && !task.completed && !isSelectionMode ? 'tomorrow-glow' : ''}`}
+                        className={`glass-panel rounded-2xl ${hideDateSubtitle ? 'py-2 px-3 md:py-2.5 md:px-3.5' : 'py-2.5 px-3 md:py-3 md:px-4'} flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${isSelectionMode && isSelected ? '!border-primary !bg-primary/15 shadow-md shadow-primary/20 scale-[0.99]' : ''} ${(task.completed || isCompleting) && !isSelectionMode ? 'opacity-40 grayscale-[0.5]' : ''} ${isLongPressing ? 'border-primary/80 shadow-[0_0_0_2px_rgba(249,115,22,0.4)] bg-primary/10 scale-[0.98]' : isPressed && !isSelectionMode ? 'border-primary/50 bg-white/[0.08] shadow-md shadow-primary/15 scale-[0.99]' : isOverdue && !(task.completed || isCompleting) && !isSelectionMode ? 'border-red-500/30' : isNearDeadline && !(task.completed || isCompleting) && !isSelectionMode ? 'border-amber-500/20' : 'border-white/5'} ${isNearDeadline && !(task.completed || isCompleting) && !isSelectionMode ? 'near-deadline-glow' : ''} ${isDueTomorrow && !(task.completed || isCompleting) && !isSelectionMode ? 'tomorrow-glow' : ''}`}
                         style={{ 
-                            minHeight: (hideDateSubtitle && !task.dueTime) ? '42px' : (window.innerWidth < 768 ? '52px' : 'auto'), 
+                            minHeight: (hideDateSubtitle && !task.dueTime) ? '42px' : (window.innerWidth < 768 ? '52px' : 'auto'),
                             touchAction: 'pan-y',
                             transform: `translateX(${swipeOffset}px)`,
                             transition: isSwipingRef.current ? 'none' : 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
@@ -6015,53 +6051,55 @@
                             if (!isSelectionMode && onEdit) onEdit(task);
                         }}
                     >
-                        <div className="flex items-center gap-2.5 md:gap-3 pointer-events-none flex-1 min-w-0 pr-2">
-                            <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${isSelectionMode ? (isSelected ? 'bg-primary border-primary text-white scale-105 shadow-sm shadow-primary/30' : 'border-white/40 text-transparent group-hover:border-white/70') : (task.completed ? 'bg-primary border-primary text-white scale-105' : 'border-white/30 text-transparent group-hover:border-white/60')}`}>
-                                <span className="material-symbols-outlined text-xs font-bold">check</span>
-                            </div>
-                            <div className="flex flex-col justify-center flex-1 min-w-0">
-                                <h4 className={`${hideDateSubtitle ? 'text-[10.5px] md:text-[11.5px]' : 'text-xs md:text-[13px]'} text-cream-light font-montserrat font-semibold tracking-wide leading-snug transition-all duration-300 line-clamp-2 overflow-hidden ${task.completed ? 'line-through decoration-primary/50 opacity-60' : isPressed || isLongPressing ? 'text-primary' : 'group-hover:text-primary'} ${isOverdue && !task.completed ? 'text-red-400' : ''}`}>
-                                    {formatTaskText(task.text)}
-                                </h4>
-                                {hideDateSubtitle ? (
-                                    task.dueTime && (
-                                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                            <p className={`text-[8.5px] md:text-[9.5px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1 transition-opacity ${isOverdue && !task.completed ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
-                                                <span className="material-symbols-outlined text-[9px] md:text-[10px]">schedule</span>
-                                                {formatTime(task.dueTime)}
-                                            </p>
-                                        </div>
-                                    )
-                                ) : (
-                                    dueDateStr && (
-                                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                            <p className={`text-[8.5px] md:text-[9.5px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1 transition-opacity ${isOverdue && !task.completed ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
-                                                <span className="material-symbols-outlined text-[9px] md:text-[10px]">event</span>
-                                                {dueDateStr}
-                                            </p>
-                                        </div>
-                                    )
-                                )}
+                    <div className="flex items-center gap-2.5 md:gap-3 pointer-events-none flex-1 min-w-0 pr-2">
+                        <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${isSelectionMode ? (isSelected ? 'bg-primary border-primary text-white scale-105 shadow-sm shadow-primary/30' : 'border-white/40 text-transparent group-hover:border-white/70') : ((task.completed || isCompleting) ? 'bg-primary border-primary text-white scale-105' : 'border-white/30 text-transparent group-hover:border-white/60')}`}>
+                            <span className="material-symbols-outlined text-xs font-bold">check</span>
+                        </div>
+                        <div className="flex flex-col justify-center flex-1 min-w-0">
+                            <h4 className={`${hideDateSubtitle ? 'text-[10.5px] md:text-[11.5px]' : 'text-xs md:text-[13px]'} text-cream-light font-montserrat font-semibold tracking-wide leading-snug transition-all duration-300 line-clamp-2 overflow-hidden ${(task.completed || isCompleting) ? 'line-through decoration-primary/50 opacity-60' : isPressed || isLongPressing ? 'text-primary' : 'group-hover:text-primary'} ${isOverdue && !(task.completed || isCompleting) ? 'text-red-400' : ''}`}>
+                                {formatTaskText(task.text)}
+                            </h4>
+                            {hideDateSubtitle ? (
+                                task.dueTime && (
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                        <p className={`text-[8.5px] md:text-[9.5px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1 transition-opacity ${isOverdue && !(task.completed || isCompleting) ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
+                                            <span className="material-symbols-outlined text-[9px] md:text-[10px]">schedule</span>
+                                            {formatTime(task.dueTime)}
+                                        </p>
+                                    </div>
+                                )
+                            ) : (
+                                dueDateStr && (
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                        <p className={`text-[8.5px] md:text-[9.5px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1 transition-opacity ${isOverdue && !(task.completed || isCompleting) ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
+                                            <span className="material-symbols-outlined text-[9px] md:text-[10px]">event</span>
+                                            {dueDateStr}
+                                        </p>
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    </div>
+                    {task.progress > 0 && !(task.completed || isCompleting) && (
+                        <div className="flex flex-col items-end gap-0.5 shrink-0 px-2 pointer-events-none">
+                            <span className="text-[9px] font-montserrat font-bold text-white/50">{task.progress}%</span>
+                            <div className="w-12 md:w-14 h-1 bg-white/10 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-primary rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(249,115,22,0.4)]"
+                                    style={{ width: `${task.progress}%` }}
+                                ></div>
                             </div>
                         </div>
-                        {task.progress > 0 && !task.completed && (
-                            <div className="flex flex-col items-end gap-0.5 shrink-0 px-2 pointer-events-none">
-                                <span className="text-[9px] font-montserrat font-bold text-white/50">{task.progress}%</span>
-                                <div className="w-12 md:w-14 h-1 bg-white/10 rounded-full overflow-hidden">
-                                    <div 
-                                        className="h-full bg-primary rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(249,115,22,0.4)]"
-                                        style={{ width: `${task.progress}%` }}
-                                    ></div>
-                                </div>
-                            </div>
-                        )}
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
-                            className="opacity-60 md:opacity-0 group-hover:opacity-100 p-1.5 md:p-2 -mr-1 text-white/40 hover:text-red-400 transition-all duration-200 pointer-events-auto transform hover:scale-110 flex-shrink-0 self-center"
-                            title="Delete Task"
-                        >
-                            <span className="material-symbols-outlined text-lg md:text-xl">delete</span>
-                        </button>
+                    )}
+                    {/* (2026-07-13) Close inner card and outer wrapper divs. Prev: missing div */}
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
+                        className="opacity-60 md:opacity-0 group-hover:opacity-100 p-1.5 md:p-2 -mr-1 text-white/40 hover:text-red-400 transition-all duration-200 pointer-events-auto transform hover:scale-110 flex-shrink-0 self-center"
+                        style={{ opacity: Math.abs(swipeOffset) > 10 ? 0 : undefined }}
+                        title="Delete Task"
+                    >
+                        <span className="material-symbols-outlined text-lg md:text-xl">delete</span>
+                    </button>
                     </div>
                 </div>
             );
@@ -6077,6 +6115,8 @@
                     return true;
                 }
             });
+            // (2026-07-13) Track IDs mid-completion for fade-out anim. Prev: none
+            const [completingIds, setCompletingIds] = useState(new Set());
 
             const [categoryVersion, setCategoryVersion] = useState(0);
             React.useEffect(() => {
@@ -6279,7 +6319,14 @@
                                                             e.preventDefault();
                                                             if (onEditQuickTask) onEditQuickTask(task);
                                                         }}
-                                                        className={`qt-notepad-item flex items-start justify-between gap-2.5 py-0.5 px-1.5 rounded-lg hover:bg-white/[0.03] cursor-pointer select-none transition-all group ${task.completed ? 'opacity-40' : ''}`}
+                                                        className={`qt-notepad-item flex items-start justify-between gap-2.5 py-0.5 px-1.5 rounded-lg hover:bg-white/[0.03] cursor-pointer select-none group`}
+                                                        style={{
+                                                            // (2026-07-13) Gray-out only, no collapse, then onToggle moves it. Prev: collapse
+                                                            opacity: completingIds.has(task.id) ? 0.35 : (task.completed ? 0.4 : 1),
+                                                            filter: completingIds.has(task.id) ? 'grayscale(0.6)' : undefined,
+                                                            pointerEvents: completingIds.has(task.id) ? 'none' : undefined,
+                                                            transition: 'opacity 0.3s ease, filter 0.3s ease'
+                                                        }}
                                                     >
                                                         <div 
                                                             className="flex items-start gap-2.5 min-w-0 flex-1"
@@ -6289,7 +6336,16 @@
                                                                     e.stopPropagation();
                                                                     return;
                                                                 }
-                                                                onToggle && onToggle(task.id);
+                                                                if (!task.completed && onToggle) {
+                                                                    // (2026-07-13) 1.5s gray-out then move. Prev: 1.2s collapse
+                                                                    setCompletingIds(prev => new Set(prev).add(task.id));
+                                                                    setTimeout(() => {
+                                                                        onToggle(task.id);
+                                                                        setCompletingIds(prev => { const n = new Set(prev); n.delete(task.id); return n; });
+                                                                    }, 1500);
+                                                                } else if (onToggle) {
+                                                                    onToggle(task.id);
+                                                                }
                                                             }}
                                                         >
                                                             <div className={`qt-notepad-checkbox w-5 h-5 flex items-center justify-center flex-shrink-0 ${task.completed ? 'checked' : (isInProgress ? 'in-progress' : '')}`}>
@@ -12465,7 +12521,8 @@
         };
 
         // (2026-07-13) Support quickTasks prop in QuickTaskModal. Prev: no quickTasks
-        const QuickTaskModal = ({ onClose, onAdd, onDelete = null, initialData = null, showToast, prefillDate = null, quickTasks = [] }) => {
+        // (2026-08-24) Support prefillCategory to auto-set category from filter. Prev: none
+        const QuickTaskModal = ({ onClose, onAdd, onDelete = null, initialData = null, showToast, prefillDate = null, prefillCategory = null, quickTasks = [] }) => {
             const getTomorrow = () => {
                 const d = new Date();
                 d.setDate(d.getDate() + 1);
@@ -12583,24 +12640,29 @@
                 }
 
                 // 3. Detect Relative Entities (tomorrow, next week, wed, thu, thur)
+                // (2026-08-24) Added Bisaya language support: ugma, unya, karon, this week, lunes-domingo
                 const relativePatterns = [
-                    { regex: /\btomorrow\b/i, offset: 1 },
-                    { regex: /\bnext week\b/i, offset: 7 },
-                    { regex: /\b(?:next\s+)?(monday|mon|tuesday|tue|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun)\b/i }
+                    { regex: /\b(tomorrow|ugma)\b/i, offset: 1 },
+                    { regex: /\b(next week|this week)\b/i, offset: 7 },
+                    { regex: /\b(now|karon|unya)\b/i, offset: 0 }, // Today
+                    { regex: /\b(?:next\s+)?(monday|mon|lunes|tuesday|tue|martes|wednesday|wed|merkules|thursday|thu|thur|thurs|huybes|friday|fri|birnes|saturday|sat|sabado|sunday|sun|domingo)\b/i }
                 ];
 
                 for (const p of relativePatterns) {
                     let match = p.regex.exec(lower);
                     if (match) {
                         const target = new Date();
-                        if (p.offset) {
+                        if (p.offset !== undefined) {
                             target.setDate(now.getDate() + p.offset);
                         } else {
+                            // (2026-08-24) Extended weekday mapping with Bisaya days
                             const weekdays = { 
-                                sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, thur: 4, thurs: 4, fri: 5, sat: 6, 
+                                sun: 0, domingo: 0, mon: 1, lunes: 1, tue: 2, martes: 2, wed: 3, merkules: 3, 
+                                thu: 4, thur: 4, thurs: 4, huybes: 4, fri: 5, birnes: 5, sat: 6, sabado: 6,
                                 sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 
                             };
-                            const targetDay = weekdays[match[1].toLowerCase()];
+                            const dayName = match[1].toLowerCase();
+                            const targetDay = weekdays[dayName];
                             // Calculate days until next occurrence
                             let diff = (targetDay + 7 - now.getDay()) % 7;
                             // If it's today, move to next week for "closest future"
@@ -12667,11 +12729,14 @@
             const initialLater = getLaterTiming();
 
             // (2026-07-13) Multi-category selection & storage. Prev: single category
+            // (2026-08-24) Auto-set category from prefillCategory if provided. Prev: empty or initial data only
             const [categories, setCategories] = useState(() => {
                 if (initialData) {
                     if (Array.isArray(initialData.categories) && initialData.categories.length) return initialData.categories;
                     if (initialData.category) return [initialData.category];
                 }
+                // Auto-set from prefillCategory
+                if (prefillCategory) return [prefillCategory];
                 return [];
             });
             // (2026-07-13) 1 sample category badge for new accounts. Prev: empty array
@@ -13748,11 +13813,12 @@
                         transition: isDragging ? 'none' : (isDismissing ? 'transform 0.22s cubic-bezier(0.4, 0, 1, 1), opacity 0.22s cubic-bezier(0.4, 0, 1, 1)' : (isAutoFading ? 'transform 0.5s cubic-bezier(0.4, 0, 0.6, 1), opacity 0.5s cubic-bezier(0.4, 0, 0.6, 1)' : 'transform 0.18s ease, opacity 0.18s ease'))
                     }}
                 >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1 pointer-events-none">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 pointer-events-none" style={{ overflow: 'hidden' }}>
                         <span className="material-symbols-outlined flex-shrink-0" style={{ color: '#f97316', fontSize: '20px', fontWeight: '400' }}>
                             {toast.message && (toast.message.toLowerCase().includes('trash') || toast.message.toLowerCase().includes('delete')) ? 'delete' : 'check_circle'}
                         </span>
-                        <span className="truncate" style={{ fontSize: '13.5px', fontWeight: '500', color: '#fff', letterSpacing: '0.01em' }}>{toast.message}</span>
+                        {/* (2026-07-13) 1-line truncation Sta...end. Prev: word-break wrap */}
+                        <span style={{ fontSize: '13.5px', fontWeight: '500', color: '#fff', letterSpacing: '0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', minWidth: 0 }}>{toast.message}</span>
                     </div>
                     {toast.action && (
                         <button 
@@ -13780,14 +13846,16 @@
             );
         };
 
-        // (2026-07-13) Swipe-down-to-dismiss task snackbar component. Prev: static div
+        // (2026-07-13) Swipe-down fade-out dismiss snackbar. Prev: instant translateY only
         const TaskSnackbarItem = ({ snack, onDismiss }) => {
             const [dragY, setDragY] = useState(0);
             const [isDragging, setIsDragging] = useState(false);
+            const [isDismissing, setIsDismissing] = useState(false);
             const startYRef = useRef(0);
             const currentYRef = useRef(0);
 
             const handleStart = (e) => {
+                if (isDismissing) return;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                 startYRef.current = clientY;
                 currentYRef.current = clientY;
@@ -13795,7 +13863,7 @@
             };
 
             const handleMove = (e) => {
-                if (!startYRef.current) return;
+                if (!startYRef.current || isDismissing) return;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                 currentYRef.current = clientY;
                 const diff = currentYRef.current - startYRef.current;
@@ -13807,16 +13875,23 @@
             const handleEnd = () => {
                 const diff = currentYRef.current - startYRef.current;
                 if (diff > 25) {
-                    setDragY(100);
-                    setTimeout(() => {
-                        onDismiss(snack.id);
-                    }, 120);
+                    // (2026-07-13) Fade-out then dismiss. Prev: abrupt jump to 100px
+                    setIsDismissing(true);
+                    setDragY(80);
+                    setTimeout(() => onDismiss(snack.id), 300);
                 } else {
                     setDragY(0);
                 }
                 setIsDragging(false);
                 startYRef.current = 0;
                 currentYRef.current = 0;
+            };
+
+            // (2026-07-13) Truncate message to start...end 1-line. Prev: word-break wrap
+            const truncateMsg = (msg) => {
+                if (!msg) return '';
+                if (msg.length <= 40) return msg;
+                return msg.slice(0, 22) + '...' + msg.slice(-10);
             };
 
             return (
@@ -13830,18 +13905,18 @@
                     onMouseUp={handleEnd}
                     className="task-snackbar group select-none cursor-grab active:cursor-grabbing"
                     style={{
-                        pointerEvents: 'auto',
+                        pointerEvents: isDismissing ? 'none' : 'auto',
                         touchAction: 'none',
-                        transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
-                        opacity: dragY > 0 ? Math.max(0, 1 - dragY / 80) : undefined,
-                        transition: isDragging ? 'none' : 'transform 0.2s ease, opacity 0.2s ease'
+                        transform: dragY > 0 ? `translateY(${dragY}px) scale(${Math.max(0.93, 1 - dragY / 500)})` : undefined,
+                        opacity: isDismissing ? 0 : (dragY > 0 ? Math.max(0, 1 - dragY / 60) : undefined),
+                        transition: isDragging ? 'none' : (isDismissing ? 'transform 0.3s cubic-bezier(0.4,0,1,1), opacity 0.3s cubic-bezier(0.4,0,0.6,1)' : 'transform 0.2s ease, opacity 0.2s ease')
                     }}
                 >
-                    <div className="flex items-center gap-3 pointer-events-none min-w-0">
+                    <div className="flex items-center gap-3 pointer-events-none flex-1" style={{ overflow: 'hidden', minWidth: 0 }}>
                         <span className="material-symbols-outlined text-primary text-xl flex-shrink-0">
                             {snack.message && snack.message.includes('deleted') ? 'delete' : 'check_circle'}
                         </span>
-                        <span className="text-sm font-medium truncate">{snack.message}</span>
+                        <span className="text-sm font-medium" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', minWidth: 0 }}>{snack.message}</span>
                     </div>
                     <button 
                         type="button"
@@ -16197,7 +16272,7 @@
 
             // (2026-07-13) Restore lastProgress when unchecking task. Prev: reset to 0
             // (2026-08-24) Show toast before state update to ensure visibility. Prev: toast after update
-            // (2026-08-24) Shorter task name to always show full action text. Prev: longer truncation
+            // (2026-08-24) Shorter name for "marked active" to show full text. Prev: same length as completed
             const handleToggleQuickTask = (id) => {
                 const targetIndex = quickTasks.findIndex(t => t.id === id);
                 if (targetIndex > -1) {
@@ -16225,23 +16300,14 @@
                     };
                     updated[targetIndex] = updatedTask;
                     
-                    // Get task name with start+end visible, short enough to show full action
+                    // (2026-07-13) Full task name in completion toast. Prev: start...end slice
                     const taskName = (original.text || 'Task').trim();
-                    let displayName;
-                    if (taskName.length > 22) {
-                        // Show first ~10 chars + "..." + last ~7 chars
-                        const start = taskName.slice(0, 10);
-                        const end = taskName.slice(-7);
-                        displayName = `${start}...${end}`;
-                    } else {
-                        displayName = taskName;
-                    }
+                    const displayName = taskName;
                     
                     // Show toast FIRST before updating state to ensure it's visible
                     if (updatedTask.completed) {
                         FaioraNotifications.playCheckSFX();
                         FaioraNotifications.cancelForTask(id);
-                        // (2026-08-24) Show start+end of task name. Prev: truncate end only
                         showToast(`Task "${displayName}" completed`, {
                             label: 'UNDO',
                             onClick: () => {
@@ -16255,7 +16321,6 @@
                             }
                         });
                     } else {
-                        // (2026-08-24) Show start+end of task name. Prev: truncate end only
                         showToast(`Task "${displayName}" marked active`, {
                             label: 'UNDO',
                             onClick: () => {
@@ -16311,6 +16376,7 @@
             const handleCloseQuickTaskModal = useCallback(() => {
                 setIsQuickTaskModalOpen(false);
                 setPrefillDate(null);
+                setPrefillCategory(null);
                 if (window.history.state && (window.history.state.modal === 'quickTask' || window.history.state.modal === 'quicktask')) {
                     closingViaCode.current = true;
                     window.history.back();
@@ -17051,10 +17117,11 @@
                             }}
                          />
                      )}
-                    {/* (2026-07-13) Pass quickTasks to QuickTaskModal for PRIO calculation. Prev: none */}
+                    {/* (2026-08-24) Pass prefillCategory to auto-set category from filter. Prev: none */}
                     {isQuickTaskModalOpen && (
                         <QuickTaskModal 
                             prefillDate={prefillDate}
+                            prefillCategory={prefillCategory}
                             onClose={handleCloseQuickTaskModal} 
                             onAdd={handleAddQuickTask} 
                             showToast={showToast} 
@@ -17097,13 +17164,13 @@
                         />,
                         document.body
                     )}
-                    {/* (2026-08-24) Latest toast at bottom, max 3 toasts. Prev: column-reverse layout */}
+                    {/* (2026-08-24) Responsive centered toast container max-w-lg. Prev: 100% stretch */}
                     {typeof document !== 'undefined' && ReactDOM.createPortal(
                         <div style={{
                             position: 'fixed',
                             bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
-                            left: '0',
-                            right: '0',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
                             zIndex: 99999,
                             display: 'flex',
                             flexDirection: 'column',
@@ -17111,8 +17178,8 @@
                             justifyContent: 'flex-end',
                             gap: '10px',
                             pointerEvents: 'none',
-                            width: '100%',
-                            padding: '0 16px',
+                            width: 'calc(100% - 32px)',
+                            maxWidth: '480px',
                             boxSizing: 'border-box'
                         }}>
                             {toasts.slice(-3).map(toast => (
@@ -17127,8 +17194,8 @@
                     )}
 
                     {/* Task Snackbars */}
-                    {/* (2026-08-24) Inline styles for APK reliability. Prev: Tailwind-only z-[20000] */}
-                    <div style={{ position:'fixed', bottom:'calc(96px + env(safe-area-inset-bottom,0px))', left:'50%', transform:'translateX(-50%)', zIndex:99998, display:'flex', flexDirection:'column-reverse', gap:'12px', pointerEvents:'none', width:'100%', maxWidth:'384px', padding:'0 16px' }}>
+                    {/* (2026-08-24) Responsive max-width 480px centered. Prev: 384px */}
+                    <div style={{ position:'fixed', bottom:'calc(96px + env(safe-area-inset-bottom,0px))', left:'50%', transform:'translateX(-50%)', zIndex:99998, display:'flex', flexDirection:'column-reverse', gap:'12px', pointerEvents:'none', width:'calc(100% - 32px)', maxWidth:'480px', boxSizing:'border-box' }}>
                         <style>{`
                             .task-snackbar {
                                 background: rgba(15, 23, 42, 0.9);
