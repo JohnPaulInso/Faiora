@@ -71,7 +71,7 @@ if (-not $apkFile) {
 
 $apkPath = $apkFile.FullName
 $apkSize = [math]::Round($apkFile.Length / 1MB, 2)
-$apkDate = $apkFile.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
+$apkDate = $apkFile.LastWriteTime.ToString("MMM dd, yyyy - hh:mmtt")
 
 Write-Host "Found APK: $($apkFile.Name)" -ForegroundColor Green
 Write-Host "  Size: ${apkSize} MB" -ForegroundColor Gray
@@ -82,62 +82,35 @@ Write-Host "`nUploading to Telegram..." -ForegroundColor Cyan
 
 $apiUrl = "https://api.telegram.org/bot$BOT_TOKEN/sendDocument"
 
-# Create caption with build info
-$caption = "🚀 Faiora APK Build`n📅 $apkDate`n📦 ${apkSize} MB"
-
-# Prepare multipart form data
-$boundary = [System.Guid]::NewGuid().ToString()
-$LF = "`r`n"
-
-$bodyLines = (
-    "--$boundary",
-    "Content-Disposition: form-data; name=`"chat_id`"$LF",
-    $CHAT_ID,
-    "--$boundary",
-    "Content-Disposition: form-data; name=`"caption`"$LF",
-    $caption,
-    "--$boundary",
-    "Content-Disposition: form-data; name=`"document`"; filename=`"$($apkFile.Name)`"",
-    "Content-Type: application/vnd.android.package-archive$LF"
-) -join $LF
-
-$fileBytes = [System.IO.File]::ReadAllBytes($apkPath)
-
-$bodyLinesBytes = [System.Text.Encoding]::UTF8.GetBytes($bodyLines)
-$boundaryBytes = [System.Text.Encoding]::UTF8.GetBytes("$LF--$boundary--$LF")
-
-# Combine all parts
-$requestBody = New-Object System.Collections.Generic.List[byte]
-$requestBody.AddRange($bodyLinesBytes)
-$requestBody.AddRange($fileBytes)
-$requestBody.AddRange($boundaryBytes)
+# Use curl for better handling of large files
+$curlArgs = @(
+    "-X", "POST",
+    "-F", "chat_id=$CHAT_ID",
+    "-F", "caption=Faiora APK - $apkDate",
+    "-F", "document=@`"$apkPath`"",
+    $apiUrl
+)
 
 try {
-    $response = Invoke-WebRequest -Uri $apiUrl `
-        -Method Post `
-        -ContentType "multipart/form-data; boundary=$boundary" `
-        -Body $requestBody.ToArray() `
-        -TimeoutSec 300
-
-    if ($response.StatusCode -eq 200) {
+    $result = & curl.exe @curlArgs 2>&1
+    $exitCode = $LASTEXITCODE
+    
+    if ($exitCode -eq 0) {
         Write-Host "`n============================================" -ForegroundColor DarkGray
-        Write-Host " UPLOAD SUCCESSFUL ✓" -ForegroundColor Green
+        Write-Host " UPLOAD SUCCESSFUL" -ForegroundColor Green
         Write-Host "============================================" -ForegroundColor DarkGray
         Write-Host "APK uploaded to your Telegram channel!" -ForegroundColor Green
     } else {
-        Write-Host "Upload failed with status: $($response.StatusCode)" -ForegroundColor Red
-        Write-Host $response.Content
+        Write-Host "Upload failed!" -ForegroundColor Red
+        Write-Host $result
+        Write-Host "`nOpening APK folder for manual upload..." -ForegroundColor Yellow
+        Start-Process explorer.exe -ArgumentList $apkDir
         exit 1
     }
 } catch {
     Write-Host "`nUpload failed!" -ForegroundColor Red
     Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
-    
-    if ($_.Exception.Response) {
-        $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-        $responseBody = $reader.ReadToEnd()
-        Write-Host "Response: $responseBody" -ForegroundColor Red
-    }
-    
+    Write-Host "`nOpening APK folder for manual upload..." -ForegroundColor Yellow
+    Start-Process explorer.exe -ArgumentList $apkDir
     exit 1
 }

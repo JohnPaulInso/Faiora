@@ -46,5 +46,9 @@ if ($hasTelegramEnv -or $hasTelegramConfig) {
     Write-Host "`n[4/4] Uploading to Telegram..." -ForegroundColor Cyan
     & "$root\upload_telegram.ps1"
 } else {
-    Write-Host "`nTip: Set up Telegram auto-upload by running: .\upload_telegram.ps1" -ForegroundColor Gray
+    Write-Host "`nTip: Opening APK folder..." -ForegroundColor Gray
+    $apkDir = "$root\android\app\build\outputs\apk\debug"
+    if (Test-Path $apkDir) {
+        Start-Process explorer.exe -ArgumentList $apkDir
+    }
 }
