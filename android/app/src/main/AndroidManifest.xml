@@ -51,10 +51,10 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
-        <!-- (2026-07-13) Set default FCM notification icon to flame. Prev: unset -->
+        <!-- (2026-08-24) Point FCM icon to actual Faiora logo PNG. Prev: ic_stat_faiora generic flame -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/ic_stat_faiora" />
+            android:resource="@drawable/ic_notification_logo" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
             android:value="#f97316" />

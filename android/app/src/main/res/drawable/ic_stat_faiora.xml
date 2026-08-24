@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- (2026-07-13) Faiora flame vector for notification icon. Prev: droplet -->
+<!-- (2026-07-13) Faiora flame vector (fallback). Not used as default_notification_icon — see ic_notification_logo -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
