@@ -641,34 +641,35 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
 
 /* (2026-07-13) High visibility toast-pill with guaranteed opacity. Prev: opacity 0 */
 .toast-pill {
-    background: #0f172a;
-    color: #fff7ed;
-    padding: 10px 18px;
-    border-radius: 24px;
-    font-size: 0.85rem;
-    font-weight: 600;
+    background: rgba(15, 23, 42, 0.85);
+    color: #fff;
+    padding: 14px 18px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 14px;
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85), 0 0 15px rgba(249, 115, 22, 0.25);
-    border: 1.5px solid rgba(249, 115, 22, 0.5);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     font-family: 'Montserrat', sans-serif;
     opacity: 1;
-    max-width: min(calc(100vw - 24px), 420px);
-    width: max-content;
+    width: calc(100% - 32px);
+    max-width: calc(100vw - 32px);
     margin: 0 auto;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     white-space: nowrap;
-    text-align: center;
-    animation: toast-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    text-align: left;
+    animation: toast-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    min-height: 48px;
 }
 
 @keyframes toast-enter {
     0% {
         opacity: 0;
-        transform: translateY(20px) scale(0.94);
+        transform: translateY(10px) scale(0.96);
     }
     100% {
         opacity: 1;
@@ -678,17 +679,19 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
 
 @media (max-width: 767px) {
     .toast-container {
-        width: auto;
-        max-width: calc(100vw - 20px);
+        width: 100%;
+        max-width: 100%;
         bottom: calc(env(safe-area-inset-bottom, 0px) + 6.85rem);
+        padding: 0 16px;
     }
 
     .toast-pill {
-        width: max-content;
-        max-width: min(calc(100vw - 20px), 360px);
-        justify-content: center;
-        font-size: 0.74rem;
-        padding: 10px 14px;
+        width: 100%;
+        max-width: 100%;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        padding: 20px 16px;
+        min-height: 52px;
     }
 }
 

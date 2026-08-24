@@ -74,15 +74,15 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
 
     <!-- Fonts -->
-    <!-- (2026-07-13) Preload offline icon font for 0ms render. Prev: CDN swap -->
-    <!-- (2026-08-24) Add dns-prefetch/preconnect for Google Fonts LCP. Prev: none -->
+    <!-- (2026-08-24) Optimize font loading for LCP. Prev: blocking render -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="dns-prefetch" href="https://www.gstatic.com">
     <link rel="preload" href="assets/fonts/material-symbols-outlined.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" media="print" onload="this.media='all'">
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" rel="stylesheet">
 
     <script id="tailwind-config">
         // (2026-07-13) Wrap hover in hoverOnlyWhenSupported. Prev: sticky hover
@@ -7340,8 +7340,14 @@
                 return new Promise(resolve => setTimeout(resolve, 1200));
             };
 
+            const handleFabClick = () => {
+                // Pass selected category if not "ALL"
+                const categoryToPass = selectedCategory !== 'ALL' ? selectedCategory : null;
+                onAddQuickTaskClick(categoryToPass);
+            };
+
             return (
-                <Layout onOpenCreator={onOpenCreator} onFabClick={onAddQuickTaskClick} onRefresh={handleRefresh} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
+                <Layout onOpenCreator={onOpenCreator} onFabClick={handleFabClick} onRefresh={handleRefresh} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
                     <div className="max-w-7xl mx-auto w-full px-0 md:px-12 pt-0 pb-12">
                         {/* (2026-07-13) Fix mobile header gap consistency. Prev: py-4 mb-6 + mt-20 */}
                         <div className="md:py-4 md:px-0 md:mb-6">
@@ -9832,8 +9838,13 @@
                 { key: 'completed', label: 'Finished', items: completedTasksSorted.slice(0, finishedLimit), totalCount: completedTasksSorted.length }
             ];
 
+            const handleFabClick = () => {
+                const categoryToPass = selectedCategory !== 'ALL' ? selectedCategory : null;
+                onAddQuickTaskClick(categoryToPass);
+            };
+
             return (
-                <Layout onOpenCreator={onOpenCreator} onFabClick={onAddQuickTaskClick} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
+                <Layout onOpenCreator={onOpenCreator} onFabClick={handleFabClick} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
                     <div className="max-w-6xl mx-auto w-full px-4 md:px-8 pt-0 pb-12">
                         {/* (2026-07-13) Fix mobile header gap consistency. Prev: py-4 mb-6 + mt-20 */}
                         <div className="md:py-4 md:px-8 md:mb-6">
@@ -13665,11 +13676,26 @@
         );
 
         // (2026-07-13) Swipe-down-to-dismiss toast pill component. Prev: static div
+        // (2026-08-24) Auto fade-out after 4.5s, dismiss at 5s. Prev: instant dismiss
         const ToastPill = ({ toast, onDismiss }) => {
             const [dragY, setDragY] = useState(0);
             const [isDragging, setIsDragging] = useState(false);
+            const [isDismissing, setIsDismissing] = useState(false);
+            const [isAutoFading, setIsAutoFading] = useState(false);
             const startYRef = useRef(0);
             const currentYRef = useRef(0);
+            const fadeTimerRef = useRef(null);
+
+            useEffect(() => {
+                // Start auto fade-out at 4.5s (500ms before removal)
+                fadeTimerRef.current = setTimeout(() => {
+                    setIsAutoFading(true);
+                }, 4500);
+
+                return () => {
+                    if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+                };
+            }, []);
 
             const handleStart = (e) => {
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -13691,10 +13717,11 @@
             const handleEnd = () => {
                 const diff = currentYRef.current - startYRef.current;
                 if (diff > 25) {
+                    setIsDismissing(true);
                     setDragY(100);
                     setTimeout(() => {
                         onDismiss(toast.id);
-                    }, 120);
+                    }, 220);
                 } else {
                     setDragY(0);
                 }
@@ -13712,23 +13739,21 @@
                     onMouseDown={handleStart}
                     onMouseMove={(e) => { if (isDragging) handleMove(e); }}
                     onMouseUp={handleEnd}
-                    className="toast-pill flex items-center justify-between gap-3 select-none cursor-grab active:cursor-grabbing"
+                    className="toast-pill flex items-center justify-between select-none cursor-grab active:cursor-grabbing"
                     style={{
                         pointerEvents: 'auto',
                         touchAction: 'none',
-                        transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
-                        opacity: dragY > 0 ? Math.max(0, 1 - dragY / 70) : undefined,
-                        transition: isDragging ? 'none' : 'transform 0.2s ease, opacity 0.2s ease'
+                        transform: dragY > 0 ? `translateY(${dragY}px) scale(${Math.max(0.92, 1 - dragY / 400)})` : (isAutoFading ? 'translateY(10px) scale(0.96)' : undefined),
+                        opacity: dragY > 0 ? Math.max(0, 1 - dragY / 60) : (isAutoFading ? 0 : undefined),
+                        transition: isDragging ? 'none' : (isDismissing ? 'transform 0.22s cubic-bezier(0.4, 0, 1, 1), opacity 0.22s cubic-bezier(0.4, 0, 1, 1)' : (isAutoFading ? 'transform 0.5s cubic-bezier(0.4, 0, 0.6, 1), opacity 0.5s cubic-bezier(0.4, 0, 0.6, 1)' : 'transform 0.18s ease, opacity 0.18s ease'))
                     }}
                 >
-                    <div className="flex items-center gap-2 min-w-0 pointer-events-none">
-                        {/* (2026-07-13) Context icon for delete vs check. Prev: check only */}
-                        <span className="material-symbols-outlined text-primary text-xl flex-shrink-0">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 pointer-events-none">
+                        <span className="material-symbols-outlined flex-shrink-0" style={{ color: '#f97316', fontSize: '20px', fontWeight: '400' }}>
                             {toast.message && (toast.message.toLowerCase().includes('trash') || toast.message.toLowerCase().includes('delete')) ? 'delete' : 'check_circle'}
                         </span>
-                        <span className="truncate">{toast.message}</span>
+                        <span className="truncate" style={{ fontSize: '13.5px', fontWeight: '500', color: '#fff', letterSpacing: '0.01em' }}>{toast.message}</span>
                     </div>
-                    {/* (2026-07-13) High-contrast UNDO button. Prev: low-contrast outline */}
                     {toast.action && (
                         <button 
                             type="button"
@@ -13737,7 +13762,16 @@
                                 try { toast.action.onClick(); } catch (err) { console.error(err); }
                                 onDismiss(toast.id);
                             }}
-                            className="px-3.5 py-1 text-xs font-black font-montserrat uppercase tracking-wider text-slate-950 bg-amber-400 hover:bg-amber-300 active:scale-95 rounded-lg transition-all flex-shrink-0 pointer-events-auto shadow-md shadow-amber-500/30"
+                            className="font-montserrat uppercase tracking-wider flex-shrink-0 pointer-events-auto transition-opacity active:opacity-70"
+                            style={{
+                                padding: '0',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                color: '#f97316',
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer'
+                            }}
                         >
                             {toast.action.label || 'UNDO'}
                         </button>
@@ -13898,6 +13932,7 @@
             const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
             const [editingQuickTask, setEditingQuickTask] = useState(null);
             const [prefillDate, setPrefillDate] = useState(null);
+            const [prefillCategory, setPrefillCategory] = useState(null);
             const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
             const [sharedNotes, setSharedNotes] = useState([]);
             const [publicNote, setPublicNote] = useState(null);
@@ -13910,9 +13945,10 @@
                 if (settingsData?.bgVideoEnabled === false) return;
                 const isMobileDevice = typeof window !== 'undefined' && (window.innerWidth < 768 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
                 const targetSrc = isMobileDevice ? "fire_bg_video_hd_mobile.mp4" : "fire_bg_video_hd_desktop_tablet.mp4";
+                // (2026-08-24) Delay video load to 5s for better LCP. Prev: 3s
                 const timer = setTimeout(() => {
                     setVideoSrc(targetSrc);
-                }, 3000);
+                }, 5000);
                 return () => clearTimeout(timer);
             }, [settingsData?.bgVideoEnabled]);
             const [gamification, setGamification] = useState({ currentStreak: 0, longestStreak: 0, lastLoginDate: null, rewards: [] });
@@ -13959,13 +13995,14 @@
             const [activeAlarmAlert, setActiveAlarmAlert] = useState(null);
             const [isTransitioning, setIsTransitioning] = useState(false);
             // (2026-07-13) Support action callback in toast for undo. Prev: text only
+            // (2026-08-24) Auto-dismiss after 5 seconds with fade-out. Prev: 3-4.5 seconds
             const showToast = useCallback((message, action = null) => {
                 if (!message) return;
                 const id = Date.now() + Math.random();
-                setToasts(prev => [...prev.slice(-1), { id, message, action }]);
+                setToasts(prev => [...prev.slice(-2), { id, message, action }]);
                 setTimeout(() => {
                     setToasts(prev => prev.filter(t => t.id !== id));
-                }, action ? 4500 : 3000);
+                }, 5000);
             }, []);
             // (2026-07-13) Guard alarm permission state update. Prev: unconditional setter
             const refreshAlarmOverlayPermission = useCallback(() => {
@@ -16014,8 +16051,17 @@
                 const updatedTrash = [nextTrashTask, ...trashQuickTasksRef.current.filter(task => task.id !== id)];
                 handleUpdateQuickTasks(updated, updatedTrash);
                 
-                // (2026-07-13) Use showToast with undo for deleting task. Prev: addTaskSnackbar
-                showToast("Task moved to Trash", {
+                // (2026-08-24) Shorter task name to show full "moved to Trash" text. Prev: longer truncation
+                const taskName = (taskToDelete.text || 'Task').trim();
+                let displayName;
+                if (taskName.length > 22) {
+                    const start = taskName.slice(0, 10);
+                    const end = taskName.slice(-7);
+                    displayName = `${start}...${end}`;
+                } else {
+                    displayName = taskName;
+                }
+                showToast(`Task "${displayName}" moved to Trash`, {
                     label: 'UNDO',
                     onClick: () => {
                         const restored = [taskToDelete, ...quickTasksRef.current];
@@ -16150,6 +16196,8 @@
             };
 
             // (2026-07-13) Restore lastProgress when unchecking task. Prev: reset to 0
+            // (2026-08-24) Show toast before state update to ensure visibility. Prev: toast after update
+            // (2026-08-24) Shorter task name to always show full action text. Prev: longer truncation
             const handleToggleQuickTask = (id) => {
                 const targetIndex = quickTasks.findIndex(t => t.id === id);
                 if (targetIndex > -1) {
@@ -16176,13 +16224,25 @@
                         completedAt: nextCompleted ? Date.now() : null
                     };
                     updated[targetIndex] = updatedTask;
-                    handleUpdateQuickTasks(updated);
-                    syncQuickTaskToNotes(id, updatedTask.completed);
+                    
+                    // Get task name with start+end visible, short enough to show full action
+                    const taskName = (original.text || 'Task').trim();
+                    let displayName;
+                    if (taskName.length > 22) {
+                        // Show first ~10 chars + "..." + last ~7 chars
+                        const start = taskName.slice(0, 10);
+                        const end = taskName.slice(-7);
+                        displayName = `${start}...${end}`;
+                    } else {
+                        displayName = taskName;
+                    }
+                    
+                    // Show toast FIRST before updating state to ensure it's visible
                     if (updatedTask.completed) {
                         FaioraNotifications.playCheckSFX();
                         FaioraNotifications.cancelForTask(id);
-                        // (2026-07-13) Show undo toast for task completion. Prev: conditional check only
-                        showToast("Task completed", {
+                        // (2026-08-24) Show start+end of task name. Prev: truncate end only
+                        showToast(`Task "${displayName}" completed`, {
                             label: 'UNDO',
                             onClick: () => {
                                 const reverted = [...quickTasksRef.current];
@@ -16195,8 +16255,8 @@
                             }
                         });
                     } else {
-                        // (2026-07-13) Show undo toast for task uncheck. Prev: no toast
-                        showToast("Task marked active", {
+                        // (2026-08-24) Show start+end of task name. Prev: truncate end only
+                        showToast(`Task "${displayName}" marked active`, {
                             label: 'UNDO',
                             onClick: () => {
                                 const reverted = [...quickTasksRef.current];
@@ -16209,6 +16269,10 @@
                             }
                         });
                     }
+                    
+                    // Update state after toast is queued
+                    handleUpdateQuickTasks(updated);
+                    syncQuickTaskToNotes(id, updatedTask.completed);
                 }
             };
 
@@ -16237,8 +16301,9 @@
                 }
             }, []);
 
-            const handleOpenQuickTaskModal = useCallback((date = null) => {
+            const handleOpenQuickTaskModal = useCallback((date = null, prefillCategory = null) => {
                 setPrefillDate(date);
+                setPrefillCategory(prefillCategory);
                 setEditingQuickTask(null);
                 setIsQuickTaskModalOpen(true);
             }, []);
@@ -16916,7 +16981,7 @@
             return (
                 <HashRouter>
                     <FaioraErrorBoundary>
-                    {/* (2026-07-13) Fade in background video 3s after startup. Prev: instant load */}
+                    {/* (2026-08-24) Defer video load to improve LCP. Prev: load immediately */}
                     {videoSrc && (
                         <video 
                             ref={videoRef}
@@ -16925,6 +16990,8 @@
                             loop 
                             muted 
                             playsInline
+                            preload="none"
+                            loading="lazy"
                             onPlaying={() => setIsVideoReady(true)}
                             onError={() => setIsVideoReady(false)}
                             src={videoSrc}
@@ -17030,7 +17097,7 @@
                         />,
                         document.body
                     )}
-                    {/* (2026-07-13) Perfectly centered toast portal container. Prev: left offset */}
+                    {/* (2026-08-24) Latest toast at bottom, max 3 toasts. Prev: column-reverse layout */}
                     {typeof document !== 'undefined' && ReactDOM.createPortal(
                         <div style={{
                             position: 'fixed',
@@ -17039,16 +17106,16 @@
                             right: '0',
                             zIndex: 99999,
                             display: 'flex',
-                            flexDirection: 'column-reverse',
+                            flexDirection: 'column',
                             alignItems: 'center',
-                            justifyContent: 'center',
+                            justifyContent: 'flex-end',
                             gap: '10px',
                             pointerEvents: 'none',
                             width: '100%',
                             padding: '0 16px',
                             boxSizing: 'border-box'
                         }}>
-                            {toasts.slice(-2).map(toast => (
+                            {toasts.slice(-3).map(toast => (
                                 <ToastPill
                                     key={toast.id}
                                     toast={toast}
