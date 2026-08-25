@@ -1893,9 +1893,32 @@
                 <Link 
                     to={to} 
                     onClick={createSparks}
-                    className={`nav-item-animation flex flex-col items-center justify-center group relative w-14 h-11 md:w-full md:aspect-square ${isActive(to) ? 'text-primary' : 'text-slate-500 hover:text-primary/70 scale-95 hover:scale-100'}`}
+                    onContextMenu={(e) => e.preventDefault()}
+                    onTouchStart={(e) => {
+                        // Disable long press by preventing context menu
+                        e.currentTarget.dataset.longPress = setTimeout(() => {
+                            e.currentTarget.dataset.preventClick = 'true';
+                        }, 500);
+                    }}
+                    onTouchEnd={(e) => {
+                        if (e.currentTarget.dataset.longPress) {
+                            clearTimeout(parseInt(e.currentTarget.dataset.longPress));
+                            delete e.currentTarget.dataset.longPress;
+                        }
+                        setTimeout(() => {
+                            delete e.currentTarget.dataset.preventClick;
+                        }, 50);
+                    }}
+                    onTouchCancel={(e) => {
+                        if (e.currentTarget.dataset.longPress) {
+                            clearTimeout(parseInt(e.currentTarget.dataset.longPress));
+                            delete e.currentTarget.dataset.longPress;
+                        }
+                    }}
+                    className={`nav-item-animation flex flex-col items-center justify-center group relative w-14 h-11 md:w-full md:aspect-square select-none ${isActive(to) ? 'text-primary' : 'text-slate-500 hover:text-primary/70 scale-95 hover:scale-100'}`}
+                    style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
                 >
-                    <span className="material-symbols-outlined text-2xl md:text-2xl" style={fillOnActive && isActive(to) ? {fontVariationSettings: '"FILL" 1'} : {}}>{icon}</span>
+                    <span className="material-symbols-outlined text-2xl md:text-2xl pointer-events-none" style={fillOnActive && isActive(to) ? {fontVariationSettings: '"FILL" 1'} : {}}>{icon}</span>
                     <span className="absolute left-full ml-4 px-3 py-1 bg-primary text-white text-[10px] font-bold uppercase tracking-widest rounded-lg opacity-0 -translate-x-4 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 hidden md:block whitespace-nowrap z-[100] shadow-xl">{label}</span>
                 </Link>
             );
@@ -14979,6 +15002,8 @@
             const videoRef = useRef();
             const prevPopState = useRef(0);
             const lastRoutePathRef = useRef((window.location.hash || '#/').replace(/^#/, '').split('?')[0] || '/');
+            const isRedirectingHome = useRef(false);
+            const lastHashChangeTime = useRef(0);
 
             // Ref to indicate if a modal was closed via code, to prevent double-handling by popstate
             const closingViaCode = useRef(false);
@@ -15034,6 +15059,8 @@
             const redirectToHomeFromBack = useCallback((alreadyAtHome = false) => {
                 prevPopState.current = 0;
                 lastRoutePathRef.current = '/';
+                isRedirectingHome.current = true;
+                lastHashChangeTime.current = Date.now();
                 if (!alreadyAtHome) {
                     window.location.hash = '#/';
                 }
@@ -15043,7 +15070,10 @@
                 } else {
                     setTimeout(syncToTop, 0);
                 }
-                window.history.pushState({ stayAlive: true }, '');
+                // Clear the redirecting flag after hash change completes
+                setTimeout(() => {
+                    isRedirectingHome.current = false;
+                }, 500);
             }, [scrollHomeToTop]);
 
             useEffect(() => {
@@ -15072,13 +15102,24 @@
 
             useEffect(() => {
                  const handleBackButton = () => {
+                     const now = Date.now();
+                     
+                     // If we just changed hash in the last 600ms, ignore this event
+                     if (now - lastHashChangeTime.current < 600) {
+                         return;
+                     }
+
+                     // If we're redirecting home, ignore this popstate event
+                     if (isRedirectingHome.current) {
+                         return;
+                     }
+
                      // If we're closing via code (close button), don't re-process
                      if (closingViaCode.current) {
                          closingViaCode.current = false;
                          return;
                      }
 
-                     const now = Date.now();
                      const state = window.history.state || {};
                      const currentPath = getHashPath();
 
@@ -15120,16 +15161,32 @@
                          return;
                      }
 
-                     /* FIX 2026-04-15: Advanced Back Button Handling
-                        - Redirection to homepage (#/) if currently on a sub-page
-                        - Scroll to top when navigating back to homepage
-                        - Double-tap back button to exit app with toast confirmation
-                     */
-                     if (currentPath !== '/') {
+                     // Double-check the current path to prevent showing exit toast on wrong page
+                     const currentHash = window.location.hash || '#/';
+                     const actualPath = currentHash.startsWith('#') ? currentHash.slice(1).split('?')[0] : '/';
+                     
+                     // If we just redirected home, don't show exit toast
+                     if (isRedirectingHome.current) {
+                         return;
+                     }
+                     
+                     if (actualPath !== '/' && actualPath !== '') {
                          // Not on home — navigate to home and scroll to top
+                         prevPopState.current = 0; // Reset exit timer
                          redirectToHomeFromBack(false);
                          return;
                      }
+
+                     // On homepage - check if scrolled down
+                     const scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+                     if (scrollY > 50) {
+                         // Scrolled down - scroll to top first
+                         scrollHomeToTop();
+                         prevPopState.current = 0; // Reset exit timer
+                         return;
+                     }
+
+                     // On homepage and at top - handle exit
                      if (now - prevPopState.current < 2000) {
                          prevPopState.current = 0;
                          exitApp();
@@ -15142,7 +15199,7 @@
 
                 window.addEventListener('popstate', handleBackButton);
                 return () => window.removeEventListener('popstate', handleBackButton);
-            }, [editingQuickTask, exitApp, getHashPath, isCreatorOpen, isQuickTaskModalOpen, isSetLockModalOpen, redirectToHomeFromBack, showToast, unlockingNote]);
+            }, [editingQuickTask, exitApp, getHashPath, isCreatorOpen, isQuickTaskModalOpen, isSetLockModalOpen, redirectToHomeFromBack, scrollHomeToTop, showToast, unlockingNote]);
 
             useEffect(() => {
                 const appPlugin = window.Capacitor?.Plugins?.App;
@@ -15168,11 +15225,30 @@
                             }
 
                             const currentPath = getHashPath();
-                            if (currentPath !== '/') {
+                            const currentHash = window.location.hash || '#/';
+                            const actualPath = currentHash.startsWith('#') ? currentHash.slice(1).split('?')[0] : '/';
+                            
+                            // If we just redirected home, don't show exit toast
+                            if (isRedirectingHome.current) {
+                                return;
+                            }
+                            
+                            if (actualPath !== '/' && actualPath !== '') {
+                                prevPopState.current = 0; // Reset exit timer
                                 redirectToHomeFromBack(false);
                                 return;
                             }
 
+                            // On homepage - check if scrolled down
+                            const scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+                            if (scrollY > 50) {
+                                // Scrolled down - scroll to top first
+                                scrollHomeToTop();
+                                prevPopState.current = 0; // Reset exit timer
+                                return;
+                            }
+
+                            // On homepage and at top - handle exit
                             const now = Date.now();
                             if (now - prevPopState.current < 2000) {
                                 prevPopState.current = 0;
@@ -17238,7 +17314,7 @@
                         document.body
                     )}
                     {/* (2026-08-24) Responsive centered toast container max-w-lg. Prev: 100% stretch */}
-                    {typeof document !== 'undefined' && ReactDOM.createPortal(
+                    {!isTransitioning && typeof document !== 'undefined' && ReactDOM.createPortal(
                         <div style={{
                             position: 'fixed',
                             bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
