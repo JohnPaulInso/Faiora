@@ -6008,29 +6008,19 @@
                     if (onSelectToggle) onSelectToggle(task.id);
                     return;
                 }
-                if (isLongPressRef.current || isSwipingRef.current || Math.abs(swipeOffset) > 10 || isCompleting) {
+                if (isLongPressRef.current || isSwipingRef.current || Math.abs(swipeOffset) > 10) {
                     isLongPressRef.current = false;
                     return;
                 }
                 if (!task.completed) {
-                    // (2026-07-13) Safe task check animation & SFX for APK. Prev: uncaught toggle
-                    setIsCompleting(true);
                     try {
                         if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications?.playCheckSFX) {
                             FaioraNotifications.playCheckSFX();
                         }
                     } catch(err) {}
-                    // Delay toggle so fade animation plays first
-                    setTimeout(() => {
-                        try {
-                            onToggle(task.id);
-                        } finally {
-                            setIsCompleting(false);
-                        }
-                    }, 350);
-                } else {
-                    onToggle(task.id);
                 }
+                // (2026-07-13) Instant toggle on tap for mobile APK reliability. Prev: 350ms delay
+                onToggle(task.id);
             };
 
             const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
@@ -6048,19 +6038,14 @@
 
             return (
                 <div 
-                    // (2026-08-24) Quick task card with fade-out dissolve animation
-                    className={`quick-task-card relative rounded-2xl select-none overflow-hidden ${isCompleting ? 'completing pointer-events-none' : ''}`}
+                    // (2026-07-13) Reliable interactive quick task card. Prev: pointer-events block
+                    className="quick-task-card relative rounded-2xl select-none overflow-hidden"
                     style={{
-                        minHeight: isCompleting ? undefined : ((hideDateSubtitle && !task.dueTime) ? '42px' : (window.innerWidth < 768 ? '52px' : 'auto')),
-                        maxHeight: isCompleting ? '0' : '300px',
-                        opacity: isCompleting ? 0 : 1,
-                        filter: isCompleting ? 'blur(2px)' : 'none',
-                        transform: isCompleting ? 'scale(0.96) translateY(-4px)' : 'scale(1) translateY(0)',
-                        marginBottom: isCompleting ? '-8px' : undefined,
-                        pointerEvents: isCompleting ? 'none' : undefined,
-                        transition: isCompleting
-                            ? 'opacity 0.4s cubic-bezier(0.4, 0, 0.6, 1), filter 0.4s cubic-bezier(0.4, 0, 0.6, 1), transform 0.4s cubic-bezier(0.4, 0, 0.6, 1), max-height 0.35s 0.25s ease, margin-bottom 0.35s 0.25s ease'
-                            : 'opacity 0.2s ease, transform 0.2s ease, filter 0.2s ease'
+                        minHeight: (hideDateSubtitle && !task.dueTime) ? '42px' : (window.innerWidth < 768 ? '52px' : 'auto'),
+                        maxHeight: '300px',
+                        opacity: 1,
+                        transform: 'scale(1) translateY(0)',
+                        transition: 'opacity 0.2s ease, transform 0.2s ease, filter 0.2s ease'
                     }}
                 >
                     {swipeOffset > 0 && swipeRescheduleInfo && (
@@ -16432,13 +16417,12 @@
                 }
             };
 
-            // (2026-07-13) Restore lastProgress when unchecking task. Prev: reset to 0
-            // (2026-08-24) Show toast before state update to ensure visibility. Prev: toast after update
-            // (2026-08-24) Shorter name for "marked active" to show full text. Prev: same length as completed
+            // (2026-07-13) Ref-based toggle state update for mobile APK. Prev: state closure
             const handleToggleQuickTask = (id) => {
-                const targetIndex = quickTasks.findIndex(t => t.id === id);
+                const currentTasks = quickTasksRef.current || quickTasks || [];
+                const targetIndex = currentTasks.findIndex(t => String(t.id) === String(id));
                 if (targetIndex > -1) {
-                    const updated = [...quickTasks];
+                    const updated = [...currentTasks];
                     const original = updated[targetIndex];
                     const nextCompleted = !original.completed;
                     let nextProgress;
@@ -16462,10 +16446,8 @@
                     };
                     updated[targetIndex] = updatedTask;
                     
-                    // (2026-08-24) Shorten task names for toast: "Task Bitrix... completed"
                     const taskName = (original.text || 'Task').trim();
                     let displayName;
-                    // (2026-08-24) Shorter name for "marked active" (11 chars) vs "completed" (15 chars)
                     const maxLength = nextCompleted ? 15 : 11;
                     if (taskName.length > maxLength) {
                         displayName = `${taskName.slice(0, maxLength)}...`;
@@ -16473,7 +16455,6 @@
                         displayName = taskName;
                     }
                     
-                    // (2026-07-13) Safe quick task check error handling on APK. Prev: uncaught throw
                     if (updatedTask.completed) {
                         try {
                             if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications) {
@@ -16483,14 +16464,13 @@
                         } catch(e) {
                             console.warn('Notification/SFX error on task check:', e);
                         }
-                        // (2026-08-24) Save original progress for undo
                         const originalProgress = original.progress;
                         const originalLastProgress = original.lastProgress;
                         showToast(`Task "${displayName}" completed`, {
                             label: 'UNDO',
                             onClick: () => {
-                                const reverted = [...quickTasksRef.current];
-                                const undoIndex = reverted.findIndex(t => t.id === id);
+                                const reverted = [...(quickTasksRef.current || [])];
+                                const undoIndex = reverted.findIndex(t => String(t.id) === String(id));
                                 if (undoIndex > -1) {
                                     reverted[undoIndex] = { 
                                         ...reverted[undoIndex], 
@@ -16505,15 +16485,14 @@
                             }
                         });
                     } else {
-                        // (2026-08-24) Save state before uncomplete for undo
                         const wasCompleted = original.completed;
                         const beforeProgress = original.progress;
                         const beforeLastProgress = original.lastProgress;
                         showToast(`Task "${displayName}" marked active`, {
                             label: 'UNDO',
                             onClick: () => {
-                                const reverted = [...quickTasksRef.current];
-                                const undoIndex = reverted.findIndex(t => t.id === id);
+                                const reverted = [...(quickTasksRef.current || [])];
+                                const undoIndex = reverted.findIndex(t => String(t.id) === String(id));
                                 if (undoIndex > -1) {
                                     reverted[undoIndex] = { 
                                         ...reverted[undoIndex], 
@@ -16529,7 +16508,6 @@
                         });
                     }
                     
-                    // Update state after toast is queued
                     handleUpdateQuickTasks(updated);
                     syncQuickTaskToNotes(id, updatedTask.completed);
                 }
