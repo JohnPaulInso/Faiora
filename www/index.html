@@ -53,6 +53,14 @@
     <!-- Google Site Verification (Placeholder) -->
     <!-- Replace 'YOUR_VERIFICATION_CODE' with the code from Google Search Console -->
     <meta name="google-site-verification" content="googled6ec6ba0775bed83" />
+    <!-- (2026-07-13) Preconnect CDNs & async font load to boost LCP. Prev: blocking -->
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="dns-prefetch" href="https://unpkg.com">
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://www.gstatic.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
     <!-- Libraries -->
     <!-- (2026-08-14) Use local tailwind copy; CDN blocked in browser. Prev: cdn.tailwindcss.com remote -->
     <script src="tailwind.cdn.js"></script>
@@ -74,15 +82,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
 
     <!-- Fonts -->
-    <!-- (2026-08-24) Optimize font loading for LCP. Prev: blocking render -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="dns-prefetch" href="https://www.gstatic.com">
     <link rel="preload" href="assets/fonts/material-symbols-outlined.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" media="print" onload="this.media='all'">
-    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600&display=swap" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap"></noscript>
 
     <script id="tailwind-config">
         // (2026-07-13) Wrap hover in hoverOnlyWhenSupported. Prev: sticky hover
@@ -244,8 +248,8 @@
 
             // SAFETY FALLBACK: If React/Auth takes too long, force show the app anyway
             // FIX 2026-04-16: Increased to 6s to allow more time for Firestore sync
-            // (2026-07-13) Faster 1s safety timeout for instant app reveal. Prev: 2.5s
-            setTimeout(trigger, 1000);
+            // (2026-07-13) Instant 0ms safety timeout for fast LCP. Prev: 1000ms
+            setTimeout(trigger, 0);
         })();
 
 
@@ -13799,8 +13803,7 @@
             </div>
         );
 
-        // (2026-07-13) Swipe-down-to-dismiss toast pill component. Prev: static div
-        // (2026-08-24) Auto fade-out after 4.5s, dismiss at 5s. Prev: instant dismiss
+        // (2026-07-13) 5s lifetime toast with bottom progress bar. Prev: static pill
         const ToastPill = ({ toast, onDismiss }) => {
             const [dragY, setDragY] = useState(0);
             const [isDragging, setIsDragging] = useState(false);
@@ -13808,24 +13811,25 @@
             const [isAutoFading, setIsAutoFading] = useState(false);
             const startYRef = useRef(0);
             const currentYRef = useRef(0);
-            const fadeTimerRef = useRef(null);
+
+            const duration = toast.duration || 5000;
+            const remainingMs = Math.max(100, (toast.createdAt || Date.now()) + duration - Date.now());
 
             useEffect(() => {
-                // Start auto fade-out at 4.5s with visible transition
+                const fadeDelay = Math.max(0, remainingMs - 400);
                 const fadeTimer = setTimeout(() => {
                     setIsAutoFading(true);
-                }, 4500);
+                }, fadeDelay);
 
-                // Remove after total 4.9s (4.5s wait + 0.4s fade animation)
                 const dismissTimer = setTimeout(() => {
                     onDismiss(toast.id);
-                }, 4900);
+                }, remainingMs);
 
                 return () => {
                     clearTimeout(fadeTimer);
                     clearTimeout(dismissTimer);
                 };
-            }, [toast.id, onDismiss]);
+            }, [toast.id, onDismiss, remainingMs]);
 
             const handleStart = (e) => {
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -13847,18 +13851,15 @@
             const handleEnd = () => {
                 const diff = currentYRef.current - startYRef.current;
                 if (diff > 40) {
-                    // User swiped down far enough - dismiss with animation
-                    setIsDragging(false); // Stop dragging first
+                    setIsDragging(false);
                     setIsDismissing(true);
-                    // Animate to final position with slow fade
                     setTimeout(() => {
-                        setDragY(250); // Move down for complete fade
+                        setDragY(250);
                         setTimeout(() => {
                             onDismiss(toast.id);
-                        }, 400); // Match CSS animation duration
+                        }, 400);
                     }, 10);
                 } else {
-                    // Snap back to original position
                     setDragY(0);
                     setIsDragging(false);
                 }
@@ -13885,7 +13886,6 @@
                         opacity: (() => {
                             if (isAutoFading) return 0;
                             if (dragY > 0 || isDismissing) {
-                                // Slow fade from 100% to 0% as you swipe down (0px = 1.0, 250px = 0)
                                 return Math.max(0, 1 - (dragY / 250));
                             }
                             return 1;
@@ -13903,7 +13903,6 @@
                         <span className="material-symbols-outlined flex-shrink-0" style={{ color: '#f97316', fontSize: '20px', fontWeight: '400' }}>
                             {toast.message && (toast.message.toLowerCase().includes('trash') || toast.message.toLowerCase().includes('delete')) ? 'delete' : 'check_circle'}
                         </span>
-                        {/* (2026-07-13) 1-line truncation Sta...end. Prev: word-break wrap */}
                         <span style={{ fontSize: '13.5px', fontWeight: '500', color: '#fff', letterSpacing: '0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', minWidth: 0 }}>{toast.message}</span>
                     </div>
                     {toast.action && (
@@ -13928,6 +13927,17 @@
                             {toast.action.label || 'UNDO'}
                         </button>
                     )}
+                    {/* (2026-07-13) Small bottom progress bar indicating expiry. Prev: none */}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '2.5px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                        <div 
+                            style={{ 
+                                height: '100%', 
+                                background: 'linear-gradient(90deg, #f97316, #fb923c)', 
+                                boxShadow: '0 0 6px rgba(249,115,22,0.8)', 
+                                animation: `toast-progress ${remainingMs}ms linear forwards` 
+                            }} 
+                        />
+                    </div>
                 </div>
             );
         };
@@ -14151,17 +14161,32 @@
                 isStreakCheckedRef.current = false;
             }, [user?.uid]);
 
-            // (2026-07-13) Remove shared qtViewMode from App. Prev: shared state
+            // (2026-07-13) 5s lifetime queued toasts capped at 2 visible. Prev: slice(-2) drop
             const [toasts, setToasts] = useState([]);
             const [activeAlarmAlert, setActiveAlarmAlert] = useState(null);
             const [isTransitioning, setIsTransitioning] = useState(false);
-            // (2026-07-13) Support action callback in toast for undo. Prev: text only
-            // (2026-08-24) ToastPill handles its own auto-dismiss with fade animation
+
+            useEffect(() => {
+                if (toasts.length === 0) return;
+                const interval = setInterval(() => {
+                    const now = Date.now();
+                    setToasts(prev => {
+                        const active = prev.filter(t => (now - (t.createdAt || 0)) < 5000);
+                        return active.length !== prev.length ? active : prev;
+                    });
+                }, 100);
+                return () => clearInterval(interval);
+            }, [toasts.length]);
+
             const showToast = useCallback((message, action = null) => {
                 if (!message) return;
                 const id = Date.now() + Math.random();
-                setToasts(prev => [...prev.slice(-2), { id, message, action }]);
-                // No manual setTimeout - ToastPill component handles dismiss internally
+                const createdAt = Date.now();
+                setToasts(prev => {
+                    const now = Date.now();
+                    const active = prev.filter(t => (now - (t.createdAt || 0)) < 5000);
+                    return [...active, { id, message, action, createdAt, duration: 5000 }];
+                });
             }, []);
             // (2026-07-13) Guard alarm permission state update. Prev: unconditional setter
             const refreshAlarmOverlayPermission = useCallback(() => {
@@ -17333,7 +17358,7 @@
                         />,
                         document.body
                     )}
-                    {/* (2026-08-24) Responsive centered toast container max-w-lg. Prev: 100% stretch */}
+                    {/* (2026-07-13) 2 visible toasts via createPortal. Prev: invalid JSX comment */}
                     {!isTransitioning && typeof document !== 'undefined' && ReactDOM.createPortal(
                         <div style={{
                             position: 'fixed',
@@ -17351,7 +17376,7 @@
                             maxWidth: '480px',
                             boxSizing: 'border-box'
                         }}>
-                            {toasts.slice(-3).map(toast => (
+                            {toasts.slice(0, 2).map(toast => (
                                 <ToastPill
                                     key={toast.id}
                                     toast={toast}

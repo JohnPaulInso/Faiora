@@ -639,11 +639,11 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     gap: 10px;
 }
 
-/* (2026-07-13) Responsive toast-pill max-width 480px. Prev: 100vw */
+/* (2026-07-13) 18px padding & progress bar for toast-pill. Prev: 20px / 14px */
 .toast-pill {
     background: rgba(15, 23, 42, 0.85);
     color: #fff;
-    padding: 14px 18px;
+    padding: 18px 18px;
     border-radius: 20px;
     font-size: 0.8rem;
     font-weight: 500;
@@ -663,10 +663,17 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     text-align: left;
     animation: toast-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     min-height: 48px;
+    position: relative;
+    overflow: hidden;
 }
 
 .toast-pill-fading {
     animation: toast-exit 0.4s cubic-bezier(0.4, 0, 0.6, 1) forwards !important;
+}
+
+@keyframes toast-progress {
+    from { width: 100%; }
+    to { width: 0%; }
 }
 
 @keyframes toast-enter {
@@ -704,7 +711,7 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
         max-width: 100%;
         justify-content: space-between;
         font-size: 0.75rem;
-        padding: 20px 16px;
+        padding: 18px 16px;
         min-height: 52px;
     }
 }
