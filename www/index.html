@@ -1755,25 +1755,34 @@
             // ------------------------------------------------------------------
             // LABEL: NOTIF-LOCAL-CANCEL — Cancel scheduled notifications for a task
             // ------------------------------------------------------------------
+            // (2026-07-13) Safe notification cancellation for APK. Prev: unsafe cancel
             const cancelForTask = (taskId) => {
-                const existing = timers.get(taskId);
-                if (existing) {
-                    existing.forEach(id => clearTimeout(id));
-                    timers.delete(taskId);
-                }
-                cancelNativeTaskNotifications(taskId);
-                if (swRegistration) {
-                    ['faiora-due', 'faiora-1h', 'faiora-24h'].forEach(prefix => {
-                        swRegistration.getNotifications({ tag: `${prefix}-${taskId}` })
-                            .then(notifs => {
-                                notifs.forEach(n => n.close());
-                            })
-                            .catch(() => {});
+                try {
+                    const existing = timers.get(taskId);
+                    if (existing) {
+                        existing.forEach(id => clearTimeout(id));
+                        timers.delete(taskId);
+                    }
+                    try { cancelNativeTaskNotifications(taskId); } catch(e) {}
+                    if (swRegistration && typeof swRegistration.getNotifications === 'function') {
+                        ['faiora-due', 'faiora-1h', 'faiora-24h'].forEach(prefix => {
+                            try {
+                                swRegistration.getNotifications({ tag: `${prefix}-${taskId}` })
+                                    .then(notifs => {
+                                        if (Array.isArray(notifs)) notifs.forEach(n => n?.close?.());
+                                    })
+                                    .catch(() => {});
+                            } catch(e) {}
 
-                        const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                        delete scheduled[`${prefix}-${taskId}`];
-                        localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
-                    });
+                            try {
+                                const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
+                                delete scheduled[`${prefix}-${taskId}`];
+                                localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
+                            } catch(e) {}
+                        });
+                    }
+                } catch(err) {
+                    console.warn('cancelForTask failed', err);
                 }
             };
 
@@ -5893,7 +5902,7 @@
             const [isCompleting, setIsCompleting] = useState(false);
 
             const handlePointerDown = (e) => {
-                if (isSelectionMode || isCompleting) return;
+                if (isSelectionMode) return;
                 if (e.button && e.button !== 0) return;
                 isPointerDownRef.current = true;
                 isLongPressRef.current = false;
@@ -5915,7 +5924,7 @@
             };
 
             const handlePointerMove = (e) => {
-                if (isSelectionMode || !isPointerDownRef.current || isCompleting) return;
+                if (isSelectionMode || !isPointerDownRef.current) return;
                 const dx = e.clientX - startPosRef.current.x;
                 const dy = Math.abs(e.clientY - startPosRef.current.y);
 
@@ -5941,7 +5950,7 @@
             };
 
             const handlePointerUp = () => {
-                if (isSelectionMode || isCompleting) return;
+                if (isSelectionMode) return;
                 isPointerDownRef.current = false;
                 setIsPressed(false);
                 setIsLongPressing(false);
@@ -6000,15 +6009,20 @@
                     return;
                 }
                 if (!task.completed) {
-                    // (2026-08-24) Fade-out animation for standard/daily views - delay state update
+                    // (2026-07-13) Safe task check animation & SFX for APK. Prev: uncaught toggle
                     setIsCompleting(true);
-                    if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications.playCheckSFX) {
-                        FaioraNotifications.playCheckSFX();
-                    }
+                    try {
+                        if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications?.playCheckSFX) {
+                            FaioraNotifications.playCheckSFX();
+                        }
+                    } catch(err) {}
                     // Delay toggle so fade animation plays first
                     setTimeout(() => {
-                        onToggle(task.id);
-                        setIsCompleting(false);
+                        try {
+                            onToggle(task.id);
+                        } finally {
+                            setIsCompleting(false);
+                        }
                     }, 350);
                 } else {
                     onToggle(task.id);
@@ -16434,10 +16448,16 @@
                         displayName = taskName;
                     }
                     
-                    // Show toast FIRST before updating state to ensure it's visible
+                    // (2026-07-13) Safe quick task check error handling on APK. Prev: uncaught throw
                     if (updatedTask.completed) {
-                        FaioraNotifications.playCheckSFX();
-                        FaioraNotifications.cancelForTask(id);
+                        try {
+                            if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications) {
+                                if (typeof FaioraNotifications.playCheckSFX === 'function') FaioraNotifications.playCheckSFX();
+                                if (typeof FaioraNotifications.cancelForTask === 'function') FaioraNotifications.cancelForTask(id);
+                            }
+                        } catch(e) {
+                            console.warn('Notification/SFX error on task check:', e);
+                        }
                         // (2026-08-24) Save original progress for undo
                         const originalProgress = original.progress;
                         const originalLastProgress = original.lastProgress;
