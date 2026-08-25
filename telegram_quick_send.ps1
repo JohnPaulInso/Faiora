@@ -51,17 +51,11 @@ if (-not $CHAT_ID) {
 }
 
 if ($CHAT_ID) {
-    # Remove the -100 prefix and @ symbol if present
-    $channelId = $CHAT_ID -replace '^-100', '' -replace '^@', ''
-    
-    # Try opening Telegram Desktop with the channel
-    Write-Host "Opening channel in Telegram..." -ForegroundColor Cyan
-    try {
-        Start-Process "tg://resolve?domain=$channelId"
-        Start-Sleep -Seconds 2
-    } catch {
-        Write-Host "Note: Telegram Desktop may not be installed or tg:// protocol not registered" -ForegroundColor Yellow
-    }
+    # For numeric channel IDs starting with -100, we can't open them directly via tg:// protocol
+    # Telegram Desktop doesn't support opening numeric channel IDs this way
+    # So we'll just skip this step and let the user paste or drag-drop
+    Write-Host "Telegram channel configured (numeric ID)" -ForegroundColor Cyan
+    Write-Host "Note: Opening numeric channels requires manual navigation" -ForegroundColor Yellow
 }
 
 # Copy file path to clipboard for easy pasting

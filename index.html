@@ -484,8 +484,9 @@
         const sortQuickTasksList = (quickTasks = []) => {
             const tasks = [...(Array.isArray(quickTasks) ? quickTasks : [])];
             tasks.sort((a, b) => {
-                if (a.completed !== b.completed) return a.completed ? 1 : -1;
-
+                // (2026-08-24) Don't move completed tasks to bottom - keep stable order
+                // Completed tasks stay in place for smooth UX in notepad view
+                
                 const hasA = !!a.dueDate;
                 const hasB = !!b.dueDate;
                 if (hasA || hasB) {
@@ -671,10 +672,11 @@
             // Today
             if (todayTasks.length > 0) {
                 const todayFormatted = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+                const todayDay = today.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
                 sections.push({
                     key: 'today',
-                    label: 'TODAY',
-                    shortLabel: `TODAY (${todayFormatted})`,
+                    label: `TODAY (${todayFormatted} - ${todayDay})`,
+                    shortLabel: `TODAY (${todayFormatted} - ${todayDay})`,
                     items: todayTasks,
                     totalCount: todayTasks.length
                 });
@@ -683,10 +685,11 @@
             // Tomorrow
             if (tomorrowTasks.length > 0) {
                 const tomorrowFormatted = tomorrow.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+                const tomorrowDay = tomorrow.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
                 sections.push({
                     key: 'tomorrow',
-                    label: 'TOMORROW',
-                    shortLabel: `TOMORROW (${tomorrowFormatted})`,
+                    label: `TOMORROW (${tomorrowFormatted} - ${tomorrowDay})`,
+                    shortLabel: `TOMORROW (${tomorrowFormatted} - ${tomorrowDay})`,
                     items: tomorrowTasks,
                     totalCount: tomorrowTasks.length
                 });
@@ -697,9 +700,10 @@
             sortedFutureDates.forEach(dStr => {
                 const d = new Date(`${dStr}T00:00:00`);
                 const formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+                const dayAbbr = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
                 sections.push({
                     key: `future_${dStr}`,
-                    label: formattedDate,
+                    label: `${formattedDate} (${dayAbbr})`,
                     shortLabel: formattedDate,
                     items: futureMap.get(dStr),
                     totalCount: futureMap.get(dStr).length
@@ -738,9 +742,10 @@
             // Yesterday section (completed and uncompleted)
             if (yesterdayTasks.length > 0) {
                 const yesterdayFormatted = yesterday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+                const yesterdayDay = yesterday.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
                 sections.push({
                     key: 'yesterday',
-                    label: 'YESTERDAY',
+                    label: `YESTERDAY (${yesterdayDay})`,
                     shortLabel: `YESTERDAY (${yesterdayFormatted})`,
                     items: yesterdayTasks,
                     totalCount: yesterdayTasks.length,
@@ -753,9 +758,10 @@
             sortedPastDates.forEach(dStr => {
                 const d = new Date(`${dStr}T00:00:00`);
                 const formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+                const dayAbbr = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
                 sections.push({
                     key: `pastDue_${dStr}`,
-                    label: `PAST DUE ${formattedDate}`,
+                    label: `PAST DUE ${formattedDate} (${dayAbbr})`,
                     shortLabel: `PAST DUE (${formattedDate})`,
                     items: pastDueMap.get(dStr),
                     totalCount: pastDueMap.get(dStr).length,
@@ -5968,12 +5974,16 @@
                     return;
                 }
                 if (!task.completed) {
+                    // (2026-08-24) Fade-out animation for standard/daily views - delay state update
                     setIsCompleting(true);
                     if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications.playCheckSFX) {
                         FaioraNotifications.playCheckSFX();
                     }
-                    // (2026-07-13) Toggle fires immediately so snackbar shows at once. Prev: 2s delay
-                    onToggle(task.id);
+                    // Delay toggle so fade animation plays first
+                    setTimeout(() => {
+                        onToggle(task.id);
+                        setIsCompleting(false);
+                    }, 350);
                 } else {
                     onToggle(task.id);
                 }
@@ -5994,18 +6004,19 @@
 
             return (
                 <div 
-                    // (2026-07-13) Height collapses after fade so blank gap clears fast. Prev: no height anim
-                    className={`relative rounded-2xl select-none overflow-hidden ${isCompleting ? 'pointer-events-none' : ''}`}
+                    // (2026-08-24) Quick task card with fade-out dissolve animation
+                    className={`quick-task-card relative rounded-2xl select-none overflow-hidden ${isCompleting ? 'completing pointer-events-none' : ''}`}
                     style={{
                         minHeight: isCompleting ? undefined : ((hideDateSubtitle && !task.dueTime) ? '42px' : (window.innerWidth < 768 ? '52px' : 'auto')),
-                        maxHeight: isCompleting ? '0' : '200px',
+                        maxHeight: isCompleting ? '0' : '300px',
                         opacity: isCompleting ? 0 : 1,
-                        transform: isCompleting ? 'scale(0.97) translateY(-2px)' : 'scale(1) translateY(0)',
-                        marginBottom: isCompleting ? '-4px' : undefined,
+                        filter: isCompleting ? 'blur(2px)' : 'none',
+                        transform: isCompleting ? 'scale(0.96) translateY(-4px)' : 'scale(1) translateY(0)',
+                        marginBottom: isCompleting ? '-8px' : undefined,
                         pointerEvents: isCompleting ? 'none' : undefined,
                         transition: isCompleting
-                            ? 'opacity 0.4s ease, transform 0.4s ease, max-height 0.35s 0.3s ease, margin-bottom 0.35s 0.3s ease'
-                            : 'opacity 0.2s ease, transform 0.2s ease'
+                            ? 'opacity 0.4s cubic-bezier(0.4, 0, 0.6, 1), filter 0.4s cubic-bezier(0.4, 0, 0.6, 1), transform 0.4s cubic-bezier(0.4, 0, 0.6, 1), max-height 0.35s 0.25s ease, margin-bottom 0.35s 0.25s ease'
+                            : 'opacity 0.2s ease, transform 0.2s ease, filter 0.2s ease'
                     }}
                 >
                     {swipeOffset > 0 && swipeRescheduleInfo && (
@@ -6321,11 +6332,9 @@
                                                         }}
                                                         className={`qt-notepad-item flex items-start justify-between gap-2.5 py-0.5 px-1.5 rounded-lg hover:bg-white/[0.03] cursor-pointer select-none group`}
                                                         style={{
-                                                            // (2026-07-13) Gray-out only, no collapse, then onToggle moves it. Prev: collapse
-                                                            opacity: completingIds.has(task.id) ? 0.35 : (task.completed ? 0.4 : 1),
-                                                            filter: completingIds.has(task.id) ? 'grayscale(0.6)' : undefined,
-                                                            pointerEvents: completingIds.has(task.id) ? 'none' : undefined,
-                                                            transition: 'opacity 0.3s ease, filter 0.3s ease'
+                                                            // (2026-08-24) No disabling effect in notepad view - instant check
+                                                            opacity: task.completed ? 0.4 : 1,
+                                                            transition: 'opacity 0.3s ease'
                                                         }}
                                                     >
                                                         <div 
@@ -6336,14 +6345,8 @@
                                                                     e.stopPropagation();
                                                                     return;
                                                                 }
-                                                                if (!task.completed && onToggle) {
-                                                                    // (2026-07-13) 1.5s gray-out then move. Prev: 1.2s collapse
-                                                                    setCompletingIds(prev => new Set(prev).add(task.id));
-                                                                    setTimeout(() => {
-                                                                        onToggle(task.id);
-                                                                        setCompletingIds(prev => { const n = new Set(prev); n.delete(task.id); return n; });
-                                                                    }, 1500);
-                                                                } else if (onToggle) {
+                                                                // (2026-08-24) Instant check for both category and date views in notepad
+                                                                if (onToggle) {
                                                                     onToggle(task.id);
                                                                 }
                                                             }}
@@ -7149,10 +7152,18 @@
             }, [user?.uid, (quickTasks || []).length]);
 
             const activeHomepageSections = useMemo(() => {
+                const now = new Date();
+                const today = new Date(now);
+                today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const todayDay = today.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+                const tomorrowDay = tomorrow.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+                
                 const list = [
                     { key: 'pastDue', label: 'Past Due', items: groupedQuickTasks.pastDue || [] },
-                    { key: 'today', label: 'Today', items: groupedQuickTasks.today || [] },
-                    { key: 'tomorrow', label: 'Tomorrow', items: groupedQuickTasks.tomorrow || [] },
+                    { key: 'today', label: `Today (${todayDay})`, items: groupedQuickTasks.today || [] },
+                    { key: 'tomorrow', label: `Tomorrow (${tomorrowDay})`, items: groupedQuickTasks.tomorrow || [] },
                     { key: 'thisWeek', label: 'This Week', items: groupedQuickTasks.thisWeek || [] },
                     { key: 'nextWeek', label: 'Next Week', items: groupedQuickTasks.nextWeek || [] },
                     { key: 'upcoming', label: 'Upcoming', items: groupedQuickTasks.upcoming || [] }
@@ -9884,10 +9895,18 @@
             }, [groupedQuickTasks.noDate]);
 
             // (2026-07-13) Exclude No Deadline from standard view. Prev: ...noDateSections
+            const now = new Date();
+            const today = new Date(now);
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const todayDay = today.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+            const tomorrowDay = tomorrow.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+            
             const sections = [
                 { key: 'pastDue', label: 'Past Due', items: groupedQuickTasks.pastDue || [], totalCount: (groupedQuickTasks.pastDue || []).length },
-                { key: 'today', label: 'Today', items: groupedQuickTasks.today, totalCount: groupedQuickTasks.today.length },
-                { key: 'tomorrow', label: 'Tomorrow', items: groupedQuickTasks.tomorrow, totalCount: groupedQuickTasks.tomorrow.length },
+                { key: 'today', label: `Today (${todayDay})`, items: groupedQuickTasks.today, totalCount: groupedQuickTasks.today.length },
+                { key: 'tomorrow', label: `Tomorrow (${tomorrowDay})`, items: groupedQuickTasks.tomorrow, totalCount: groupedQuickTasks.tomorrow.length },
                 { key: 'thisWeek', label: 'This Week', items: groupedQuickTasks.thisWeek || [], totalCount: (groupedQuickTasks.thisWeek || []).length },
                 { key: 'nextWeek', label: 'Next Week', items: groupedQuickTasks.nextWeek || [], totalCount: (groupedQuickTasks.nextWeek || []).length },
                 { key: 'upcoming', label: 'Upcoming', items: groupedQuickTasks.upcoming || [], totalCount: (groupedQuickTasks.upcoming || []).length },
@@ -13752,15 +13771,21 @@
             const fadeTimerRef = useRef(null);
 
             useEffect(() => {
-                // Start auto fade-out at 4.5s (500ms before removal)
-                fadeTimerRef.current = setTimeout(() => {
+                // Start auto fade-out at 4.5s with visible transition
+                const fadeTimer = setTimeout(() => {
                     setIsAutoFading(true);
                 }, 4500);
 
+                // Remove after total 4.9s (4.5s wait + 0.4s fade animation)
+                const dismissTimer = setTimeout(() => {
+                    onDismiss(toast.id);
+                }, 4900);
+
                 return () => {
-                    if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+                    clearTimeout(fadeTimer);
+                    clearTimeout(dismissTimer);
                 };
-            }, []);
+            }, [toast.id, onDismiss]);
 
             const handleStart = (e) => {
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -13781,16 +13806,22 @@
 
             const handleEnd = () => {
                 const diff = currentYRef.current - startYRef.current;
-                if (diff > 25) {
+                if (diff > 40) {
+                    // User swiped down far enough - dismiss with animation
+                    setIsDragging(false); // Stop dragging first
                     setIsDismissing(true);
-                    setDragY(100);
+                    // Animate to final position with slow fade
                     setTimeout(() => {
-                        onDismiss(toast.id);
-                    }, 220);
+                        setDragY(250); // Move down for complete fade
+                        setTimeout(() => {
+                            onDismiss(toast.id);
+                        }, 400); // Match CSS animation duration
+                    }, 10);
                 } else {
+                    // Snap back to original position
                     setDragY(0);
+                    setIsDragging(false);
                 }
-                setIsDragging(false);
                 startYRef.current = 0;
                 currentYRef.current = 0;
             };
@@ -13804,13 +13835,28 @@
                     onMouseDown={handleStart}
                     onMouseMove={(e) => { if (isDragging) handleMove(e); }}
                     onMouseUp={handleEnd}
-                    className="toast-pill flex items-center justify-between select-none cursor-grab active:cursor-grabbing"
+                    className={`toast-pill flex items-center justify-between select-none cursor-grab active:cursor-grabbing ${isAutoFading || isDismissing ? 'toast-pill-fading' : ''}`}
                     style={{
                         pointerEvents: 'auto',
                         touchAction: 'none',
-                        transform: dragY > 0 ? `translateY(${dragY}px) scale(${Math.max(0.92, 1 - dragY / 400)})` : (isAutoFading ? 'translateY(10px) scale(0.96)' : undefined),
-                        opacity: dragY > 0 ? Math.max(0, 1 - dragY / 60) : (isAutoFading ? 0 : undefined),
-                        transition: isDragging ? 'none' : (isDismissing ? 'transform 0.22s cubic-bezier(0.4, 0, 1, 1), opacity 0.22s cubic-bezier(0.4, 0, 1, 1)' : (isAutoFading ? 'transform 0.5s cubic-bezier(0.4, 0, 0.6, 1), opacity 0.5s cubic-bezier(0.4, 0, 0.6, 1)' : 'transform 0.18s ease, opacity 0.18s ease'))
+                        transform: dragY > 0 || isDismissing 
+                            ? `translateY(${dragY}px) scale(${Math.max(0.93, 1 - dragY / 300)})` 
+                            : (isAutoFading ? 'translateY(24px) scale(0.94)' : 'translateY(0) scale(1)'),
+                        opacity: (() => {
+                            if (isAutoFading) return 0;
+                            if (dragY > 0 || isDismissing) {
+                                // Slow fade from 100% to 0% as you swipe down (0px = 1.0, 250px = 0)
+                                return Math.max(0, 1 - (dragY / 250));
+                            }
+                            return 1;
+                        })(),
+                        transition: isDragging 
+                            ? 'none' 
+                            : (isDismissing 
+                                ? 'transform 0.8s cubic-bezier(0.4, 0, 0.6, 1), opacity 0.8s cubic-bezier(0.4, 0, 0.6, 1)' 
+                                : (isAutoFading 
+                                    ? 'transform 1s cubic-bezier(0.4, 0, 0.6, 1), opacity 1s cubic-bezier(0.4, 0, 0.6, 1)' 
+                                    : 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'))
                     }}
                 >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1 pointer-events-none" style={{ overflow: 'hidden' }}>
@@ -13875,10 +13921,10 @@
             const handleEnd = () => {
                 const diff = currentYRef.current - startYRef.current;
                 if (diff > 25) {
-                    // (2026-07-13) Fade-out then dismiss. Prev: abrupt jump to 100px
+                    // Fade-out then dismiss with slow animation
                     setIsDismissing(true);
-                    setDragY(80);
-                    setTimeout(() => onDismiss(snack.id), 300);
+                    setDragY(150);
+                    setTimeout(() => onDismiss(snack.id), 600);
                 } else {
                     setDragY(0);
                 }
@@ -13908,8 +13954,8 @@
                         pointerEvents: isDismissing ? 'none' : 'auto',
                         touchAction: 'none',
                         transform: dragY > 0 ? `translateY(${dragY}px) scale(${Math.max(0.93, 1 - dragY / 500)})` : undefined,
-                        opacity: isDismissing ? 0 : (dragY > 0 ? Math.max(0, 1 - dragY / 60) : undefined),
-                        transition: isDragging ? 'none' : (isDismissing ? 'transform 0.3s cubic-bezier(0.4,0,1,1), opacity 0.3s cubic-bezier(0.4,0,0.6,1)' : 'transform 0.2s ease, opacity 0.2s ease')
+                        opacity: isDismissing ? 0 : (dragY > 0 ? Math.max(0, 1 - dragY / 150) : undefined),
+                        transition: isDragging ? 'none' : (isDismissing ? 'transform 0.6s cubic-bezier(0.4,0,1,1), opacity 0.6s cubic-bezier(0.4,0,0.6,1)' : 'transform 0.2s ease, opacity 0.2s ease')
                     }}
                 >
                     <div className="flex items-center gap-3 pointer-events-none flex-1" style={{ overflow: 'hidden', minWidth: 0 }}>
@@ -14070,14 +14116,12 @@
             const [activeAlarmAlert, setActiveAlarmAlert] = useState(null);
             const [isTransitioning, setIsTransitioning] = useState(false);
             // (2026-07-13) Support action callback in toast for undo. Prev: text only
-            // (2026-08-24) Auto-dismiss after 5 seconds with fade-out. Prev: 3-4.5 seconds
+            // (2026-08-24) ToastPill handles its own auto-dismiss with fade animation
             const showToast = useCallback((message, action = null) => {
                 if (!message) return;
                 const id = Date.now() + Math.random();
                 setToasts(prev => [...prev.slice(-2), { id, message, action }]);
-                setTimeout(() => {
-                    setToasts(prev => prev.filter(t => t.id !== id));
-                }, 5000);
+                // No manual setTimeout - ToastPill component handles dismiss internally
             }, []);
             // (2026-07-13) Guard alarm permission state update. Prev: unconditional setter
             const refreshAlarmOverlayPermission = useCallback(() => {
@@ -16300,34 +16344,60 @@
                     };
                     updated[targetIndex] = updatedTask;
                     
-                    // (2026-07-13) Full task name in completion toast. Prev: start...end slice
+                    // (2026-08-24) Shorten task names for toast: "Task Bitrix... completed"
                     const taskName = (original.text || 'Task').trim();
-                    const displayName = taskName;
+                    let displayName;
+                    // (2026-08-24) Shorter name for "marked active" (11 chars) vs "completed" (15 chars)
+                    const maxLength = nextCompleted ? 15 : 11;
+                    if (taskName.length > maxLength) {
+                        displayName = `${taskName.slice(0, maxLength)}...`;
+                    } else {
+                        displayName = taskName;
+                    }
                     
                     // Show toast FIRST before updating state to ensure it's visible
                     if (updatedTask.completed) {
                         FaioraNotifications.playCheckSFX();
                         FaioraNotifications.cancelForTask(id);
+                        // (2026-08-24) Save original progress for undo
+                        const originalProgress = original.progress;
+                        const originalLastProgress = original.lastProgress;
                         showToast(`Task "${displayName}" completed`, {
                             label: 'UNDO',
                             onClick: () => {
                                 const reverted = [...quickTasksRef.current];
                                 const undoIndex = reverted.findIndex(t => t.id === id);
                                 if (undoIndex > -1) {
-                                    reverted[undoIndex] = { ...reverted[undoIndex], completed: false, completedAt: null };
+                                    reverted[undoIndex] = { 
+                                        ...reverted[undoIndex], 
+                                        completed: false, 
+                                        completedAt: null,
+                                        progress: originalProgress,
+                                        lastProgress: originalLastProgress
+                                    };
                                     handleUpdateQuickTasks(reverted);
                                     syncQuickTaskToNotes(id, false);
                                 }
                             }
                         });
                     } else {
+                        // (2026-08-24) Save state before uncomplete for undo
+                        const wasCompleted = original.completed;
+                        const beforeProgress = original.progress;
+                        const beforeLastProgress = original.lastProgress;
                         showToast(`Task "${displayName}" marked active`, {
                             label: 'UNDO',
                             onClick: () => {
                                 const reverted = [...quickTasksRef.current];
                                 const undoIndex = reverted.findIndex(t => t.id === id);
                                 if (undoIndex > -1) {
-                                    reverted[undoIndex] = { ...reverted[undoIndex], completed: true, completedAt: Date.now() };
+                                    reverted[undoIndex] = { 
+                                        ...reverted[undoIndex], 
+                                        completed: true, 
+                                        completedAt: Date.now(),
+                                        progress: 100,
+                                        lastProgress: beforeLastProgress
+                                    };
                                     handleUpdateQuickTasks(reverted);
                                     syncQuickTaskToNotes(id, true);
                                 }

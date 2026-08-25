@@ -21,3 +21,6 @@ Thumbs.db
 
 # Telegram credentials (2026-08-24)
 .telegram_config
+.telegram_user_config
+faiora_session.session
+
