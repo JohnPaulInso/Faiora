@@ -1261,6 +1261,7 @@
                     return [];
                 }
             };
+            // (2026-07-13) Filter reminder stages by task.reminders setting. Prev: all stages
             const buildTaskReminderEntries = (task) => {
                 if (!task || !task.dueDate || task.completed) return [];
                 const dueTime = task.dueTime || '23:59';
@@ -1276,7 +1277,15 @@
                     { stage: 'due', offsetMs: 0, title: 'Task Reminder! 🔥', body: `📌 Due Now: ${taskName}\n` }
                 ];
 
-                return stages
+                const activeReminders = task.reminders;
+                const filteredStages = stages.filter(s => {
+                    if (!activeReminders) return true;
+                    if (Array.isArray(activeReminders)) return activeReminders.includes(s.stage);
+                    if (typeof activeReminders === 'object') return activeReminders[s.stage] !== false;
+                    return true;
+                });
+
+                return filteredStages
                     .map(entry => {
                         const at = dueMs - entry.offsetMs;
                         if (at <= now) return null;
@@ -13147,6 +13156,59 @@
                 setIsAddingNewCat(false);
             };
 
+            // (2026-07-13) Auto-categorize from text if category matches. Prev: manual only
+            const autoCategorizeFromText = useCallback((str) => {
+                if (!str || !availableCategories || availableCategories.length === 0) return;
+                const lower = str.toLowerCase();
+                const matched = [];
+                availableCategories.forEach(cat => {
+                    const clean = (cat || '').trim();
+                    if (!clean) return;
+                    const catLower = clean.toLowerCase();
+                    const escaped = catLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(`(^|[^a-zA-Z0-9_#])#?${escaped}([^a-zA-Z0-9_]|$)`, 'i');
+                    if (regex.test(lower)) {
+                        matched.push(clean);
+                    }
+                });
+                if (matched.length > 0) {
+                    setCategories(prev => {
+                        const next = [...prev];
+                        matched.forEach(m => {
+                            if (!next.some(c => c.toLowerCase() === m.toLowerCase())) {
+                                next.push(m);
+                            }
+                        });
+                        return next;
+                    });
+                }
+            }, [availableCategories]);
+
+            // (2026-07-13) Reminder alert toggles (24h, 1h, due now). Prev: default all
+            const [reminders, setReminders] = useState(() => {
+                if (initialData && initialData.reminders) {
+                    if (Array.isArray(initialData.reminders)) {
+                        return {
+                            '24h': initialData.reminders.includes('24h'),
+                            '1h': initialData.reminders.includes('1h'),
+                            'due': initialData.reminders.includes('due')
+                        };
+                    }
+                    return {
+                        '24h': initialData.reminders['24h'] !== false,
+                        '1h': initialData.reminders['1h'] !== false,
+                        'due': initialData.reminders['due'] !== false
+                    };
+                }
+                return { '24h': true, '1h': true, 'due': true };
+            });
+
+            const toggleReminder = (stage) => {
+                setReminders(prev => ({ ...prev, [stage]: !prev[stage] }));
+            };
+            // (2026-07-13) Hide reminders by default to preserve modal height. Prev: none
+            const [showReminders, setShowReminders] = useState(false);
+
             const [text, setText] = useState((initialData && initialData.text) || '');
             // (2026-07-13) Default new quick task deadline to Later. Prev: empty string
             const [dueDate, setDueDate] = useState((initialData && initialData.dueDate !== undefined) ? initialData.dueDate : (prefillDate || initialLater.date));
@@ -13225,8 +13287,10 @@
                 return () => document.removeEventListener('mousedown', handler);
             }, []);
 
-              const handleTextChange = (val) => {
+            // (2026-07-13) Auto-categorize from description on change. Prev: text only
+            const handleTextChange = (val) => {
                 if (error && val.trim()) setError('');
+                autoCategorizeFromText(val);
                 const { date, time, cleanText, isPending } = extractDateFromText(val);
                 if (isPending) {
                     setText(val);
@@ -13244,13 +13308,18 @@
                     const timer = setTimeout(() => {
                         const { date, time, cleanText } = pendingExtraction;
                         setText(cleanText);
+                        autoCategorizeFromText(cleanText);
                         if (date) { setDueDate(date); setShowCustom(true); setSelectedPreset('custom'); }
                         if (time) { setDueTime(time); setShowCustom(true); setSelectedPreset('custom'); }
                         setPendingExtraction(null);
                     }, 2000);
                     return () => clearTimeout(timer);
                 }
-            }, [pendingExtraction, dueDate, dueTime]);
+            }, [pendingExtraction, dueDate, dueTime, autoCategorizeFromText]);
+
+            useEffect(() => {
+                if (text) autoCategorizeFromText(text);
+            }, [availableCategories, autoCategorizeFromText]);
 
             const handleClose = () => {
                 setIsClosing(true);
@@ -13356,7 +13425,7 @@
                 }
             };
 
-            // (2026-07-13) Auto-log note & save progressHistory. Prev: progress only
+            // (2026-07-13) Save history & reminders in quick task. Prev: history only
             const handleSubmit = (e) => {
                 e.preventDefault();
                 if (!text.trim()) {
@@ -13374,7 +13443,7 @@
                             timestamp: Date.now()
                         });
                     }
-                    onAdd(text.trim(), dueDate, dueTime, categories, progress, finalHistory);
+                    onAdd(text.trim(), dueDate, dueTime, categories, progress, finalHistory, reminders);
                     if (showToast) showToast(initialData ? "Task updated!" : "Quick task added!");
                     setIsClosing(true);
                     setTimeout(() => {
@@ -13534,7 +13603,17 @@
                             {/* (2026-07-13) Unified date-time picker & quick presets. Prev: redundant row */}
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between px-1">
-                                    <label className="text-[9px] font-bold text-cream-light/40 uppercase tracking-[0.2em] font-montserrat">Schedule</label>
+                                    <div className="flex items-center gap-1.5">
+                                        <label className="text-[9px] font-bold text-cream-light/40 uppercase tracking-[0.2em] font-montserrat">Schedule</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowReminders(prev => !prev)}
+                                            className={`p-0.5 rounded transition-all cursor-pointer ${showReminders ? 'text-primary' : 'text-white/30 hover:text-white/60'}`}
+                                            title="Toggle reminder alert settings"
+                                        >
+                                            <span className="material-symbols-outlined text-[13px]">{showReminders ? 'notifications_active' : 'notifications'}</span>
+                                        </button>
+                                    </div>
                                     <div className="flex items-center gap-1">
                                         {/* (2026-07-13) Rename Tomorrow preset label to Tomm. Prev: Tmrw */}
                                         {[
@@ -13590,6 +13669,41 @@
                                     />
                                 </div>
                             </div>
+                            {/* (2026-07-13) Hide reminders to reduce modal height. Prev: always visible */}
+                            {showReminders && (
+                                <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <div className="flex items-center justify-between px-1">
+                                        <label className="text-[9px] font-bold text-cream-light/40 uppercase tracking-[0.2em] font-montserrat">Reminders</label>
+                                        <button type="button" onClick={() => setShowReminders(false)} className="text-[8.5px] text-white/30 hover:text-white font-montserrat">Hide</button>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleReminder('24h')}
+                                            className={`h-7 px-1.5 rounded-xl text-[9.5px] font-bold font-montserrat uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer select-none active:scale-95 border ${reminders['24h'] ? 'bg-primary/20 text-primary border-primary/40 shadow-sm shadow-primary/20' : 'bg-white/[0.03] text-white/35 hover:text-white/70 border-white/5'}`}
+                                        >
+                                            <span className="material-symbols-outlined text-[13px]">{reminders['24h'] ? 'notifications_active' : 'notifications_off'}</span>
+                                            <span>24h Before</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleReminder('1h')}
+                                            className={`h-7 px-1.5 rounded-xl text-[9.5px] font-bold font-montserrat uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer select-none active:scale-95 border ${reminders['1h'] ? 'bg-primary/20 text-primary border-primary/40 shadow-sm shadow-primary/20' : 'bg-white/[0.03] text-white/35 hover:text-white/70 border-white/5'}`}
+                                        >
+                                            <span className="material-symbols-outlined text-[13px]">{reminders['1h'] ? 'notifications_active' : 'notifications_off'}</span>
+                                            <span>1h Before</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleReminder('due')}
+                                            className={`h-7 px-1.5 rounded-xl text-[9.5px] font-bold font-montserrat uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer select-none active:scale-95 border ${reminders['due'] ? 'bg-primary/20 text-primary border-primary/40 shadow-sm shadow-primary/20' : 'bg-white/[0.03] text-white/35 hover:text-white/70 border-white/5'}`}
+                                        >
+                                            <span className="material-symbols-outlined text-[13px]">{reminders['due'] ? 'notifications_active' : 'notifications_off'}</span>
+                                            <span>Due Now</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                             {/* (2026-07-13) Streamlined status buttons and compact slider. Prev: tall blocks */}
                             <div className="space-y-1.5">
                                 <label className="text-[9px] font-bold text-cream-light/40 uppercase tracking-[0.2em] px-1 font-montserrat">Status</label>
@@ -16653,8 +16767,8 @@
                 showToast("Settings saved");
             }, [user, activeCollection, settingsData, showToast]);
 
-            // (2026-07-13) Persist progress history in quick tasks. Prev: progress only
-            const handleAddQuickTask = useCallback((text, dueDate = '', dueTime = '', categories = [], progress = 0, progressHistory = []) => {
+            // (2026-07-13) Persist reminder toggles in quick tasks. Prev: history only
+            const handleAddQuickTask = useCallback((text, dueDate = '', dueTime = '', categories = [], progress = 0, progressHistory = [], reminders = { '24h': true, '1h': true, 'due': true }) => {
                 if (dueDate) {
                     FaioraNotifications.requestPermission().catch(() => {});
                 }
@@ -16683,6 +16797,7 @@
                     category: cats[0] || '',
                     progress: progress || 0,
                     progressHistory: Array.isArray(progressHistory) ? progressHistory : [],
+                    reminders: reminders || { '24h': true, '1h': true, 'due': true },
                     completed: isDone,
                     completedAt: isDone ? now : null,
                     createdAt: now + idx
@@ -16691,8 +16806,8 @@
                 handleUpdateQuickTasks(updated);
             }, [handleUpdateQuickTasks]);
 
-            // (2026-07-13) Sync progress history in task update. Prev: no history
-            const handleUpdateQuickTask = (id, text, dueDate, dueTime, categories = [], progress = undefined, progressHistory = undefined) => {
+            // (2026-07-13) Support reminder toggles in task update. Prev: history only
+            const handleUpdateQuickTask = (id, text, dueDate, dueTime, categories = [], progress = undefined, progressHistory = undefined, reminders = undefined) => {
                 if (dueDate) {
                     FaioraNotifications.requestPermission().catch(() => {});
                 }
@@ -16721,6 +16836,7 @@
                         category: cats[0] || '',
                         progress: taskProg,
                         progressHistory: taskHistory,
+                        reminders: reminders !== undefined ? reminders : (original.reminders || { '24h': true, '1h': true, 'due': true }),
                         lastProgress: lastProg ?? null,
                         completed: isDone,
                         completedAt: isDone && !original.completed ? Date.now() : (isDone ? original.completedAt : null),
@@ -17852,8 +17968,9 @@
                             onDelete={handleDeleteQuickTask}
                             showToast={showToast}
                             quickTasks={quickTasks}
-                            onAdd={(text, date, time, categories, progress, progressHistory) => {
-                                handleUpdateQuickTask(editingQuickTask.id, text, date, time, categories, progress, progressHistory);
+                            // (2026-07-13) Forward reminders in update call. Prev: history only
+                            onAdd={(text, date, time, categories, progress, progressHistory, reminders) => {
+                                handleUpdateQuickTask(editingQuickTask.id, text, date, time, categories, progress, progressHistory, reminders);
                             }}
                         />
                     )}
