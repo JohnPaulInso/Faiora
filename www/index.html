@@ -78,6 +78,10 @@
     <script src="assets/vendor/firebase-messaging-compat.js"></script>
 
     <!-- Fonts -->
+    <!-- (2026-07-13) Preload offline local fonts. Prev: remote CDN font flash -->
+    <link rel="preload" href="assets/fonts/montserrat-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/newsreader-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="assets/fonts/material-symbols-outlined.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600&display=swap" media="print" onload="this.media='all'">
@@ -17887,9 +17891,9 @@
                             src={videoSrc}
                         />
                     )}
-                    {/* (2026-07-13) Offline status pill indicator. Prev: none */}
+                    {/* (2026-07-13) Offline badge clear of status bar. Prev: top-3 overlap */}
                     {isOffline && (
-                        <div id="faiora_offline_status_badge" className="fixed top-3 left-1/2 -translate-x-1/2 z-[9998] px-3 py-1 bg-amber-950/80 border border-amber-500/30 backdrop-blur-md rounded-full flex items-center gap-1.5 shadow-lg text-[11px] font-medium text-amber-300 pointer-events-none">
+                        <div id="faiora_offline_status_badge" className="fixed top-[calc(58px+env(safe-area-inset-top,0px))] md:top-4 left-1/2 -translate-x-1/2 z-[9998] px-3 py-1 bg-amber-950/85 border border-amber-500/30 backdrop-blur-md rounded-full flex items-center gap-1.5 shadow-lg text-[11px] font-medium text-amber-300 pointer-events-none">
                             <span className="material-symbols-outlined text-xs text-amber-400">cloud_off</span>
                             {/* Offline mode sync alert */}
                             <span>Offline Mode — Changes will sync when online</span>
