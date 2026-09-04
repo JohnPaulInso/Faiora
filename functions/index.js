@@ -5,8 +5,8 @@
 // to users with Quick Tasks approaching their due dates.
 //
 // NOTIFICATION SCHEDULE:
-//   1. "Due Tomorrow"   → Sent at 9:00 AM the day before
-//   2. "Due in 2 Hours" → Sent exactly 2 hours before due time
+//   1. "Due in 24hrs"   → Sent exactly 24 hours before due time
+//   2. "Due in 1 Hour"  → Sent exactly 1 hour before due time
 //   3. "Task Due Now!"  → Sent at exact due time
 //
 // HOW IT WORKS:
@@ -96,9 +96,14 @@ async function sendPushToUser(userId, title, body, taskId) {
     // to wake up even if the app process is closed/swiped away.
     const message = {
         // Android-specific config for tray notifications
+        // (2026-07-13) Set collapseKey & tag to deduplicate task notifs. Prev: none
         android: {
             priority: "high",
             ttl: 86400000, // 24 hours in milliseconds
+            collapseKey: "faiora-task-" + taskId,
+            notification: {
+                tag: "faiora-task-" + taskId,
+            },
         },
         // Web push config
         webpush: {
@@ -180,8 +185,9 @@ exports.sendTaskNotifications = functions.pubsub
 
                 // Only process tasks that have due dates and aren't completed
                 // COST GUARD: Limit tasks per user to prevent excessive processing
+                // (2026-07-13) Exclude >=100% progress tasks from push. Prev: !t.completed
                 const pendingTasks = taskList.filter(
-                    (t) => t && t.dueDate && !t.completed
+                    (t) => t && t.dueDate && !t.completed && (t.progress === undefined || t.progress < 100)
                 ).slice(0, MAX_TASKS_PER_USER);
 
                 for (const task of pendingTasks) {
@@ -207,8 +213,8 @@ exports.sendTaskNotifications = functions.pubsub
                             const taskName = formatTitleCase(task.text);
                             await sendPushToUser(
                                 userId,
-                                "🔥 Task Reminder!",
-                                `📌 Due Now!: ${taskName}`,
+                                "Task Reminder! 🔥",
+                                `📌 Due Now: ${taskName}`,
                                 taskId
                             );
                             await markAsSent(dueNotifId);
@@ -216,47 +222,44 @@ exports.sendTaskNotifications = functions.pubsub
                     }
 
                     // --------------------------------------------------------
-                    // CHECK 2: 2 hours before (within wide window)
+                    // (2026-07-13) Set 24h & 1h notification stages. Prev: 9am day before & 2h
                     // --------------------------------------------------------
-                    const twoHoursBefore = dueMs - 2 * 60 * 60 * 1000;
-                    const twoHNotifId = `${userId}_${taskId}_2h`;
+                    const oneHourBefore = dueMs - 60 * 60 * 1000;
+                    const oneHNotifId = `${userId}_${taskId}_1h`;
                     if (
-                        twoHoursBefore >= nowMs - 120000 &&
-                        twoHoursBefore <= nowMs + 30000
+                        oneHourBefore >= nowMs - 120000 &&
+                        oneHourBefore <= nowMs + 30000
                     ) {
-                        if (!(await wasAlreadySent(twoHNotifId))) {
+                        if (!(await wasAlreadySent(oneHNotifId))) {
                             const taskName = formatTitleCase(task.text);
                             await sendPushToUser(
                                 userId,
-                                "🔥 Task Reminder!",
-                                `⏳ Due in 2 hours!: ${taskName}`,
+                                "Task Reminder! 🔥",
+                                `⏳ Due in 1hr: ${taskName}`,
                                 taskId
                             );
-                            await markAsSent(twoHNotifId);
+                            await markAsSent(oneHNotifId);
                         }
                     }
 
                     // --------------------------------------------------------
-                    // CHECK 3: 1 day before at 9 AM (within wide window)
+                    // CHECK 3: 24 hours before due time (within wide window)
                     // --------------------------------------------------------
-                    const dayBefore = new Date(dueDateTime);
-                    dayBefore.setDate(dayBefore.getDate() - 1);
-                    dayBefore.setHours(9, 0, 0, 0);
-                    const dayBeforeMs = dayBefore.getTime();
-                    const oneDNotifId = `${userId}_${taskId}_1d`;
+                    const twentyFourHoursBefore = dueMs - 24 * 60 * 60 * 1000;
+                    const twentyFourHNotifId = `${userId}_${taskId}_24h`;
                     if (
-                        dayBeforeMs >= nowMs - 120000 &&
-                        dayBeforeMs <= nowMs + 30000
+                        twentyFourHoursBefore >= nowMs - 120000 &&
+                        twentyFourHoursBefore <= nowMs + 30000
                     ) {
-                        if (!(await wasAlreadySent(oneDNotifId))) {
+                        if (!(await wasAlreadySent(twentyFourHNotifId))) {
                             const taskName = formatTitleCase(task.text);
                             await sendPushToUser(
                                 userId,
-                                "🔥 Task Reminder!",
-                                `⚡ Due Tomorrow!: ${taskName}`,
+                                "Task Reminder! 🔥",
+                                `⚡ Due in 24hrs: ${taskName}`,
                                 taskId
                             );
-                            await markAsSent(oneDNotifId);
+                            await markAsSent(twentyFourHNotifId);
                         }
                     }
                 }

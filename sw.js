@@ -19,8 +19,9 @@
 // --------------------------------------------------------------------------
 // SECTION: SW-FCM — Import Firebase Messaging for background push
 // --------------------------------------------------------------------------
-importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
+// (2026-07-13) Use local vendor scripts for offline support. Prev: gstatic remote
+importScripts('assets/vendor/firebase-app-compat.js');
+importScripts('assets/vendor/firebase-messaging-compat.js');
 
 // Initialize Firebase in the service worker
 // NOTE: This must match the config in index.html
@@ -60,9 +61,10 @@ messaging.onBackgroundMessage((payload) => {
             renotify: true,
             vibrate: [200, 100, 200],
             requireInteraction: true,
+            // (2026-07-13) Pull down quick tap actions. Prev: open/dismiss
             actions: [
-                { action: 'open', title: 'Open App' },
-                { action: 'dismiss', title: 'Dismiss' }
+                { action: 'complete_task', title: '✓ Complete' },
+                { action: 'snooze_1h', title: '+1 Hour' }
             ],
             data: {
                 url: self.location.origin,
@@ -114,9 +116,10 @@ function showLocalNotification(title, body, tag) {
         renotify: true,
         vibrate: [200, 100, 200],
         requireInteraction: true,
+        // (2026-07-13) Pull down quick tap actions. Prev: open/dismiss
         actions: [
-            { action: 'open', title: 'Open App' },
-            { action: 'dismiss', title: 'Dismiss' }
+            { action: 'complete_task', title: '✓ Complete' },
+            { action: 'snooze_1h', title: '+1 Hour' }
         ],
         data: {
             url: self.location.origin
@@ -135,6 +138,23 @@ self.addEventListener('notificationclick', (event) => {
 
     // If user clicked "Dismiss", do nothing
     if (event.action === 'dismiss') return;
+
+    // (2026-07-13) Dispatch notification actions to client window. Prev: open only
+    if (event.action === 'complete_task' || event.action === 'snooze_1h') {
+        event.waitUntil(
+            clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+                const taskId = event.notification.data?.taskId;
+                for (const client of clientList) {
+                    client.postMessage({
+                        type: 'NOTIFICATION_ACTION',
+                        action: event.action,
+                        taskId: taskId
+                    });
+                }
+            })
+        );
+        return;
+    }
 
     // Otherwise, open or focus the app
     const targetUrl = event.notification.data?.url || self.location.origin;
@@ -156,15 +176,64 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // --------------------------------------------------------------------------
-// SECTION: SW-LIFECYCLE — Install & Activate
+// SECTION: SW-LIFECYCLE — Install, Activate & Offline Cache
 // --------------------------------------------------------------------------
-// Skip waiting and claim clients immediately so the SW takes effect right away
+// (2026-07-13) Cache app shell and vendor assets for offline use. Prev: none
+const CACHE_NAME = 'faiora-offline-v1';
+const PRECACHE_ASSETS = [
+    './',
+    './index.html',
+    './style.css',
+    './manifest.json',
+    './logo.png',
+    './tailwind.cdn.js',
+    'assets/vendor/react.production.min.js',
+    'assets/vendor/react-dom.production.min.js',
+    'assets/vendor/history.production.min.js',
+    'assets/vendor/react-router.production.min.js',
+    'assets/vendor/react-router-dom.production.min.js',
+    'assets/vendor/babel.min.js',
+    'assets/vendor/firebase-app-compat.js',
+    'assets/vendor/firebase-auth-compat.js',
+    'assets/vendor/firebase-firestore-compat.js',
+    'assets/vendor/firebase-messaging-compat.js'
+];
+
 self.addEventListener('install', (event) => {
     self.skipWaiting();
+    event.waitUntil(
+        caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_ASSETS).catch(() => {}))
+    );
 });
 
 self.addEventListener('activate', (event) => {
-    // FIX 2026-04-22: Commented out clients.claim() to prevent Chrome Extension "message port closed" errors.
-    // This allows extensions to finish their initialization without the page controller switching suddenly.
-    // event.waitUntil(clients.claim());
+    event.waitUntil(
+        caches.keys().then((keys) =>
+            Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+        )
+    );
+});
+
+self.addEventListener('fetch', (event) => {
+    if (event.request.method !== 'GET') return;
+    const url = new URL(event.request.url);
+    if (!url.protocol.startsWith('http')) return;
+    if (url.origin.includes('firestore.googleapis.com') || url.origin.includes('identitytoolkit')) return;
+
+    event.respondWith(
+        caches.match(event.request).then((cached) => {
+            if (cached) return cached;
+            return fetch(event.request).then((res) => {
+                if (res && res.status === 200 && (url.origin === self.location.origin || url.pathname.endsWith('.js'))) {
+                    const clone = res.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+                }
+                return res;
+            }).catch(() => {
+                if (event.request.mode === 'navigate') {
+                    return caches.match('./index.html') || caches.match('./');
+                }
+            });
+        })
+    );
 });

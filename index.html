@@ -64,22 +64,18 @@
     <!-- Libraries -->
     <!-- (2026-08-14) Use local tailwind copy; CDN blocked in browser. Prev: cdn.tailwindcss.com remote -->
     <script src="tailwind.cdn.js"></script>
-    <!-- (2026-08-24) Use production React builds for LCP gain. Prev: development -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/history@5/umd/history.production.min.js"></script>
-    <script src="https://unpkg.com/react-router@6.3.0/umd/react-router.production.min.js"></script>
-    <script src="https://unpkg.com/react-router-dom@6.3.0/umd/react-router-dom.production.min.js"></script>
-    <!-- (2026-08-14) Pin babel to 7.23.10; unpinned latest (>=7.24) emits ESM import causing crash. Prev: no version pin -->
-    <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
-    
-    <!-- (2026-07-13) Upgrade Firebase SDK to 10.13.2. Prev: 10.8.0 -->
-    <!-- Firebase SDK (Compat) -->
-    <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+    <!-- (2026-07-13) Use local vendor libraries for offline. Prev: remote CDNs -->
+    <script src="assets/vendor/react.production.min.js"></script>
+    <script src="assets/vendor/react-dom.production.min.js"></script>
+    <script src="assets/vendor/history.production.min.js"></script>
+    <script src="assets/vendor/react-router.production.min.js"></script>
+    <script src="assets/vendor/react-router-dom.production.min.js"></script>
+    <script src="assets/vendor/babel.min.js"></script>
+    <script src="assets/vendor/firebase-app-compat.js"></script>
+    <script src="assets/vendor/firebase-auth-compat.js"></script>
+    <script src="assets/vendor/firebase-firestore-compat.js"></script>
     <!-- LABEL: FCM-SDK — Firebase Cloud Messaging for push notifications -->
-    <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
+    <script src="assets/vendor/firebase-messaging-compat.js"></script>
 
     <!-- Fonts -->
     <link rel="preload" href="assets/fonts/material-symbols-outlined.woff2" as="font" type="font/woff2" crossorigin>
@@ -160,6 +156,24 @@
 
 .animate-mobile-header {
     animation: mobile-header-pulse 8s ease-in-out infinite !important;
+}
+
+/* (2026-07-13) Animated mic recording wave bars. Prev: none */
+@keyframes mic-soundbar {
+    0%, 100% { height: 4px; }
+    50% { height: 15px; }
+}
+.mic-wave-bar {
+    animation: mic-soundbar 0.45s ease-in-out infinite alternate !important;
+}
+.mic-wave-bar:nth-child(2) {
+    animation-delay: 0.12s !important;
+}
+.mic-wave-bar:nth-child(3) {
+    animation-delay: 0.24s !important;
+}
+.mic-wave-bar:nth-child(4) {
+    animation-delay: 0.08s !important;
 }
 
 /* (2026-07-13) Subtler, lower shadows for top and bottom nav. Prev: heavy 32px */
@@ -637,20 +651,16 @@
                     return;
                 }
 
-                // (2026-08-24) Separate yesterday tasks and finished tasks (2+ days old)
-                // Include both completed and uncompleted in Yesterday and Finished sections
-                if (due.getTime() < twoDaysAgo.getTime()) {
-                    // Tasks that are 2+ days old go to "Finished" section
-                    finishedTasks.push(task);
-                } else if (due.getTime() === yesterday.getTime()) {
-                    // Tasks from yesterday (completed or not)
-                    yesterdayTasks.push(task);
-                } else if (due.getTime() < today.getTime()) {
-                    // Past due (not yesterday, not 2+ days old)
-                    if (!task.completed || includeCompleted) {
+                // (2026-07-13) Only uncompleted past due in top section. Prev: includeCompleted
+                if (due.getTime() < today.getTime()) {
+                    if (due.getTime() === yesterday.getTime()) {
+                        yesterdayTasks.push(task);
+                    } else if (!task.completed) {
                         const dateKey = task.dueDate;
                         if (!pastDueMap.has(dateKey)) pastDueMap.set(dateKey, []);
                         pastDueMap.get(dateKey).push(task);
+                    } else if (includeCompleted) {
+                        finishedTasks.push(task);
                     }
                 } else if (due.getTime() === today.getTime()) {
                     if (!task.completed || includeCompleted) {
@@ -673,6 +683,37 @@
 
             // (2026-08-24) Reordered: Active tasks first, finished tasks at bottom
             
+            // (2026-07-13) Order: Past Due, Yesterday, Today. Prev: Yesterday, Past Due
+            // Past Due daily groups (sorted newest to oldest)
+            const sortedPastDates = Array.from(pastDueMap.keys()).sort().reverse();
+            sortedPastDates.forEach(dStr => {
+                const d = new Date(`${dStr}T00:00:00`);
+                const formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+                const dayAbbr = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+                sections.push({
+                    key: `pastDue_${dStr}`,
+                    label: `PAST DUE ${formattedDate} (${dayAbbr})`,
+                    shortLabel: `PAST DUE (${formattedDate})`,
+                    items: pastDueMap.get(dStr),
+                    totalCount: pastDueMap.get(dStr).length,
+                    isPastDue: true
+                });
+            });
+
+            // Yesterday section (completed and uncompleted)
+            if (yesterdayTasks.length > 0) {
+                const yesterdayFormatted = yesterday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+                const yesterdayDay = yesterday.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+                sections.push({
+                    key: 'yesterday',
+                    label: `YESTERDAY (${yesterdayDay})`,
+                    shortLabel: `YESTERDAY (${yesterdayFormatted})`,
+                    items: yesterdayTasks,
+                    totalCount: yesterdayTasks.length,
+                    isYesterday: true
+                });
+            }
+
             // Today
             if (todayTasks.length > 0) {
                 const todayFormatted = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
@@ -741,40 +782,13 @@
                 });
             }
 
-            // (2026-08-24) FINISHED SECTIONS AT BOTTOM
-
-            // Yesterday section (completed and uncompleted)
-            if (yesterdayTasks.length > 0) {
-                const yesterdayFormatted = yesterday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
-                const yesterdayDay = yesterday.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-                sections.push({
-                    key: 'yesterday',
-                    label: `YESTERDAY (${yesterdayDay})`,
-                    shortLabel: `YESTERDAY (${yesterdayFormatted})`,
-                    items: yesterdayTasks,
-                    totalCount: yesterdayTasks.length,
-                    isYesterday: true
-                });
-            }
-
-            // Past Due daily groups (sorted newest to oldest) - NOW AT BOTTOM
-            const sortedPastDates = Array.from(pastDueMap.keys()).sort().reverse();
-            sortedPastDates.forEach(dStr => {
-                const d = new Date(`${dStr}T00:00:00`);
-                const formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
-                const dayAbbr = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-                sections.push({
-                    key: `pastDue_${dStr}`,
-                    label: `PAST DUE ${formattedDate} (${dayAbbr})`,
-                    shortLabel: `PAST DUE (${formattedDate})`,
-                    items: pastDueMap.get(dStr),
-                    totalCount: pastDueMap.get(dStr).length,
-                    isPastDue: true
-                });
-            });
-
-            // Finished section (tasks 2+ days old)
+            // (2026-07-13) Sort finished tasks by most recently completed. Prev: arbitrary
             if (finishedTasks.length > 0) {
+                finishedTasks.sort((a, b) => {
+                    const timeA = new Date(a.completedAt || a.updatedAt || a.dueDate || 0).getTime();
+                    const timeB = new Date(b.completedAt || b.updatedAt || b.dueDate || 0).getTime();
+                    return timeB - timeA;
+                });
                 sections.push({
                     key: 'finished',
                     label: 'FINISHED',
@@ -1054,15 +1068,24 @@
                 const plugin = nativeLocalNotifications();
                 if (!plugin || nativeChannelsReady) return;
                 try {
-                    // Register action types first for stop/snooze functionality
+                    // (2026-07-13) Register quick task notification action types. Prev: alarms only
                     await plugin.registerActionTypes({
-                        types: [{
-                            id: 'FAIORA_ALARM_ACTIONS',
-                            actions: [
-                                { id: 'stop', title: 'STOP', foreground: true, destructive: true },
-                                { id: 'snooze', title: 'SNOOZE (5m)', foreground: false }
-                            ]
-                        }]
+                        types: [
+                            {
+                                id: 'FAIORA_ALARM_ACTIONS',
+                                actions: [
+                                    { id: 'stop', title: 'STOP', foreground: true, destructive: true },
+                                    { id: 'snooze', title: 'SNOOZE (5m)', foreground: false }
+                                ]
+                            },
+                            {
+                                id: 'FAIORA_TASK_ACTIONS',
+                                actions: [
+                                    { id: 'complete_task', title: '✓ Complete', foreground: false },
+                                    { id: 'snooze_1h', title: '+1 Hour', foreground: false }
+                                ]
+                            }
+                        ]
                     });
 
                     await plugin.createChannel({
@@ -1096,10 +1119,35 @@
                 const plugin = nativeLocalNotifications();
                 if (!plugin || nativeListenersReady) return;
                 try {
-                    await plugin.addListener('localNotificationReceived', notification => {
+                    await plugin.addListener('localNotificationReceived', async (notification) => {
+                        // (2026-07-13) Deduplicate: clear prior stage delivered notification. Prev: duplicates
+                        const extra = notification?.extra || notification?.data || {};
+                        if (extra.type === 'quick-task' && extra.taskId) {
+                            try {
+                                const delivered = await plugin.getDeliveredNotifications();
+                                const older = (delivered?.notifications || []).filter(n => {
+                                    const nExtra = n?.extra || n?.data || {};
+                                    return nExtra.taskId === extra.taskId && n.id !== notification.id;
+                                });
+                                if (older.length) await plugin.removeDeliveredNotifications({ notifications: older });
+                            } catch (e) {}
+                        }
                         emitInAppAlert(toNativePayload(notification));
                     });
-                    await plugin.addListener('localNotificationActionPerformed', action => {
+                    await plugin.addListener('localNotificationActionPerformed', async (action) => {
+                        // (2026-07-13) Handle quick taps: complete task or snooze 1hr. Prev: alert only
+                        const actionId = action.actionId;
+                        const extra = action.notification?.extra || action.notification?.data || {};
+                        if (extra.type === 'quick-task' && extra.taskId) {
+                            if (actionId === 'complete_task') {
+                                window.dispatchEvent(new CustomEvent('faiora-task-action-complete', { detail: { taskId: extra.taskId } }));
+                                await removeDeliveredTaskNotifications(extra.taskId);
+                                await cancelNativeTaskNotifications(extra.taskId);
+                            } else if (actionId === 'snooze_1h') {
+                                window.dispatchEvent(new CustomEvent('faiora-task-action-snooze', { detail: { taskId: extra.taskId } }));
+                                await removeDeliveredTaskNotifications(extra.taskId);
+                            }
+                        }
                         emitInAppAlert(toNativePayload(action));
                     });
                     nativeListenersReady = true;
@@ -1121,6 +1169,23 @@
                     await plugin.cancel({ notifications: ids.map(id => ({ id })) });
                 } catch (error) {
                     console.warn('Native notification cancel failed', error);
+                }
+            };
+            // (2026-07-13) Remove delivered status bar task notifications. Prev: none
+            const removeDeliveredTaskNotifications = async (taskId = '') => {
+                const plugin = nativeLocalNotifications();
+                if (!plugin) return;
+                try {
+                    const delivered = await plugin.getDeliveredNotifications();
+                    const matching = (delivered?.notifications || []).filter(notification => {
+                        const payload = notification?.data || notification?.extra || {};
+                        return (!taskId || payload.taskId === taskId || String(notification.id).includes(String(taskId)));
+                    });
+                    if (matching.length) {
+                        await plugin.removeDeliveredNotifications({ notifications: matching });
+                    }
+                } catch (error) {
+                    console.warn('Delivered task cleanup failed', error);
                 }
             };
             const removeDeliveredAlarmNotifications = async (alarmId = '') => {
@@ -1241,6 +1306,8 @@
                             title: entry.title,
                             body: entry.body,
                             channelId: QUICK_TASK_CHANNEL_ID,
+                            // (2026-07-13) Attach task action buttons for quick taps. Prev: none
+                            actionTypeId: 'FAIORA_TASK_ACTIONS',
                             // (2026-07-13) Set smallIcon to ic_notification_logo. Prev: ic_stat_faiora
                             smallIcon: 'ic_notification_logo',
                             schedule: { at: new Date(entry.at), allowWhileIdle: true },
@@ -1263,6 +1330,7 @@
                     return false;
                 }
             };
+            // (2026-07-13) Dismiss delivered notification and cancel alarms. Prev: no dismiss
             const cancelNativeTaskNotifications = async (taskId = '') => {
                 if (!taskId) return;
                 await cancelNativeNotifications([
@@ -1270,6 +1338,7 @@
                     getTaskReminderId(taskId, '1h'),
                     getTaskReminderId(taskId, 'due')
                 ]);
+                await removeDeliveredTaskNotifications(taskId);
             };
             /* MOVED: getAlarmScheduleDate 2026-04-20 — Now a global utility for UI and Notification consistency */
             const scheduleAlarmNotification = async (alarm) => {
@@ -1768,6 +1837,7 @@
                         timers.delete(taskId);
                     }
                     try { cancelNativeTaskNotifications(taskId); } catch(e) {}
+                    try { removeDeliveredTaskNotifications(taskId); } catch(e) {}
                     if (swRegistration && typeof swRegistration.getNotifications === 'function') {
                         ['faiora-due', 'faiora-1h', 'faiora-24h'].forEach(prefix => {
                             try {
@@ -1791,11 +1861,12 @@
             };
 
             // ------------------------------------------------------------------
+            // (2026-07-13) Filter out completed/100% tasks on reschedule. Prev: completed only
             const rescheduleAll = (tasks) => {
                 timers.forEach((timerIds) => timerIds.forEach(id => clearTimeout(id)));
                 timers.clear();
                 if (!tasks || !Array.isArray(tasks)) return;
-                tasks.filter(t => t.dueDate && !t.completed).forEach(t => scheduleForTask(t));
+                tasks.filter(t => t.dueDate && !t.completed && (t.progress === undefined || t.progress < 100)).forEach(t => scheduleForTask(t));
             };
 
             const checkCloudHealth = async () => {
@@ -6145,8 +6216,8 @@
             );
         });
 
-        // (2026-07-13) Support category grouping & custom sort order. Prev: date only
-        const QuickTasksNotepadView = ({ tasks = [], onToggle, onSaveToNotes, onEditQuickTask, groupBy = 'date', categoriesOrder = [] }) => {
+        // (2026-07-13) Support multiple selection in Notepad view. Prev: none
+        const QuickTasksNotepadView = ({ tasks = [], onToggle, onSaveToNotes, onEditQuickTask, groupBy = 'date', categoriesOrder = [], isSelectionMode = false, selectedTasks = [], onSelectToggle, onToggleSelectionMode }) => {
             const [showCheckedTasks, setShowCheckedTasks] = useState(() => {
                 try {
                     const saved = localStorage.getItem('faiora_qt_notepad_show_checked');
@@ -6258,7 +6329,11 @@
             const isLongPressTriggered = useRef(false);
             // (2026-07-13) Track which notepad item is being long-pressed. Prev: none
             const [longPressingId, setLongPressingId] = useState(null);
+            // (2026-07-13) Pagination state for finished tasks (20 per page). Prev: none
+            const [finishedPage, setFinishedPage] = useState(1);
+            const FINISHED_PAGE_SIZE = 20;
 
+            // (2026-07-13) Long-press edits only; select via checklist icon. Prev: auto-select
             const handleItemTouchStart = (task) => {
                 isLongPressTriggered.current = false;
                 setLongPressingId(task.id);
@@ -6266,7 +6341,9 @@
                 longPressTimer.current = setTimeout(() => {
                     isLongPressTriggered.current = true;
                     if (navigator.vibrate) try { navigator.vibrate(50); } catch(err) {}
-                    if (onEditQuickTask) onEditQuickTask(task);
+                    if (onEditQuickTask) {
+                        onEditQuickTask(task);
+                    }
                     setTimeout(() => setLongPressingId(null), 300);
                 }, 450);
             };
@@ -6308,16 +6385,30 @@
                                 <p className="qt-notepad-subtitle text-[9px] text-white/40 font-montserrat truncate">{activeCount} tasks ready to sync</p>
                             </div>
                         </div>
-                        <button
-                            type="button"
-                            onClick={handleSave}
-                            disabled={isSaving}
-                            className="qt-notepad-save-btn px-3 py-1 rounded-xl bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 text-[10px] font-bold font-montserrat uppercase tracking-wider transition-all flex items-center gap-1 shrink-0 active:scale-95 shadow-sm"
-                            title="Save or sync this notepad to your Notes"
-                        >
-                            <span className="material-symbols-outlined text-xs md:text-sm">{isSaving ? 'sync' : 'bookmark'}</span>
-                            <span>{isSaving ? 'Saved!' : 'SAVE'}</span>
-                        </button>
+                        {/* (2026-07-13) Multi-select toggle button on notepad header. Prev: save only */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            {onToggleSelectionMode && (
+                                <button
+                                    type="button"
+                                    onClick={onToggleSelectionMode}
+                                    className={`qt-notepad-select-btn px-2.5 py-1 rounded-xl text-[10px] font-bold font-montserrat uppercase tracking-wider transition-all flex items-center gap-1 shrink-0 active:scale-95 border ${isSelectionMode ? 'bg-primary text-white border-primary shadow-sm shadow-primary/30' : 'bg-white/5 hover:bg-white/10 text-white/60 border-white/10'}`}
+                                    title={isSelectionMode ? "Exit Selection Mode" : "Select Multiple Tasks"}
+                                >
+                                    <span className="material-symbols-outlined text-xs">{isSelectionMode ? 'close' : 'checklist'}</span>
+                                    <span>{isSelectionMode ? 'DONE' : 'SELECT'}</span>
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={isSaving}
+                                className="qt-notepad-save-btn px-3 py-1 rounded-xl bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 text-[10px] font-bold font-montserrat uppercase tracking-wider transition-all flex items-center gap-1 shrink-0 active:scale-95 shadow-sm"
+                                title="Save or sync this notepad to your Notes"
+                            >
+                                <span className="material-symbols-outlined text-xs md:text-sm">{isSaving ? 'sync' : 'bookmark'}</span>
+                                <span>{isSaving ? 'Saved!' : 'SAVE'}</span>
+                            </button>
+                        </div>
                     </div>
 
                     {/* Notepad Body Sections */}
@@ -6327,7 +6418,16 @@
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {viewData.sections.map(sec => (
+                            {viewData.sections.map(sec => {
+                                const isFinishedSec = sec.isFinished || sec.key === 'finished';
+                                const totalFinished = sec.items.length;
+                                const totalPages = isFinishedSec ? Math.ceil(totalFinished / FINISHED_PAGE_SIZE) || 1 : 1;
+                                const currentPage = isFinishedSec ? Math.min(Math.max(1, finishedPage), totalPages) : 1;
+                                const displayItems = isFinishedSec
+                                    ? sec.items.slice((currentPage - 1) * FINISHED_PAGE_SIZE, currentPage * FINISHED_PAGE_SIZE)
+                                    : sec.items;
+
+                                return (
                                 <div key={sec.key} className="qt-notepad-section space-y-1.5">
                                     <div className="flex items-center gap-2">
                                         <h4 className={`qt-notepad-section-title text-[11px] font-bold uppercase tracking-wider font-montserrat ${sec.isPastDue ? 'text-red-400' : 'text-primary'}`}>
@@ -6338,13 +6438,14 @@
                                     </div>
                                     <div className="qt-notepad-section-list space-y-1 pl-0.5">
                                         {/* (2026-07-13) Right-aligned minimal progress bar for notepad. Prev: none */}
-                                        {sec.items.map(task => {
+                                        {displayItems.map(task => {
                                             const taskProgress = task.progress !== undefined ? task.progress : (task.completed ? 100 : 0);
                                             const isInProgress = taskProgress > 0 && taskProgress < 100;
                                             const cleanTaskText = (task.text || '').trim().toLowerCase();
                                             // (2026-07-13) Show duplicate badge on both notepad & category views. Prev: category only
                                             const isDuplicate = cleanTaskText && (duplicateTextCounts.get(cleanTaskText) || 0) > 1;
-                                            // (2026-07-13) Align checkbox to first line of text. Prev: items-center
+                                            // (2026-07-13) Multi-select checkbox & item styling in notepad. Prev: static
+                                            const isSelected = isSelectionMode && selectedTasks.includes(task.id);
                                             return (
                                                 <div
                                                     key={task.id}
@@ -6359,10 +6460,10 @@
                                                             e.preventDefault();
                                                             if (onEditQuickTask) onEditQuickTask(task);
                                                         }}
-                                                        className={`qt-notepad-item flex items-start justify-between gap-2.5 py-0.5 px-1.5 rounded-lg hover:bg-white/[0.03] cursor-pointer select-none group`}
+                                                        className={`qt-notepad-item flex items-start justify-between gap-2.5 py-0.5 px-1.5 rounded-lg hover:bg-white/[0.03] cursor-pointer select-none group transition-all ${isSelected ? '!bg-primary/15 !border border-primary/40 shadow-sm shadow-primary/20' : ''}`}
                                                         style={{
                                                             // (2026-08-24) No disabling effect in notepad view - instant check
-                                                            opacity: task.completed ? 0.4 : 1,
+                                                            opacity: (task.completed && !isSelectionMode) ? 0.4 : 1,
                                                             transition: 'opacity 0.3s ease'
                                                         }}
                                                     >
@@ -6374,19 +6475,29 @@
                                                                     e.stopPropagation();
                                                                     return;
                                                                 }
+                                                                if (isSelectionMode) {
+                                                                    if (onSelectToggle) onSelectToggle(task.id);
+                                                                    return;
+                                                                }
                                                                 // (2026-08-24) Instant check for both category and date views in notepad
                                                                 if (onToggle) {
                                                                     onToggle(task.id);
                                                                 }
                                                             }}
                                                         >
-                                                            <div className={`qt-notepad-checkbox w-5 h-5 flex items-center justify-center flex-shrink-0 ${task.completed ? 'checked' : (isInProgress ? 'in-progress' : '')}`}>
-                                                                {task.completed ? (
-                                                                    <span className="material-symbols-outlined text-white text-xs font-bold">check</span>
-                                                                ) : isInProgress ? (
-                                                                    <div className="w-1.5 h-1.5 rounded-sm bg-primary shadow-[0_0_6px_rgba(249,115,22,0.8)]"></div>
-                                                                ) : null}
-                                                            </div>
+                                                            {isSelectionMode ? (
+                                                                <div className={`w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all ${isSelected ? 'bg-primary border-primary text-white shadow-sm shadow-primary/40 scale-105' : 'border-white/35 bg-white/5 hover:border-primary/50'}`}>
+                                                                    {isSelected && <span className="material-symbols-outlined text-xs font-bold">check</span>}
+                                                                </div>
+                                                            ) : (
+                                                                <div className={`qt-notepad-checkbox w-5 h-5 flex items-center justify-center flex-shrink-0 ${task.completed ? 'checked' : (isInProgress ? 'in-progress' : '')}`}>
+                                                                    {task.completed ? (
+                                                                        <span className="material-symbols-outlined text-white text-xs font-bold">check</span>
+                                                                    ) : isInProgress ? (
+                                                                        <div className="w-1.5 h-1.5 rounded-sm bg-primary shadow-[0_0_6px_rgba(249,115,22,0.8)]"></div>
+                                                                    ) : null}
+                                                                </div>
+                                                            )}
                                                             <div className="flex-1 min-w-0">
                                                                 {/* (2026-07-13) Smart 1 vs 2 line clamp on notepad item. Prev: fixed 2 */}
                                                                 {/* (2026-07-13) Orange text on long-press, muted if completed. Prev: static */}
@@ -6419,8 +6530,55 @@
                                             );
                                         })}
                                     </div>
+                                    {/* (2026-07-13) Subtle minimal pagination for finished tasks. Prev: bold buttons */}
+                                    {isFinishedSec && totalPages > 1 && (
+                                        <div className="flex items-center justify-between pt-2.5 px-1 font-montserrat select-none opacity-60 hover:opacity-90 transition-opacity">
+                                            <span className="text-[9px] text-white/30 font-medium tracking-widest uppercase">
+                                                Page {currentPage} of {totalPages}
+                                            </span>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    disabled={currentPage <= 1}
+                                                    onClick={(e) => { e.stopPropagation(); setFinishedPage(p => Math.max(1, p - 1)); }}
+                                                    className={`flex items-center justify-center w-6 h-6 rounded-md text-xs transition-all active:scale-90 ${currentPage <= 1 ? 'opacity-20 text-white/20 cursor-not-allowed' : 'text-white/40 hover:text-cream-light hover:bg-white/[0.05] cursor-pointer'}`}
+                                                    title="Previous Page"
+                                                >
+                                                    <span className="material-symbols-outlined text-[13px]">chevron_left</span>
+                                                </button>
+                                                <div className="flex items-center gap-0.5">
+                                                    {totalPages <= 5 ? (
+                                                        Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                                                            <button
+                                                                key={pageNum}
+                                                                type="button"
+                                                                onClick={(e) => { e.stopPropagation(); setFinishedPage(pageNum); }}
+                                                                className={`min-w-[22px] h-6 px-1 rounded-md text-[10px] font-medium font-montserrat transition-all active:scale-90 cursor-pointer ${pageNum === currentPage ? 'bg-primary/20 text-primary border border-primary/30 font-semibold' : 'text-white/35 hover:text-white/70 hover:bg-white/[0.04]'}`}
+                                                            >
+                                                                {pageNum}
+                                                            </button>
+                                                        ))
+                                                    ) : (
+                                                        <span className="px-1.5 py-0.5 text-[9px] text-white/40 font-montserrat">
+                                                            {currentPage} / {totalPages}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    disabled={currentPage >= totalPages}
+                                                    onClick={(e) => { e.stopPropagation(); setFinishedPage(p => Math.min(totalPages, p + 1)); }}
+                                                    className={`flex items-center justify-center w-6 h-6 rounded-md text-xs transition-all active:scale-90 ${currentPage >= totalPages ? 'opacity-20 text-white/20 cursor-not-allowed' : 'text-white/40 hover:text-cream-light hover:bg-white/[0.05] cursor-pointer'}`}
+                                                    title="Next Page"
+                                                >
+                                                    <span className="material-symbols-outlined text-[13px]">chevron_right</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -6820,6 +6978,66 @@
 
         // --- Page Components ---
 
+        // (2026-07-13) Modal to batch change deadline for selected tasks. Prev: none
+        const BatchDeadlineModal = ({ isOpen, onClose, onApply, count = 0 }) => {
+            if (!isOpen) return null;
+            const [dateVal, setDateVal] = useState('');
+            const [timeVal, setTimeVal] = useState('23:59');
+
+            const setPreset = (daysOffset) => {
+                const d = new Date();
+                d.setDate(d.getDate() + daysOffset);
+                setDateVal(d.toLocaleDateString('en-CA'));
+            };
+
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            const tommStr = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toLocaleDateString('en-CA'); })();
+            const nextWeekStr = (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toLocaleDateString('en-CA'); })();
+            const isToday = dateVal === todayStr;
+            const isTomorrow = dateVal === tommStr;
+            const isNextWeek = dateVal === nextWeekStr;
+            const isCleared = dateVal === '' && timeVal === '';
+
+            return (
+                // (2026-07-13) Full-width deadline popup with no side margins. Prev: max-w-sm
+                <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[2050] flex items-end justify-center p-0 m-0 animate-in fade-in duration-200" onClick={onClose}>
+                    <div className="w-full max-w-none m-0 mx-0 bg-[#120804] border-t border-b-0 border-x-0 border-white/10 rounded-t-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-4 duration-300 font-montserrat" onClick={e => e.stopPropagation()}>
+                        <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 className="text-base font-bold text-cream-light">Change Deadline</h3>
+                                <p className="text-[11px] text-white/50">{count} {count === 1 ? 'task' : 'tasks'} selected</p>
+                            </div>
+                            <button type="button" onClick={onClose} className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 active:bg-white/20 text-white/50 hover:text-white transition-all duration-150 active:scale-90 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-[18px]">close</span>
+                            </button>
+                        </div>
+                        {/* (2026-07-13) Tactile hover & tap feedback on deadline presets. Prev: static */}
+                        <div className="flex flex-wrap gap-2 mb-4">
+                            <button type="button" onClick={() => setPreset(0)} className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all duration-150 active:scale-95 cursor-pointer select-none border ${isToday ? 'bg-primary text-white border-primary shadow-md shadow-primary/30' : 'bg-white/5 hover:bg-primary/20 hover:text-primary active:bg-primary/30 text-white/70 border-white/10'}`}>Today</button>
+                            <button type="button" onClick={() => setPreset(1)} className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all duration-150 active:scale-95 cursor-pointer select-none border ${isTomorrow ? 'bg-primary text-white border-primary shadow-md shadow-primary/30' : 'bg-white/5 hover:bg-primary/20 hover:text-primary active:bg-primary/30 text-white/70 border-white/10'}`}>Tomorrow</button>
+                            <button type="button" onClick={() => setPreset(7)} className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all duration-150 active:scale-95 cursor-pointer select-none border ${isNextWeek ? 'bg-primary text-white border-primary shadow-md shadow-primary/30' : 'bg-white/5 hover:bg-primary/20 hover:text-primary active:bg-primary/30 text-white/70 border-white/10'}`}>Next Week</button>
+                            <button type="button" onClick={() => { setDateVal(''); setTimeVal(''); }} className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all duration-150 active:scale-95 cursor-pointer select-none border ${isCleared ? 'bg-red-500 text-white border-red-500 shadow-md shadow-red-500/30' : 'bg-red-500/10 hover:bg-red-500/20 active:bg-red-500/30 text-red-400 border-red-500/20'}`}>Clear</button>
+                        </div>
+                        <div className="space-y-3 mb-6">
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-primary mb-1">Due Date</label>
+                                <input type="date" value={dateVal} onChange={e => setDateVal(e.target.value)} className="w-full bg-white/5 hover:bg-white/[0.08] focus:bg-white/10 border border-white/10 hover:border-primary/40 rounded-xl px-3 py-2.5 text-xs text-cream-light focus:outline-none focus:border-primary transition-all duration-150 cursor-pointer" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-primary mb-1">Due Time</label>
+                                <input type="time" value={timeVal} onChange={e => setTimeVal(e.target.value)} className="w-full bg-white/5 hover:bg-white/[0.08] focus:bg-white/10 border border-white/10 hover:border-primary/40 rounded-xl px-3 py-2.5 text-xs text-cream-light focus:outline-none focus:border-primary transition-all duration-150 cursor-pointer" />
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 hover:bg-white/10 active:bg-white/15 text-white/60 active:text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-150 active:scale-95 cursor-pointer select-none">Cancel</button>
+                            <button type="button" onClick={() => onApply(dateVal, timeVal)} className="flex-1 py-3 bg-primary hover:bg-primary-dark active:bg-orange-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/30 active:shadow-none transition-all duration-150 active:scale-95 cursor-pointer select-none">Apply</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         // ==========================================================================
         // LABEL: PAGE-HOME (Dashboard)
         // Path: /
@@ -7007,6 +7225,32 @@
             const [selectedTasks, setSelectedTasks] = useState([]);
             const [pendingDeleteBatch, setPendingDeleteBatch] = useState(false);
             const [showAssignCategorySheet, setShowAssignCategorySheet] = useState(false);
+            const [showBatchDeadlineModal, setShowBatchDeadlineModal] = useState(false);
+
+            // (2026-07-13) Batch change deadline for homepage tasks. Prev: none
+            const handleBatchChangeDeadline = (newDate, newTime) => {
+                if (typeof onUpdateQuickTasks === 'function') {
+                    let dueTimestamp = null;
+                    if (newDate) {
+                        const dt = new Date(`${newDate}T${newTime || '23:59'}`);
+                        if (!isNaN(dt.getTime())) dueTimestamp = dt.getTime();
+                    }
+                    onUpdateQuickTasks((quickTasks || []).map(t => {
+                        if (!selectedTasks.includes(t.id)) return t;
+                        return {
+                            ...t,
+                            dueDate: newDate || '',
+                            dueTime: newTime || '',
+                            dueTimestamp,
+                            updatedAt: Date.now()
+                        };
+                    }));
+                }
+                setShowBatchDeadlineModal(false);
+                setSelectedTasks([]);
+                setIsSelectionMode(false);
+                if (showToast) showToast(`Deadline updated for ${selectedTasks.length} task${selectedTasks.length !== 1 ? 's' : ''}`);
+            };
 
             const handleToggleSelectTask = (taskId) => {
                 setSelectedTasks(prev =>
@@ -7563,20 +7807,18 @@
                                         >
                                             <span className="material-symbols-outlined text-sm md:text-base leading-none">tune</span>
                                         </button>
-                                        {/* (2026-07-13) Select mode toggle for homepage quick tasks. Prev: none */}
-                                        {(viewMode === 'standard' || viewMode === 'daily') && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setIsSelectionMode(prev => !prev);
-                                                    setSelectedTasks([]);
-                                                }}
-                                                className={`text-cream-light/35 hover:text-primary transition-colors flex items-center justify-center p-0.5 ${isSelectionMode ? 'text-primary' : ''}`}
-                                                title={isSelectionMode ? 'Exit Selection' : 'Select Tasks'}
-                                            >
-                                                <span className="material-symbols-outlined text-sm md:text-base leading-none">{isSelectionMode ? 'checklist' : 'checklist'}</span>
-                                            </button>
-                                        )}
+                                        {/* (2026-07-13) Select mode toggle for all quick task views. Prev: non-notepad */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsSelectionMode(prev => !prev);
+                                                setSelectedTasks([]);
+                                            }}
+                                            className={`text-cream-light/35 hover:text-primary transition-colors flex items-center justify-center p-0.5 ${isSelectionMode ? 'text-primary' : ''}`}
+                                            title={isSelectionMode ? 'Exit Selection' : 'Select Tasks'}
+                                        >
+                                            <span className="material-symbols-outlined text-sm md:text-base leading-none">{isSelectionMode ? 'close' : 'checklist'}</span>
+                                        </button>
                                     </div>
                                     <Link 
                                         to="/quick-tasks"
@@ -7732,6 +7974,7 @@
                                     </div>
                                 ) : (
                                     <div className="skeleton-fade-in">
+                                        {/* (2026-07-13) Pass multi-select props to notepad view. Prev: view-only */}
                                         {viewMode === 'notepad' || viewMode === 'categories' ? (
                                             <QuickTasksNotepadView
                                                 tasks={sortedQuickTasks}
@@ -7741,6 +7984,15 @@
                                                 onEditQuickTask={onEditQuickTask}
                                                 groupBy={viewMode === 'categories' ? 'category' : 'date'}
                                                 categoriesOrder={allCategories}
+                                                isSelectionMode={isSelectionMode}
+                                                selectedTasks={selectedTasks}
+                                                onSelectToggle={handleToggleSelectTask}
+                                                onToggleSelectionMode={() => {
+                                                    setIsSelectionMode(prev => {
+                                                        if (prev) setSelectedTasks([]);
+                                                        return !prev;
+                                                    });
+                                                }}
                                             />
                                         ) : viewMode === 'daily' ? (
                                             <div className="space-y-8">
@@ -7892,6 +8144,15 @@
                                 <button
                                     type="button"
                                     disabled={selectedTasks.length === 0}
+                                    onClick={() => setShowBatchDeadlineModal(true)}
+                                    className={`w-9 h-9 rounded-2xl text-xs font-bold flex items-center justify-center transition-all ${selectedTasks.length > 0 ? 'bg-white/10 hover:bg-white/15 text-cream-light active:scale-95' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
+                                    title="Change deadline of selected"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">calendar_today</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={selectedTasks.length === 0}
                                     onClick={() => setShowAssignCategorySheet(true)}
                                     className={`w-9 h-9 rounded-2xl text-xs font-bold flex items-center justify-center transition-all ${selectedTasks.length > 0 ? 'bg-white/10 hover:bg-white/15 text-cream-light active:scale-95' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
                                     title="Assign category to selected"
@@ -7980,6 +8241,13 @@
                             </div>
                         </div>
                     )}
+                    {/* (2026-07-13) Batch deadline modal for selected tasks. Prev: none */}
+                    <BatchDeadlineModal
+                        isOpen={showBatchDeadlineModal}
+                        onClose={() => setShowBatchDeadlineModal(false)}
+                        onApply={handleBatchChangeDeadline}
+                        count={selectedTasks.length}
+                    />
                 </Layout>
             );
         };
@@ -9676,6 +9944,32 @@
             const [pendingDeleteBatch, setPendingDeleteBatch] = useState(false);
             // (2026-07-13) Batch assign category state. Prev: none
             const [showAssignCategorySheet, setShowAssignCategorySheet] = useState(false);
+            const [showBatchDeadlineModal, setShowBatchDeadlineModal] = useState(false);
+
+            // (2026-07-13) Batch change deadline in QuickTasksPage. Prev: none
+            const handleBatchChangeDeadline = (newDate, newTime) => {
+                if (typeof onUpdateQuickTasks === 'function') {
+                    let dueTimestamp = null;
+                    if (newDate) {
+                        const dt = new Date(`${newDate}T${newTime || '23:59'}`);
+                        if (!isNaN(dt.getTime())) dueTimestamp = dt.getTime();
+                    }
+                    onUpdateQuickTasks((quickTasks || []).map(t => {
+                        if (!selectedTasks.includes(t.id)) return t;
+                        return {
+                            ...t,
+                            dueDate: newDate || '',
+                            dueTime: newTime || '',
+                            dueTimestamp,
+                            updatedAt: Date.now()
+                        };
+                    }));
+                }
+                setShowBatchDeadlineModal(false);
+                setSelectedTasks([]);
+                setIsSelectionMode(false);
+                if (showToast) showToast(`Deadline updated for ${selectedTasks.length} task${selectedTasks.length !== 1 ? 's' : ''}`);
+            };
 
             const handleToggleSelectTask = (taskId) => {
                 setSelectedTasks(prev =>
@@ -9968,21 +10262,20 @@
                                 >
                                     <span className="material-symbols-outlined text-base md:text-lg">tune</span>
                                 </button>
-                                {(viewMode === 'standard' || viewMode === 'daily') && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setIsSelectionMode(prev => {
-                                                if (prev) setSelectedTasks([]);
-                                                return !prev;
-                                            });
-                                        }}
-                                        className={`transition-colors flex items-center justify-center p-0.5 ${isSelectionMode ? 'text-primary' : 'text-cream-light/35 hover:text-primary'}`}
-                                        title={isSelectionMode ? 'Exit selection' : 'Select multiple tasks'}
-                                    >
-                                        <span className="material-symbols-outlined text-base md:text-lg">{isSelectionMode ? 'close' : 'checklist'}</span>
-                                    </button>
-                                )}
+                                {/* (2026-07-13) Multi-select across all quick task views. Prev: non-notepad */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsSelectionMode(prev => {
+                                            if (prev) setSelectedTasks([]);
+                                            return !prev;
+                                        });
+                                    }}
+                                    className={`transition-colors flex items-center justify-center p-0.5 ${isSelectionMode ? 'text-primary' : 'text-cream-light/35 hover:text-primary'}`}
+                                    title={isSelectionMode ? 'Exit selection' : 'Select multiple tasks'}
+                                >
+                                    <span className="material-symbols-outlined text-base md:text-lg">{isSelectionMode ? 'close' : 'checklist'}</span>
+                                </button>
                             </div>
 
                             {/* (2026-07-13) Fix white focus outline on mode switch. Prev: white ring */}
@@ -10127,6 +10420,7 @@
                                 </div>
                             ) : (
                                 <div className="skeleton-fade-in">
+                                    {/* (2026-07-13) Pass multi-select props to notepad view. Prev: view-only */}
                                     {viewMode === 'notepad' || viewMode === 'categories' ? (
                                         <QuickTasksNotepadView
                                             tasks={filteredTasks}
@@ -10136,6 +10430,15 @@
                                             onEditQuickTask={onEditQuickTask}
                                             groupBy={viewMode === 'categories' ? 'category' : 'date'}
                                             categoriesOrder={allCategories}
+                                            isSelectionMode={isSelectionMode}
+                                            selectedTasks={selectedTasks}
+                                            onSelectToggle={handleToggleSelectTask}
+                                            onToggleSelectionMode={() => {
+                                                setIsSelectionMode(prev => {
+                                                    if (prev) setSelectedTasks([]);
+                                                    return !prev;
+                                                });
+                                            }}
                                         />
                                     ) : viewMode === 'daily' ? (
                                         <div className="space-y-8">
@@ -10259,6 +10562,15 @@
                                 </button>
                             </div>
                             <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    disabled={selectedTasks.length === 0}
+                                    onClick={() => setShowBatchDeadlineModal(true)}
+                                    className={`w-9 h-9 rounded-2xl text-xs font-bold flex items-center justify-center transition-all ${selectedTasks.length > 0 ? 'bg-white/10 hover:bg-white/15 text-cream-light active:scale-95' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
+                                    title="Change deadline of selected"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">calendar_today</span>
+                                </button>
                                 {/* (2026-07-13) Assign category button in action bar. Prev: none */}
                                 <button
                                     type="button"
@@ -10343,6 +10655,14 @@
                             </div>
                         </div>
                     )}
+
+                    {/* (2026-07-13) Batch deadline modal for QuickTasksPage. Prev: none */}
+                    <BatchDeadlineModal
+                        isOpen={showBatchDeadlineModal}
+                        onClose={() => setShowBatchDeadlineModal(false)}
+                        onApply={handleBatchChangeDeadline}
+                        count={selectedTasks.length}
+                    />
 
                     {isManageCategoriesOpen && (
                         <ManageQuickTaskCategoriesModal
@@ -12937,6 +13257,105 @@
                 setTimeout(onClose, 180);
             };
 
+            // (2026-07-13) 3s silence auto-stop & speech state for mic. Prev: manual stop
+            const [isListening, setIsListening] = useState(false);
+            const [isSpeaking, setIsSpeaking] = useState(false);
+            const recognitionRef = useRef(null);
+            const silenceTimerRef = useRef(null);
+
+            const resetSilenceTimer = () => {
+                if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+                silenceTimerRef.current = setTimeout(() => {
+                    if (recognitionRef.current) {
+                        try { recognitionRef.current.stop(); } catch(e) {}
+                    }
+                    setIsListening(false);
+                    setIsSpeaking(false);
+                }, 3000);
+            };
+
+            useEffect(() => {
+                return () => {
+                    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+                    if (recognitionRef.current) {
+                        try { recognitionRef.current.stop(); } catch(e) {}
+                    }
+                };
+            }, []);
+
+            const toggleSpeechRecognition = () => {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) {
+                    if (showToast) showToast('Speech recognition not supported in this browser');
+                    return;
+                }
+                if (isListening) {
+                    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+                    if (recognitionRef.current) {
+                        try { recognitionRef.current.stop(); } catch(e) {}
+                    }
+                    setIsListening(false);
+                    setIsSpeaking(false);
+                    return;
+                }
+
+                try {
+                    const rec = new SpeechRecognition();
+                    rec.continuous = true;
+                    rec.interimResults = true;
+                    rec.lang = 'en-US';
+
+                    rec.onstart = () => {
+                        setIsListening(true);
+                        setIsSpeaking(false);
+                        resetSilenceTimer();
+                        if (showToast) showToast('Listening...');
+                    };
+
+                    rec.onspeechstart = () => {
+                        setIsSpeaking(true);
+                        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+                    };
+
+                    rec.onspeechend = () => {
+                        setIsSpeaking(false);
+                        resetSilenceTimer();
+                    };
+
+                    rec.onresult = (event) => {
+                        setIsSpeaking(true);
+                        resetSilenceTimer();
+                        const currentTranscript = Array.from(event.results).map(r => r[0].transcript).join('');
+                        if (currentTranscript) {
+                            handleTextChange((text ? text + ' ' : '') + currentTranscript.slice(0, 150));
+                        }
+                    };
+
+                    rec.onerror = (e) => {
+                        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+                        setIsListening(false);
+                        setIsSpeaking(false);
+                        if (e.error !== 'no-speech' && showToast) {
+                            showToast('Mic error: ' + (e.error || 'Check permission'));
+                        }
+                    };
+
+                    rec.onend = () => {
+                        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+                        setIsListening(false);
+                        setIsSpeaking(false);
+                    };
+
+                    recognitionRef.current = rec;
+                    rec.start();
+                } catch(err) {
+                    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+                    setIsListening(false);
+                    setIsSpeaking(false);
+                    if (showToast) showToast('Could not start microphone');
+                }
+            };
+
             // (2026-07-13) Auto-log note & save progressHistory. Prev: progress only
             const handleSubmit = (e) => {
                 e.preventDefault();
@@ -13080,17 +13499,37 @@
                                         </span>
                                     </div>
                                 </div>
-                                <textarea
-                                    autoFocus
-                                    value={text}
-                                    onChange={(e) => handleTextChange(e.target.value.slice(0, 150))}
-                                    maxLength={150}
-                                    placeholder="What needs to be done? (Each new line creates a new quick task)"
-                                    className={`w-full bg-white/5 border rounded-xl p-2.5 text-cream-light placeholder:text-white/10 focus:ring-2 transition-all font-montserrat text-xs quick-task-input ${error ? 'border-red-500/60 focus:ring-red-500/20' : 'border-white/10 focus:ring-primary/20'}`}
-                                    rows={2}
-                                    style={{ textTransform: 'capitalize', resize: 'none' }}
-                                    disabled={isSubmitting}
-                                />
+                                <div className="relative">
+                                    <textarea
+                                        autoFocus
+                                        value={text}
+                                        onChange={(e) => handleTextChange(e.target.value.slice(0, 150))}
+                                        maxLength={150}
+                                        placeholder="What needs to be done? (Each new line creates a new quick task)"
+                                        className={`w-full bg-white/5 border rounded-xl p-2.5 pr-10 text-cream-light placeholder:text-white/10 focus:ring-2 transition-all font-montserrat text-xs quick-task-input ${error ? 'border-red-500/60 focus:ring-red-500/20' : 'border-white/10 focus:ring-primary/20'}`}
+                                        rows={2}
+                                        style={{ textTransform: 'capitalize', resize: 'none' }}
+                                        disabled={isSubmitting}
+                                    />
+                                    {/* (2026-07-13) Centered mic button with speaking wave animation. Prev: bottom-2.5 */}
+                                    <button
+                                        type="button"
+                                        onClick={toggleSpeechRecognition}
+                                        title={isListening ? (isSpeaking ? "Speaking... listening" : "Listening... Tap to stop") : "Speech to text"}
+                                        className={`absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl flex items-center justify-center transition-all ${isListening ? (isSpeaking ? 'bg-red-500 text-white shadow-lg shadow-red-500/60 ring-2 ring-red-400/70 scale-105' : 'bg-red-500/90 text-white shadow-md shadow-red-500/40 ring-1 ring-red-400/50 animate-pulse') : 'bg-white/5 hover:bg-white/15 text-white/50 hover:text-primary active:scale-95'}`}
+                                    >
+                                        {isListening ? (
+                                            <div className="flex items-center justify-center gap-0.5 h-4 px-0.5">
+                                                <span className={`w-0.5 rounded-full bg-white transition-all ${isSpeaking ? 'h-3.5 mic-wave-bar' : 'h-1.5'}`}></span>
+                                                <span className={`w-0.5 rounded-full bg-white transition-all ${isSpeaking ? 'h-4 mic-wave-bar' : 'h-3'}`}></span>
+                                                <span className={`w-0.5 rounded-full bg-white transition-all ${isSpeaking ? 'h-2.5 mic-wave-bar' : 'h-2'}`}></span>
+                                                <span className={`w-0.5 rounded-full bg-white transition-all ${isSpeaking ? 'h-3.5 mic-wave-bar' : 'h-1.5'}`}></span>
+                                            </div>
+                                        ) : (
+                                            <span className="material-symbols-outlined text-[17px]">mic</span>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                             {/* (2026-07-13) Unified date-time picker & quick presets. Prev: redundant row */}
                             <div className="space-y-1.5">
@@ -14023,8 +14462,9 @@
 
             const [isTimerDone, setIsTimerDone] = useState(false);
             const [activeCollection, setActiveCollection] = useState(() => localStorage.getItem('faiora_active_collection') || 'tasks');
-            // (2026-07-13) Preloader shows if notes/tasks not cached. Prev: empty flash
-            const [isProbing, setIsProbing] = useState(true);
+            // (2026-07-13) Set probing false if offline for immediate boot. Prev: true
+            const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' ? !navigator.onLine : false);
+            const [isProbing, setIsProbing] = useState(() => (typeof navigator !== 'undefined' && !navigator.onLine ? false : true));
             const [isFirstSyncDone, setIsFirstSyncDone] = useState(() => {
                 try {
                     const cachedUser = JSON.parse(localStorage.getItem('faiora_cached_user') || 'null');
@@ -14037,7 +14477,7 @@
                 }
             });
             const [isVideoReady, setIsVideoReady] = useState(false);
-            const [isAuthChecked, setIsAuthChecked] = useState(false);
+            const [isAuthChecked, setIsAuthChecked] = useState(() => (typeof navigator !== 'undefined' && !navigator.onLine) || !!localStorage.getItem('faiora_cached_user'));
             const [cloudFieldsCount, setCloudFieldsCount] = useState(0); // [RESURRECTION 2026-04-20]
             const [isSyncHealthy, setIsSyncHealthy] = useState(true); // [NEW 2026-04-20] Network health status
             const [masterUidOverride, setMasterUidOverride] = useState(() => localStorage.getItem('faiora_uid_override') || '');
@@ -14173,6 +14613,57 @@
                     return [...active, { id, message, action, createdAt, duration: 5000 }];
                 });
             }, []);
+
+            // (2026-07-13) Auto-sync queued mutations when network restores. Prev: none
+            const triggerAutoSync = useCallback(async () => {
+                const targetUid = auth.currentUser?.uid || user?.uid;
+                if (!targetUid) return;
+                const taskColl = quickTasksCollectionRef.current || activeCollectionRef.current || 'tasks';
+                const noteColl = activeCollectionRef.current || 'tasks';
+
+                try {
+                    const savedTasks = JSON.parse(localStorage.getItem('faiora_quick_tasks_' + targetUid) || '[]');
+                    const savedTrash = JSON.parse(localStorage.getItem('faiora_quick_task_trash_' + targetUid) || '[]');
+                    if (savedTasks.length > 0 || savedTrash.length > 0) {
+                        await db.collection(taskColl).doc(targetUid).set({
+                            quickTasks: JSON.parse(JSON.stringify(savedTasks)),
+                            quickTaskTrash: JSON.parse(JSON.stringify(savedTrash))
+                        }, { merge: true });
+                    }
+
+                    const savedNotes = JSON.parse(localStorage.getItem('faiora_notes_' + targetUid) || '[]');
+                    if (savedNotes.length > 0) {
+                        const notesMap = {};
+                        savedNotes.forEach(n => {
+                            notesMap[n.id] = { ...n, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+                        });
+                        await db.collection(noteColl).doc(targetUid).set({
+                            notes: notesMap
+                        }, { merge: true });
+                    }
+                    localStorage.removeItem('faiora_sync_queue');
+                    showToast('Back online — all changes synced!');
+                } catch(e) {
+                    console.warn('⚠️ [SYNC] Auto-sync attempt error:', e.message);
+                }
+            }, [user?.uid, showToast]);
+
+            useEffect(() => {
+                const handleOnline = () => {
+                    setIsOffline(false);
+                    triggerAutoSync();
+                };
+                const handleOffline = () => {
+                    setIsOffline(true);
+                    setIsProbing(false);
+                };
+                window.addEventListener('online', handleOnline);
+                window.addEventListener('offline', handleOffline);
+                return () => {
+                    window.removeEventListener('online', handleOnline);
+                    window.removeEventListener('offline', handleOffline);
+                };
+            }, [triggerAutoSync]);
             // (2026-07-13) Guard alarm permission state update. Prev: unconditional setter
             const refreshAlarmOverlayPermission = useCallback(() => {
                 if (!FaioraNotifications.hasAlarmOverlayPermission) return false;
@@ -15710,11 +16201,8 @@
             }, [user, activeCollection, quickTasksCollection, trashQuickTasks]);
 
             // Bulk update: partially update a note by id (or create if isNew)
+            // (2026-07-13) Support offline note mutations in local storage. Prev: paused
             const handleBulkUpdate = useCallback((noteId, updates, isNew = false) => {
-                if (isProbing) {
-                    console.warn('⚠️ [SYNC] Note update paused while discovering writable collection...');
-                    return;
-                }
                 setNotes(prev => {
                     let newNotes;
                     if (isNew) {
@@ -15725,6 +16213,7 @@
                     if (user) localStorage.setItem('faiora_notes_' + user.uid, JSON.stringify(newNotes));
                     return newNotes;
                 });
+                if (!navigator.onLine || isProbing) return;
                 // Sync to Firestore
                 if (user && activeCollection) {
                     if (isNew) {
@@ -15743,11 +16232,8 @@
             }, [user, activeCollection, isProbing]);
 
             // Bulk delete: move note to Trash and sync to Firestore
+            // (2026-07-13) Support offline note deletion in local storage. Prev: paused
             const handleBulkDelete = useCallback((noteId) => {
-                if (isProbing) {
-                    console.warn('⚠️ [SYNC] Note delete paused while discovering writable collection...');
-                    return;
-                }
                 const noteToTrash = notes.find(n => n.id === noteId);
                 handleDeleteNoteLocal(noteId);
                 if (noteToTrash && user) {
@@ -15756,6 +16242,8 @@
                     trashNotesRef.current = nextTrashNotes;
                     localStorage.setItem('faiora_trash_notes_' + user.uid, JSON.stringify(nextTrashNotes));
                 }
+                showToast('Note moved to Trash');
+                if (!navigator.onLine || isProbing) return;
                 if (user && activeCollection) {
                     const deletePayload = {
                         [`notes.${noteId}`]: firebase.firestore.FieldValue.delete()
@@ -15768,7 +16256,6 @@
                         };
                     }
                     db.collection(activeCollection).doc(user.uid).update(deletePayload).catch(e => console.warn('Soft-delete sync fail', e));
-                    showToast('Note moved to Trash');
                 }
             }, [user, activeCollection, handleDeleteNoteLocal, isProbing, notes, showToast]);
 
@@ -16058,22 +16545,20 @@
                 trashQuickTasksRef.current = updatedTrash;
                 FaioraNotifications.rescheduleAll(updatedTasks);
 
+                // (2026-07-13) Persist offline first, defer cloud sync. Prev: early return
+                const currentUid = auth.currentUser?.uid || user?.uid;
+                if (currentUid) {
+                    localStorage.setItem('faiora_quick_tasks_' + currentUid, JSON.stringify(updatedTasks));
+                    localStorage.setItem('faiora_quick_task_trash_' + currentUid, JSON.stringify(updatedTrash));
+                }
+
                 const currentUser = auth.currentUser;
                 const taskCollection = quickTasksCollection || activeCollection;
-                if (!currentUser) {
-                    console.warn('âš ï¸ No currentUser â€” cannot save quick tasks');
+                if (!navigator.onLine || !currentUser || isProbing) {
                     return;
                 }
-                if (isProbing) {
-                    console.warn('âš ï¸ [SYNC] Modifications paused while discovering writable collection...');
-                    return;
-                }
-
-                localStorage.setItem('faiora_quick_tasks_' + currentUser.uid, JSON.stringify(updatedTasks));
-                localStorage.setItem('faiora_quick_task_trash_' + currentUser.uid, JSON.stringify(updatedTrash));
 
                 if (!taskCollection) {
-                    console.warn('âš ï¸ activeCollection is falsy - cannot sync quick tasks');
                     return;
                 }
 
@@ -16084,10 +16569,9 @@
                     quickTasks: cleanTasks,
                     quickTaskTrash: cleanTrash
                 }, { merge: true }).catch(err => {
-                    console.error('âŒ QuickTasks sync failed on', taskCollection, ':', err.message);
-                    showToast("Database error. Please refresh or try again.");
+                    console.warn('QuickTasks sync failed on', taskCollection, ':', err.message);
                 });
-            }, [activeCollection, isProbing, quickTasksCollection, showToast]);
+            }, [activeCollection, isProbing, quickTasksCollection, user]);
 
             const handleUpdateAlarms = useCallback((updatedAlarms) => {
                 setAlarms(updatedAlarms);
@@ -16513,6 +16997,47 @@
                 }
             };
 
+            // (2026-07-13) Handle quick notification actions (complete/snooze). Prev: none
+            useEffect(() => {
+                const onCompleteAction = (e) => {
+                    const taskId = e.detail?.taskId;
+                    if (!taskId) return;
+                    const currentTasks = quickTasksRef.current || [];
+                    const t = currentTasks.find(item => String(item.id) === String(taskId));
+                    if (t && !t.completed) {
+                        handleToggleQuickTask(taskId);
+                    }
+                };
+                const onSnoozeAction = (e) => {
+                    const taskId = e.detail?.taskId;
+                    if (!taskId) return;
+                    const currentTasks = quickTasksRef.current || [];
+                    const t = currentTasks.find(item => String(item.id) === String(taskId));
+                    if (t) {
+                        // (2026-07-13) Snooze 1h from deadline or now if overdue. Prev: raw dueTime + 1h
+                        const now = new Date();
+                        let baseMs = now.getTime();
+                        if (t.dueDate) {
+                            const taskDue = new Date(`${t.dueDate}T${t.dueTime || '23:59'}`);
+                            if (!Number.isNaN(taskDue.getTime()) && taskDue.getTime() > baseMs) {
+                                baseMs = taskDue.getTime();
+                            }
+                        }
+                        const targetDate = new Date(baseMs + 60 * 60 * 1000);
+                        const nextDate = formatDateLocal(targetDate);
+                        const nextTime = `${String(targetDate.getHours()).padStart(2, '0')}:${String(targetDate.getMinutes()).padStart(2, '0')}`;
+                        handleUpdateQuickTask(t.id, t.text, nextDate, nextTime, t.categories, t.progress, t.progressHistory);
+                        showToast(`Task postponed by 1 hour`);
+                    }
+                };
+                window.addEventListener('faiora-task-action-complete', onCompleteAction);
+                window.addEventListener('faiora-task-action-snooze', onSnoozeAction);
+                return () => {
+                    window.removeEventListener('faiora-task-action-complete', onCompleteAction);
+                    window.removeEventListener('faiora-task-action-snooze', onSnoozeAction);
+                };
+            }, [handleToggleQuickTask, handleUpdateQuickTask]);
+
             const handleOpenCreator = useCallback(() => {
                 setEditingNote(null);
                 setIsCreatorOpen(true);
@@ -16636,7 +17161,17 @@
             }, []);
 
             useEffect(() => {
+                // (2026-07-13) Offline boot unblocker if auth hangs offline. Prev: stuck
+                const offlineFallback = setTimeout(() => {
+                    if (!navigator.onLine || localStorage.getItem('faiora_cached_user')) {
+                        setIsAuthChecked(true);
+                        setIsProbing(false);
+                        setIsFirstSyncDone(true);
+                    }
+                }, 500);
+
                 const unsubscribe = auth.onAuthStateChanged((u) => {
+                    clearTimeout(offlineFallback);
                     console.log("👤 [AUTH] State changed. User:", u ? `${u.displayName} (${u.uid})` : 'NULL');
                     const nextUid = u?.uid ?? null;
                     const prevUid = prevAuthUidRef.current;
@@ -16666,21 +17201,21 @@
                         if (!notesRef.current?.length && !quickTasksRef.current?.length) {
                             setIsProbing(true);
                         }
-                        // (2026-07-13) Faster 1s probe timeout for fast cold start. Prev: 2.5s
+                        // (2026-07-13) Faster 0.5s probe timeout for skeleton. Prev: 1s
                         setTimeout(() => {
                             const hasRecoveredNotes = notesRef.current.length > 0;
                             const hasRecoveredTasks = quickTasksRef.current.length > 0;
-                            if (coldBootNeedsUnifiedHydrationRef.current && !hasRecoveredNotes && !hasRecoveredTasks) {
+                            if (navigator.onLine && coldBootNeedsUnifiedHydrationRef.current && !hasRecoveredNotes && !hasRecoveredTasks) {
                                 console.log("⏳ [PROBE] Holding cold-boot reveal because discovery is still unresolved.");
                                 return;
                             }
-                            if (coldBootNeedsUnifiedHydrationRef.current && hasRecoveredTasks && !hasRecoveredNotes) {
+                            if (navigator.onLine && coldBootNeedsUnifiedHydrationRef.current && hasRecoveredTasks && !hasRecoveredNotes) {
                                 console.log("⏳ [PROBE] Holding cold-boot reveal because notes are still unresolved.");
                                 return;
                             }
                             setIsProbing(false);
                             setIsFirstSyncDone(true);
-                        }, 1000);
+                        }, 500);
 
                         // Defer notifications + Firestore probe so this tick only updates auth state (fixes freeze / stuck login UI).
                         setTimeout(() => {
@@ -17136,10 +17671,11 @@
                 }
             }, [isFirstSyncDone, isProbing, notes.length, quickTasks.length, user]);
 
+            // (2026-07-13) Set isTimerDone after 0.5s for fast skeleton. Prev: 1s
             useEffect(() => {
                 const timer = setTimeout(() => {
                     setIsTimerDone(true);
-                }, 1000);
+                }, 500);
                 return () => clearTimeout(timer);
             }, []);
 
@@ -17234,6 +17770,14 @@
                             onError={() => setIsVideoReady(false)}
                             src={videoSrc}
                         />
+                    )}
+                    {/* (2026-07-13) Offline status pill indicator. Prev: none */}
+                    {isOffline && (
+                        <div id="faiora_offline_status_badge" className="fixed top-3 left-1/2 -translate-x-1/2 z-[9998] px-3 py-1 bg-amber-950/80 border border-amber-500/30 backdrop-blur-md rounded-full flex items-center gap-1.5 shadow-lg text-[11px] font-medium text-amber-300 pointer-events-none">
+                            <span className="material-symbols-outlined text-xs text-amber-400">cloud_off</span>
+                            {/* Offline mode sync alert */}
+                            <span>Offline Mode — Changes will sync when online</span>
+                        </div>
                     )}
                     {/* (2026-07-13) Subtle fade-in on app content after preloader. Prev: snap */}
                     <div className={`app-content-fadein ${isTransitioning ? 'page-transitioning' : ''}`}>
