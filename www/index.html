@@ -1084,9 +1084,11 @@
                             },
                             {
                                 id: 'FAIORA_TASK_ACTIONS',
+                                // (2026-07-13) Add Move Tomorrow action to task notifs. Prev: 2 actions
                                 actions: [
                                     { id: 'complete_task', title: '✓ Complete', foreground: false },
-                                    { id: 'snooze_1h', title: '+1 Hour', foreground: false }
+                                    { id: 'snooze_1h', title: '+1 Hour', foreground: false },
+                                    { id: 'tomorrow', title: 'Move Tomorrow', foreground: false }
                                 ]
                             }
                         ]
@@ -1149,6 +1151,10 @@
                                 await cancelNativeTaskNotifications(extra.taskId);
                             } else if (actionId === 'snooze_1h') {
                                 window.dispatchEvent(new CustomEvent('faiora-task-action-snooze', { detail: { taskId: extra.taskId } }));
+                                await removeDeliveredTaskNotifications(extra.taskId);
+                            // (2026-07-13) Dispatch tomorrow action for task notif. Prev: none
+                            } else if (actionId === 'tomorrow') {
+                                window.dispatchEvent(new CustomEvent('faiora-task-action-tomorrow', { detail: { taskId: extra.taskId } }));
                                 await removeDeliveredTaskNotifications(extra.taskId);
                             }
                         }
@@ -2203,6 +2209,26 @@
             const navigate = useNavigate();
             const pomodoroProgress = isPomodoroActive ? ((1500 - pomodoroTime) / 1500) * 100 : 0;
 
+            // (2026-07-13) Close FAB menu on back press. Prev: did not close
+            useEffect(() => {
+                if (!isFabMenuOpen) return;
+                window.history.pushState({ modal: 'fabMenu' }, '');
+                const handlePopState = () => {
+                    setIsFabMenuOpen(false);
+                };
+                window.addEventListener('popstate', handlePopState);
+                return () => {
+                    window.removeEventListener('popstate', handlePopState);
+                };
+            }, [isFabMenuOpen]);
+
+            const closeFabMenu = useCallback(() => {
+                setIsFabMenuOpen(false);
+                if (window.history.state?.modal === 'fabMenu') {
+                    window.history.back();
+                }
+            }, []);
+
             const handleMainFabClick = () => {
                 if (location.pathname === '/notes') {
                     onOpenCreator?.();
@@ -2211,7 +2237,8 @@
                 } else if (location.pathname === '/alarms') {
                     onFabClick?.();
                 } else {
-                    setIsFabMenuOpen(!isFabMenuOpen);
+                    if (isFabMenuOpen) closeFabMenu();
+                    else setIsFabMenuOpen(true);
                 }
             };
 
@@ -2235,7 +2262,7 @@
                                 <React.Fragment>
                                     <div 
                                         className="fixed inset-0 bg-black/85 backdrop-blur-md z-[900] animate-in fade-in duration-300 pointer-events-auto"
-                                        onClick={() => setIsFabMenuOpen(false)}
+                                        onClick={closeFabMenu}
                                     />
                                     <div className="fixed bottom-[180px] md:bottom-36 right-5 md:right-12 flex flex-col items-end gap-4 z-[950] animate-in slide-in-from-bottom-10 fade-in duration-300">
                                         {[
@@ -2245,7 +2272,7 @@
                                                 color: 'bg-slate-700', 
                                                 onClick: () => { 
                                                     navigate('/alarms'); 
-                                                    setIsFabMenuOpen(false); 
+                                                    closeFabMenu(); 
                                                 } 
                                             },
                                             { 
@@ -2254,7 +2281,7 @@
                                                 color: 'bg-burnt-orange', 
                                                 onClick: () => { 
                                                     window.dispatchEvent(new CustomEvent('faiora-open-task-creator')); 
-                                                    setIsFabMenuOpen(false); 
+                                                    closeFabMenu(); 
                                                 } 
                                             },
                                             { 
@@ -2264,7 +2291,7 @@
                                                 onClick: () => { 
                                                     if (location.pathname === '/calendar') navigate('/notes');
                                                     else onOpenCreator(); 
-                                                    setIsFabMenuOpen(false); 
+                                                    closeFabMenu(); 
                                                 } 
                                             }
                                         ].map((item, i) => (
@@ -2282,7 +2309,7 @@
                                     </div>
                                     <button 
                                         id="faiora_mobile_fab_close"
-                                        onClick={() => setIsFabMenuOpen(false)}
+                                        onClick={closeFabMenu}
                                         className="faiora-mobile-fab fixed bottom-[100px] md:bottom-12 right-5 md:right-12 w-[64px] h-[64px] md:w-20 md:h-20 bg-zinc-800 border border-white/20 shadow-2xl text-white rounded-full flex items-center justify-center z-[950] active:scale-95 transition-all duration-200"
                                         title="Close Menu"
                                     >
@@ -4560,9 +4587,10 @@
                             )}
                         </div>
 
+                        {/* (2026-07-13) Block pointer events during cooldown to stop tap-through. Prev: auto */}
                         <div 
                             className="task-creator-scroll flex-1 overflow-y-auto p-4 md:p-10 no-scrollbar relative flex flex-col"
-                            style={{ scrollPaddingBottom: `${keyboardSafeSpace}px` }}
+                            style={{ scrollPaddingBottom: `${keyboardSafeSpace}px`, pointerEvents: isOpeningCooldown ? 'none' : 'auto' }}
                         >
                             {noteIcon && (
                                 <div className="absolute top-24 right-10 pointer-events-none opacity-[0.07] select-none">
@@ -6346,26 +6374,128 @@
             const [finishedPage, setFinishedPage] = useState(1);
             const FINISHED_PAGE_SIZE = 20;
 
-            // (2026-07-13) Long-press edits only; select via checklist icon. Prev: auto-select
-            const handleItemTouchStart = (task) => {
+            const selectedTasksRef = useRef(selectedTasks);
+            useEffect(() => { selectedTasksRef.current = selectedTasks; }, [selectedTasks]);
+            const isSelectionModeRef = useRef(isSelectionMode);
+            useEffect(() => { isSelectionModeRef.current = isSelectionMode; }, [isSelectionMode]);
+
+            const dragSelectRef = useRef({
+                timer: null,
+                isSelecting: false,
+                dragAction: null,
+                startX: 0,
+                startY: 0,
+                touchedIds: new Set()
+            });
+            const cleanupDragSelectListeners = useRef(null);
+
+            const stopDragSelection = useCallback(() => {
+                if (dragSelectRef.current.timer) {
+                    clearTimeout(dragSelectRef.current.timer);
+                    dragSelectRef.current.timer = null;
+                }
+                dragSelectRef.current.isSelecting = false;
+                dragSelectRef.current.dragAction = null;
+                dragSelectRef.current.touchedIds.clear();
+                setLongPressingId(null);
+                if (cleanupDragSelectListeners.current) {
+                    cleanupDragSelectListeners.current();
+                    cleanupDragSelectListeners.current = null;
+                }
+            }, []);
+
+            useEffect(() => {
+                return () => stopDragSelection();
+            }, [stopDragSelection]);
+
+            // (2026-07-13) Long-press drag multi-select & unselect. Prev: long-press edit
+            const handleItemTouchStart = (task, e) => {
                 isLongPressTriggered.current = false;
                 setLongPressingId(task.id);
-                if (longPressTimer.current) clearTimeout(longPressTimer.current);
-                longPressTimer.current = setTimeout(() => {
+                const touch = e.touches ? e.touches[0] : e;
+                const clientX = touch.clientX;
+                const clientY = touch.clientY;
+
+                if (dragSelectRef.current.timer) clearTimeout(dragSelectRef.current.timer);
+                dragSelectRef.current.isSelecting = false;
+                dragSelectRef.current.startX = clientX;
+                dragSelectRef.current.startY = clientY;
+                dragSelectRef.current.touchedIds = new Set();
+
+                dragSelectRef.current.timer = setTimeout(() => {
                     isLongPressTriggered.current = true;
-                    if (navigator.vibrate) try { navigator.vibrate(50); } catch(err) {}
-                    if (onEditQuickTask) {
-                        onEditQuickTask(task);
+                    if (navigator.vibrate) try { navigator.vibrate(40); } catch(err) {}
+
+                    // (2026-07-13) Long-press edits task if not in select mode. Prev: drag select
+                    if (!isSelectionModeRef.current) {
+                        if (onEditQuickTask) onEditQuickTask(task);
+                        setTimeout(() => setLongPressingId(null), 300);
+                        return;
                     }
-                    setTimeout(() => setLongPressingId(null), 300);
-                }, 450);
+
+                    dragSelectRef.current.isSelecting = true;
+                    const isCurrentlySelected = selectedTasksRef.current.includes(task.id);
+                    const action = isCurrentlySelected ? 'unselect' : 'select';
+                    dragSelectRef.current.dragAction = action;
+                    dragSelectRef.current.touchedIds.add(task.id);
+
+                    if (onSelectToggle) onSelectToggle(task.id);
+
+                    const handleWindowTouchMove = (moveEvt) => {
+                        if (!dragSelectRef.current.isSelecting) return;
+                        if (moveEvt.cancelable) moveEvt.preventDefault();
+                        const t = moveEvt.touches ? moveEvt.touches[0] : moveEvt;
+                        const elem = document.elementFromPoint(t.clientX, t.clientY);
+                        const taskElem = elem?.closest('[data-task-id]');
+                        if (taskElem) {
+                            const targetId = taskElem.getAttribute('data-task-id');
+                            if (targetId && !dragSelectRef.current.touchedIds.has(targetId)) {
+                                dragSelectRef.current.touchedIds.add(targetId);
+                                const isSel = selectedTasksRef.current.includes(targetId);
+                                const act = dragSelectRef.current.dragAction;
+                                if (act === 'select' && !isSel) {
+                                    if (onSelectToggle) onSelectToggle(targetId);
+                                } else if (act === 'unselect' && isSel) {
+                                    if (onSelectToggle) onSelectToggle(targetId);
+                                }
+                            }
+                        }
+                    };
+
+                    const handleWindowTouchEnd = () => {
+                        stopDragSelection();
+                    };
+
+                    window.addEventListener('touchmove', handleWindowTouchMove, { passive: false });
+                    window.addEventListener('touchend', handleWindowTouchEnd);
+                    window.addEventListener('touchcancel', handleWindowTouchEnd);
+
+                    cleanupDragSelectListeners.current = () => {
+                        window.removeEventListener('touchmove', handleWindowTouchMove);
+                        window.removeEventListener('touchend', handleWindowTouchEnd);
+                        window.removeEventListener('touchcancel', handleWindowTouchEnd);
+                    };
+                }, 320);
+            };
+
+            const handleItemTouchMove = (e) => {
+                if (!dragSelectRef.current.isSelecting) {
+                    const touch = e.touches ? e.touches[0] : e;
+                    const dx = Math.abs(touch.clientX - dragSelectRef.current.startX);
+                    const dy = Math.abs(touch.clientY - dragSelectRef.current.startY);
+                    if (dx > 8 || dy > 8) {
+                        if (dragSelectRef.current.timer) {
+                            clearTimeout(dragSelectRef.current.timer);
+                            dragSelectRef.current.timer = null;
+                        }
+                        setLongPressingId(null);
+                    }
+                }
             };
 
             const handleItemTouchEnd = () => {
-                setLongPressingId(null);
-                if (longPressTimer.current) {
-                    clearTimeout(longPressTimer.current);
-                    longPressTimer.current = null;
+                if (!dragSelectRef.current.isSelecting) {
+                    stopDragSelection();
                 }
             };
 
@@ -6386,29 +6516,28 @@
                         <div className="flex items-center gap-2 min-w-0">
                             <span className="material-symbols-outlined text-primary text-lg shrink-0">{groupBy === 'category' ? 'category' : 'edit_note'}</span>
                             <div className="min-w-0">
-                                {/* (2026-07-13) Increase notepad title font size. Prev: text-xs md:text-sm */}
+                                {/* (2026-07-13) Set header title to By Category or NOTEPAD. Prev: Quick Tasks */}
                                 <h3 
                                     onClick={toggleShowChecked}
                                     className="qt-notepad-title text-sm sm:text-base md:text-lg font-bold text-cream-light hover:text-primary font-montserrat tracking-wide uppercase cursor-pointer select-none transition-colors flex items-center gap-1.5 truncate"
                                     title="Click to toggle showing or hiding checked tasks"
                                 >
-                                    {groupBy === 'category' ? 'Quick Tasks by Category' : 'Quick Tasks Notepad'}
+                                    {groupBy === 'category' ? 'By Category' : 'NOTEPAD'}
                                     <span className="material-symbols-outlined text-[13px] text-primary/70">{showCheckedTasks ? 'visibility' : 'visibility_off'}</span>
                                 </h3>
                                 <p className="qt-notepad-subtitle text-[9px] text-white/40 font-montserrat truncate">{activeCount} tasks ready to sync</p>
                             </div>
                         </div>
-                        {/* (2026-07-13) Multi-select toggle button on notepad header. Prev: save only */}
+                        {/* (2026-07-13) Icon-only select button next to save. Prev: text + icon */}
                         <div className="flex items-center gap-1.5 shrink-0">
                             {onToggleSelectionMode && (
                                 <button
                                     type="button"
                                     onClick={onToggleSelectionMode}
-                                    className={`qt-notepad-select-btn px-2.5 py-1 rounded-xl text-[10px] font-bold font-montserrat uppercase tracking-wider transition-all flex items-center gap-1 shrink-0 active:scale-95 border ${isSelectionMode ? 'bg-primary text-white border-primary shadow-sm shadow-primary/30' : 'bg-white/5 hover:bg-white/10 text-white/60 border-white/10'}`}
+                                    className={`qt-notepad-select-btn w-8 h-8 rounded-xl transition-all flex items-center justify-center shrink-0 active:scale-95 border ${isSelectionMode ? 'bg-primary text-white border-primary shadow-sm shadow-primary/30' : 'bg-white/5 hover:bg-white/10 text-white/60 border-white/10'}`}
                                     title={isSelectionMode ? "Exit Selection Mode" : "Select Multiple Tasks"}
                                 >
-                                    <span className="material-symbols-outlined text-xs">{isSelectionMode ? 'close' : 'checklist'}</span>
-                                    <span>{isSelectionMode ? 'DONE' : 'SELECT'}</span>
+                                    <span className="material-symbols-outlined text-base">{isSelectionMode ? 'close' : 'checklist'}</span>
                                 </button>
                             )}
                             <button
@@ -6460,20 +6589,19 @@
                                             // (2026-07-13) Multi-select checkbox & item styling in notepad. Prev: static
                                             const isSelected = isSelectionMode && selectedTasks.includes(task.id);
                                             return (
+                                                // (2026-07-13) Bind data-task-id and drag select touch events. Prev: edit tap
                                                 <div
                                                     key={task.id}
-                                                        onTouchStart={() => handleItemTouchStart(task)}
-                                                        onTouchEnd={handleItemTouchEnd}
-                                                        onTouchMove={handleItemTouchEnd}
-                                                        onTouchCancel={handleItemTouchEnd}
-                                                        onMouseDown={() => handleItemTouchStart(task)}
-                                                        onMouseUp={handleItemTouchEnd}
-                                                        onMouseLeave={handleItemTouchEnd}
-                                                        onContextMenu={(e) => {
-                                                            e.preventDefault();
-                                                            if (onEditQuickTask) onEditQuickTask(task);
-                                                        }}
-                                                        className={`qt-notepad-item flex items-start justify-between gap-2.5 py-0.5 px-1.5 rounded-lg hover:bg-white/[0.03] cursor-pointer select-none group transition-all ${isSelected ? '!bg-primary/15 !border border-primary/40 shadow-sm shadow-primary/20' : ''}`}
+                                                    data-task-id={task.id}
+                                                    onTouchStart={(e) => handleItemTouchStart(task, e)}
+                                                    onTouchEnd={handleItemTouchEnd}
+                                                    onTouchMove={handleItemTouchMove}
+                                                    // (2026-07-13) Context menu edits task if select mode off. Prev: prevent default
+                                                    onContextMenu={(e) => {
+                                                        e.preventDefault();
+                                                        if (!isSelectionModeRef.current && onEditQuickTask) onEditQuickTask(task);
+                                                    }}
+                                                    className={`qt-notepad-item flex items-start justify-between gap-2.5 py-0.5 px-1.5 rounded-lg hover:bg-white/[0.03] cursor-pointer select-none group transition-all ${isSelected ? '!bg-primary/15 !border border-primary/40 shadow-sm shadow-primary/20' : ''}`}
                                                         style={{
                                                             // (2026-08-24) No disabling effect in notepad view - instant check
                                                             opacity: (task.completed && !isSelectionMode) ? 0.4 : 1,
@@ -13160,12 +13288,12 @@
                 setIsAddingNewCat(false);
             };
 
-            // (2026-07-13) Auto-categorize from text if category matches. Prev: manual only
+            // (2026-07-13) Auto-categorize keywords & hashtags for new tasks. Prev: strict match
             const autoCategorizeFromText = useCallback((str) => {
-                if (!str || !availableCategories || availableCategories.length === 0) return;
+                if (!str) return;
                 const lower = str.toLowerCase();
                 const matched = [];
-                availableCategories.forEach(cat => {
+                (availableCategories || []).forEach(cat => {
                     const clean = (cat || '').trim();
                     if (!clean) return;
                     const catLower = clean.toLowerCase();
@@ -13173,6 +13301,19 @@
                     const regex = new RegExp(`(^|[^a-zA-Z0-9_#])#?${escaped}([^a-zA-Z0-9_]|$)`, 'i');
                     if (regex.test(lower)) {
                         matched.push(clean);
+                    }
+                });
+                const smartKeywords = [
+                    { cat: 'Work', keys: ['work', 'meeting', 'project', 'client', 'deadline', 'office', 'presentation'] },
+                    { cat: 'Personal', keys: ['personal', 'family', 'home', 'errand'] },
+                    { cat: 'Health', keys: ['gym', 'workout', 'exercise', 'doctor', 'clinic', 'dentist', 'medication'] },
+                    { cat: 'Study', keys: ['study', 'exam', 'homework', 'assignment', 'school', 'course', 'reading'] },
+                    { cat: 'Finance', keys: ['bill', 'payment', 'tax', 'invoice', 'salary', 'rent', 'budget'] },
+                    { cat: 'Shopping', keys: ['buy', 'shop', 'groceries', 'supermarket', 'order'] }
+                ];
+                smartKeywords.forEach(({ cat, keys }) => {
+                    if (keys.some(k => new RegExp(`(^|[^a-zA-Z0-9_#])#?${k}([^a-zA-Z0-9_]|$)`, 'i').test(lower))) {
+                        matched.push(cat);
                     }
                 });
                 if (matched.length > 0) {
@@ -13188,7 +13329,7 @@
                 }
             }, [availableCategories]);
 
-            // (2026-07-13) Reminder alert toggles (24h, 1h, due now). Prev: default all
+            // (2026-07-13) Turn off 24h reminder by default for new tasks. Prev: all true
             const [reminders, setReminders] = useState(() => {
                 if (initialData && initialData.reminders) {
                     if (Array.isArray(initialData.reminders)) {
@@ -13204,7 +13345,7 @@
                         'due': initialData.reminders['due'] !== false
                     };
                 }
-                return { '24h': true, '1h': true, 'due': true };
+                return { '24h': false, '1h': true, 'due': true };
             });
 
             const toggleReminder = (stage) => {
@@ -13335,6 +13476,8 @@
             const [isSpeaking, setIsSpeaking] = useState(false);
             const recognitionRef = useRef(null);
             const silenceTimerRef = useRef(null);
+            // (2026-07-13) Base text ref to prevent voice recognition duplication. Prev: none
+            const speechBaseTextRef = useRef('');
 
             const resetSilenceTimer = () => {
                 if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -13379,6 +13522,7 @@
                     rec.lang = 'en-US';
 
                     rec.onstart = () => {
+                        speechBaseTextRef.current = text ? text.trim() : '';
                         setIsListening(true);
                         setIsSpeaking(false);
                         resetSilenceTimer();
@@ -13400,7 +13544,8 @@
                         resetSilenceTimer();
                         const currentTranscript = Array.from(event.results).map(r => r[0].transcript).join('');
                         if (currentTranscript) {
-                            handleTextChange((text ? text + ' ' : '') + currentTranscript.slice(0, 150));
+                            const prefix = speechBaseTextRef.current ? speechBaseTextRef.current + ' ' : '';
+                            handleTextChange((prefix + currentTranscript.trimStart()).slice(0, 150));
                         }
                     };
 
@@ -13634,6 +13779,22 @@
                                                     setDueDate(tgt.date);
                                                     setDueTime(tgt.time);
                                                     setSelectedPreset(preset.id);
+                                                    // (2026-07-13) Auto-save task on preset tap when editing. Prev: manual tap
+                                                    if (initialData) {
+                                                        let finalHistory = [...progressHistory];
+                                                        if (newLogNote.trim()) {
+                                                            finalHistory.unshift({
+                                                                id: 'log_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                                                                percentage: progress,
+                                                                note: newLogNote.trim(),
+                                                                timestamp: Date.now()
+                                                            });
+                                                        }
+                                                        onAdd(text.trim() || initialData.text, tgt.date, tgt.time, categories, progress, finalHistory, reminders);
+                                                        if (showToast) showToast("Task updated!");
+                                                        setIsClosing(true);
+                                                        setTimeout(() => { if (typeof onClose === 'function') onClose(); }, 180);
+                                                    }
                                                 }}
                                                 className="text-[8.5px] font-bold font-montserrat uppercase px-2 py-0.5 rounded-md bg-white/[0.04] hover:bg-white/10 hover:text-cream-light hover:border-white/20 border border-white/5 text-white/50 transition-all duration-150 active:scale-95 active:bg-primary/20 active:text-primary shadow-sm"
                                             >
@@ -14353,8 +14514,9 @@
             const [isAutoFading, setIsAutoFading] = useState(false);
             const startYRef = useRef(0);
             const currentYRef = useRef(0);
-
-            const duration = toast.duration || 5000;
+            // (2026-07-13) Support little exit toast with 2s duration. Prev: 5s default
+            const isExitToast = toast.isExitToast || (toast.message && toast.message.toLowerCase().includes('exit'));
+            const duration = toast.duration || (isExitToast ? 2000 : 5000);
             const remainingMs = Math.max(100, (toast.createdAt || Date.now()) + duration - Date.now());
 
             useEffect(() => {
@@ -14418,7 +14580,8 @@
                     onMouseDown={handleStart}
                     onMouseMove={(e) => { if (isDragging) handleMove(e); }}
                     onMouseUp={handleEnd}
-                    className={`toast-pill flex items-center justify-between select-none cursor-grab active:cursor-grabbing ${isAutoFading || isDismissing ? 'toast-pill-fading' : ''}`}
+                    // (2026-07-13) Compact pill styling for exit toast. Prev: regular snackbar
+                    className={`toast-pill flex items-center justify-between select-none cursor-grab active:cursor-grabbing ${isAutoFading || isDismissing ? 'toast-pill-fading' : ''} ${isExitToast ? '!py-2 !px-4 !max-w-fit !mx-auto !rounded-full !bg-zinc-900/95 !border !border-white/15 !shadow-xl' : ''}`}
                     style={{
                         pointerEvents: 'auto',
                         touchAction: 'none',
@@ -14441,11 +14604,11 @@
                                     : 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'))
                     }}
                 >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1 pointer-events-none" style={{ overflow: 'hidden' }}>
-                        <span className="material-symbols-outlined flex-shrink-0" style={{ color: '#f97316', fontSize: '20px', fontWeight: '400' }}>
-                            {toast.message && (toast.message.toLowerCase().includes('trash') || toast.message.toLowerCase().includes('delete')) ? 'delete' : 'check_circle'}
+                    <div className="flex items-center gap-2 min-w-0 flex-1 pointer-events-none" style={{ overflow: 'hidden' }}>
+                        <span className="material-symbols-outlined flex-shrink-0" style={{ color: '#f97316', fontSize: isExitToast ? '16px' : '20px', fontWeight: '400' }}>
+                            {isExitToast ? 'arrow_back' : (toast.message && (toast.message.toLowerCase().includes('trash') || toast.message.toLowerCase().includes('delete')) ? 'delete' : 'check_circle')}
                         </span>
-                        <span style={{ fontSize: '13.5px', fontWeight: '500', color: '#fff', letterSpacing: '0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', minWidth: 0 }}>{toast.message}</span>
+                        <span style={{ fontSize: isExitToast ? '12px' : '13.5px', fontWeight: '500', color: '#fff', letterSpacing: '0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', minWidth: 0 }}>{toast.message}</span>
                     </div>
                     {toast.action && (
                         <button 
@@ -14469,17 +14632,19 @@
                             {toast.action.label || 'UNDO'}
                         </button>
                     )}
-                    {/* (2026-07-13) Small bottom progress bar indicating expiry. Prev: none */}
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '2.5px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                        <div 
-                            style={{ 
-                                height: '100%', 
-                                background: 'linear-gradient(90deg, #f97316, #fb923c)', 
-                                boxShadow: '0 0 6px rgba(249,115,22,0.8)', 
-                                animation: `toast-progress ${remainingMs}ms linear forwards` 
-                            }} 
-                        />
-                    </div>
+                    {/* (2026-07-13) Omit progress bar on exit toast. Prev: always displayed */}
+                    {!isExitToast && !toast.hideProgress && (
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '2.5px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                            <div 
+                                style={{ 
+                                    height: '100%', 
+                                    background: 'linear-gradient(90deg, #f97316, #fb923c)', 
+                                    boxShadow: '0 0 6px rgba(249,115,22,0.8)', 
+                                    animation: `toast-progress ${remainingMs}ms linear forwards` 
+                                }} 
+                            />
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -16771,8 +16936,8 @@
                 showToast("Settings saved");
             }, [user, activeCollection, settingsData, showToast]);
 
-            // (2026-07-13) Persist reminder toggles in quick tasks. Prev: history only
-            const handleAddQuickTask = useCallback((text, dueDate = '', dueTime = '', categories = [], progress = 0, progressHistory = [], reminders = { '24h': true, '1h': true, 'due': true }) => {
+            // (2026-07-13) Default 24h reminder false for new quick tasks. Prev: true
+            const handleAddQuickTask = useCallback((text, dueDate = '', dueTime = '', categories = [], progress = 0, progressHistory = [], reminders = { '24h': false, '1h': true, 'due': true }) => {
                 if (dueDate) {
                     FaioraNotifications.requestPermission().catch(() => {});
                 }
@@ -16801,7 +16966,7 @@
                     category: cats[0] || '',
                     progress: progress || 0,
                     progressHistory: Array.isArray(progressHistory) ? progressHistory : [],
-                    reminders: reminders || { '24h': true, '1h': true, 'due': true },
+                    reminders: reminders || { '24h': false, '1h': true, 'due': true },
                     completed: isDone,
                     completedAt: isDone ? now : null,
                     createdAt: now + idx
@@ -17150,11 +17315,25 @@
                         showToast(`Task postponed by 1 hour`);
                     }
                 };
+                // (2026-07-13) Move task to tomorrow 10am even on weekends. Prev: none
+                const onTomorrowAction = (e) => {
+                    const taskId = e.detail?.taskId;
+                    if (!taskId) return;
+                    const t = (quickTasksRef.current || []).find(item => item.id === taskId);
+                    if (t) {
+                        const nextDate = getTomorrow();
+                        const nextTime = '10:00';
+                        handleUpdateQuickTask(t.id, t.text, nextDate, nextTime, t.categories, t.progress, t.progressHistory, t.reminders);
+                        showToast('Task moved to tomorrow 10:00 AM');
+                    }
+                };
                 window.addEventListener('faiora-task-action-complete', onCompleteAction);
                 window.addEventListener('faiora-task-action-snooze', onSnoozeAction);
+                window.addEventListener('faiora-task-action-tomorrow', onTomorrowAction);
                 return () => {
                     window.removeEventListener('faiora-task-action-complete', onCompleteAction);
                     window.removeEventListener('faiora-task-action-snooze', onSnoozeAction);
+                    window.removeEventListener('faiora-task-action-tomorrow', onTomorrowAction);
                 };
             }, [handleToggleQuickTask, handleUpdateQuickTask]);
 
