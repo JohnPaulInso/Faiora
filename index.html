@@ -6540,15 +6540,15 @@
                                     <span className="material-symbols-outlined text-base">{isSelectionMode ? 'close' : 'checklist'}</span>
                                 </button>
                             )}
+                            {/* (2026-07-13) Set save button equal size to select icon. Prev: wide text pill */}
                             <button
                                 type="button"
                                 onClick={handleSave}
                                 disabled={isSaving}
-                                className="qt-notepad-save-btn px-3 py-1 rounded-xl bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 text-[10px] font-bold font-montserrat uppercase tracking-wider transition-all flex items-center gap-1 shrink-0 active:scale-95 shadow-sm"
-                                title="Save or sync this notepad to your Notes"
+                                className={`qt-notepad-save-btn w-8 h-8 rounded-xl bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 transition-all flex items-center justify-center shrink-0 active:scale-95 shadow-sm ${isSaving ? 'animate-pulse' : ''}`}
+                                title={isSaving ? "Saved!" : "Save or sync this notepad to your Notes"}
                             >
-                                <span className="material-symbols-outlined text-xs md:text-sm">{isSaving ? 'sync' : 'bookmark'}</span>
-                                <span>{isSaving ? 'Saved!' : 'SAVE'}</span>
+                                <span className={`material-symbols-outlined text-base ${isSaving ? 'animate-spin' : ''}`}>{isSaving ? 'sync' : 'bookmark'}</span>
                             </button>
                         </div>
                     </div>
