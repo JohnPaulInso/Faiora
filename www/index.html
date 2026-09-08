@@ -245,7 +245,16 @@
     </style>
   </head>
 <body class="dark-gradient-bg font-montserrat text-slate-100 min-h-screen selection:bg-primary/30 overflow-hidden" style="overscroll-behavior-y: contain;">
-    <div id="root"></div>
+    <!-- (2026-07-13) Dark orange Faiora startup loader. Prev: empty root -->
+    <div id="root">
+        <div id="faiora_initial_loader" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0c0502;z-index:99999;">
+            <div style="position:relative;width:52px;height:52px;display:flex;align-items:center;justify-content:center;">
+                <div style="position:absolute;inset:0;border-radius:50%;border:2.5px solid rgba(234,88,12,0.15);border-top:2.5px solid #ea580c;animation:faiora-loader-spin 0.85s linear infinite;"></div>
+                <img src="logo.png" alt="Faiora" style="width:26px;height:26px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(234,88,12,0.6));" />
+            </div>
+            <style>@keyframes faiora-loader-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+        </div>
+    </div>
 
     <script>
         /* 
@@ -1181,15 +1190,16 @@
                     console.warn('Native notification cancel failed', error);
                 }
             };
-            // (2026-07-13) Remove delivered status bar task notifications. Prev: none
+            // (2026-07-13) Remove delivered task notifs by targetId/taskId. Prev: sub-match
             const removeDeliveredTaskNotifications = async (taskId = '') => {
                 const plugin = nativeLocalNotifications();
                 if (!plugin) return;
                 try {
                     const delivered = await plugin.getDeliveredNotifications();
+                    const targetId = getTaskReminderId(taskId);
                     const matching = (delivered?.notifications || []).filter(notification => {
                         const payload = notification?.data || notification?.extra || {};
-                        return (!taskId || payload.taskId === taskId || String(notification.id).includes(String(taskId)));
+                        return (!taskId || payload.taskId === taskId || notification.id === targetId || String(notification.id).includes(String(taskId)));
                     });
                     if (matching.length) {
                         await plugin.removeDeliveredNotifications({ notifications: matching });
@@ -1238,13 +1248,10 @@
                     return false;
                 }
             };
-            const getTaskReminderTag = (taskId, stage) => {
-                if (stage === 'due') return `faiora-due-${taskId}`;
-                if (stage === '1h') return `faiora-1h-${taskId}`;
-                if (stage === '24h') return `faiora-24h-${taskId}`;
-                return `faiora-task-${stage}-${taskId}`;
-            };
-            const getTaskReminderId = (taskId, stage) => hashNotificationId(getTaskReminderTag(taskId, stage));
+            // (2026-07-13) Unify task notif tag/id per task. Prev: stage-specific tags
+            const getTaskReminderTag = (taskId, stage = '') => `faiora-task-${taskId}`;
+            const getTaskReminderId = (taskId, stage = '') => hashNotificationId(`faiora-task-${taskId}`);
+            const getTaskScheduleId = (taskId, stage = '') => hashNotificationId(`faiora-sched-${stage}-${taskId}`);
             const getAlarmNotificationTag = (alarmId) => `faiora-alarm-${alarmId}`;
             const getAlarmNotificationId = (alarmId) => hashNotificationId(getAlarmNotificationTag(alarmId));
             const hasAlarmOverlayPermission = () => {
@@ -1304,7 +1311,8 @@
                             at,
                             title: entry.title,
                             tag: getTaskReminderTag(task.id, entry.stage),
-                            id: getTaskReminderId(task.id, entry.stage)
+                            id: getTaskScheduleId(task.id, entry.stage),
+                            notificationId: getTaskReminderId(task.id)
                         };
                     })
                     .filter(Boolean);
@@ -1335,6 +1343,7 @@
                                 stage: entry.stage,
                                 taskId: task.id,
                                 tag: entry.tag,
+                                notificationId: entry.notificationId,
                                 title: entry.title,
                                 body: entry.body,
                                 dueDate: task.dueDate || '',
@@ -1349,13 +1358,17 @@
                     return false;
                 }
             };
-            // (2026-07-13) Dismiss delivered notification and cancel alarms. Prev: no dismiss
+            // (2026-07-13) Cancel schedule & tray notification IDs. Prev: stage IDs
             const cancelNativeTaskNotifications = async (taskId = '') => {
                 if (!taskId) return;
                 await cancelNativeNotifications([
-                    getTaskReminderId(taskId, '24h'),
-                    getTaskReminderId(taskId, '1h'),
-                    getTaskReminderId(taskId, 'due')
+                    getTaskScheduleId(taskId, '24h'),
+                    getTaskScheduleId(taskId, '1h'),
+                    getTaskScheduleId(taskId, 'due'),
+                    getTaskReminderId(taskId),
+                    hashNotificationId(`faiora-24h-${taskId}`),
+                    hashNotificationId(`faiora-1h-${taskId}`),
+                    hashNotificationId(`faiora-due-${taskId}`)
                 ]);
                 await removeDeliveredTaskNotifications(taskId);
             };
@@ -1719,15 +1732,16 @@
             // ------------------------------------------------------------------
             // LABEL: NOTIF-LOCAL-SEND — Show a local notification via Service Worker
             // ------------------------------------------------------------------
+            // (2026-07-13) Reuse task notification ID across stages. Prev: hash tag
             const sendNotification = async (title, body, tag, extra = {}) => {
                 const nativePlugin = nativeLocalNotifications();
                 if (nativePlugin) {
                     const permission = await requestPermission();
                     if (permission !== 'granted') return;
-                    // (2026-07-13) Synchronize sound with native notification banner. Prev: JS audio first
+                    const notifId = extra.taskId ? getTaskReminderId(extra.taskId) : hashNotificationId(tag);
                     await nativePlugin.schedule({
                         notifications: [{
-                            id: hashNotificationId(tag),
+                            id: notifId,
                             title,
                             body,
                             channelId: extra.type === 'alarm' ? ALARM_CHANNEL_ID : QUICK_TASK_CHANNEL_ID,
@@ -1803,37 +1817,37 @@
                 const taskName = formatTaskText(task.text || task.title || 'Task');
                 const timeStr = formatNotifTime(dueDateTime);
 
+                // (2026-07-13) Unify task timer notification tags. Prev: stage-specific
                 // Timer 1: At exact due time
                 if (dueMs > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`Task Reminder! 🔥`, `📌 Due Now: ${taskName}\n`, `faiora-due-${task.id}`);
-                        // Sync to localStorage for offline catch-up
+                        sendNotification(`Task Reminder! 🔥`, `📌 Due Now: ${taskName}\n`, `faiora-task-${task.id}`, { type: 'quick-task', stage: 'due', taskId: task.id });
                         const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                        scheduled[`faiora-due-${task.id}`] = { title: `Task Reminder! 🔥`, body: `📌 Due Now: ${taskName}\n`, timestamp: dueMs };
+                        scheduled[`faiora-task-${task.id}`] = { title: `Task Reminder! 🔥`, body: `📌 Due Now: ${taskName}\n`, timestamp: dueMs, taskId: task.id };
                         localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                     }, dueMs - now);
                     taskTimers.push(id);
                 }
 
-                // Timer 2: 1 hour before (Updated 2026-04-15)
+                // Timer 2: 1 hour before
                 const oneHourBefore = dueMs - (1 * 60 * 60 * 1000);
                 if (oneHourBefore > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`Task Reminder! 🔥`, `⏳ Due in 1hr: ${taskName}\n`, `faiora-1h-${task.id}`);
+                        sendNotification(`Task Reminder! 🔥`, `⏳ Due in 1hr: ${taskName}\n`, `faiora-task-${task.id}`, { type: 'quick-task', stage: '1h', taskId: task.id });
                         const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                        scheduled[`faiora-1h-${task.id}`] = { title: `Task Reminder! 🔥`, body: `⏳ Due in 1hr: ${taskName}\n`, timestamp: dueMs };
+                        scheduled[`faiora-task-${task.id}`] = { title: `Task Reminder! 🔥`, body: `⏳ Due in 1hr: ${taskName}\n`, timestamp: dueMs, taskId: task.id };
                         localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                     }, oneHourBefore - now);
                     taskTimers.push(id);
                 }
 
-                // Timer 3: 24 hours before (Updated 2026-04-15)
+                // Timer 3: 24 hours before
                 const twentyFourHoursBefore = dueMs - (24 * 60 * 60 * 1000);
                 if (twentyFourHoursBefore > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`Task Reminder! 🔥`, `⚡ Due in 24hrs: ${taskName}\n`, `faiora-24h-${task.id}`);
+                        sendNotification(`Task Reminder! 🔥`, `⚡ Due in 24hrs: ${taskName}\n`, `faiora-task-${task.id}`, { type: 'quick-task', stage: '24h', taskId: task.id });
                         const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                        scheduled[`faiora-24h-${task.id}`] = { title: `Task Reminder! 🔥`, body: `⚡ Due in 24hrs: ${taskName}\n`, timestamp: dueMs };
+                        scheduled[`faiora-task-${task.id}`] = { title: `Task Reminder! 🔥`, body: `⚡ Due in 24hrs: ${taskName}\n`, timestamp: dueMs, taskId: task.id };
                         localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                     }, twentyFourHoursBefore - now);
                     taskTimers.push(id);
@@ -1858,7 +1872,7 @@
                     try { cancelNativeTaskNotifications(taskId); } catch(e) {}
                     try { removeDeliveredTaskNotifications(taskId); } catch(e) {}
                     if (swRegistration && typeof swRegistration.getNotifications === 'function') {
-                        ['faiora-due', 'faiora-1h', 'faiora-24h'].forEach(prefix => {
+                        ['faiora-task', 'faiora-due', 'faiora-1h', 'faiora-24h'].forEach(prefix => {
                             try {
                                 swRegistration.getNotifications({ tag: `${prefix}-${taskId}` })
                                     .then(notifs => {
@@ -5867,14 +5881,14 @@
             return hashArray.map((bytes) => bytes.toString(16).padStart(2, '0')).join('');
         };
 
-        // (2026-07-13) Neutral gray shimmering skeleton cards. Prev: fire-shimmer
+        // (2026-07-13) Dark orange Faiora skeleton cards. Prev: neutral gray
         const SkeletonNoteCard = ({ variant = 'full', index = 0 }) => {
             const isPriority = variant === 'priority';
             const isCompact = variant === 'compact';
             
             return (
                 // (2026-08-24) Use aspect-square for compact cards. Prev: h-[140px] broke 2-col square
-                <div className={`skeleton-priority-card rounded-[1.75rem] md:rounded-[2rem] border-b-4 border-white/10 relative overflow-hidden flex flex-col justify-between ${isPriority || isCompact ? 'aspect-square p-4 md:p-5' : 'h-[220px] p-6'}`}>
+                <div className={`skeleton-priority-card rounded-[1.75rem] md:rounded-[2rem] border-b-4 border-orange-500/25 relative overflow-hidden flex flex-col justify-between ${isPriority || isCompact ? 'aspect-square p-4 md:p-5' : 'h-[220px] p-6'}`}>
                     <div className="w-8 h-8 rounded-xl shimmer mb-auto shrink-0"></div>
                     <div className="space-y-2.5 mt-auto w-full">
                         <div className="h-2.5 shimmer rounded w-1/3"></div>
@@ -5885,7 +5899,7 @@
         };
 
         const SkeletonQuickTask = () => (
-            <div className="skeleton-quick-task flex items-center gap-4 p-4 glass-panel rounded-2xl border border-white/5 relative overflow-hidden">
+            <div className="skeleton-quick-task flex items-center gap-4 p-4 rounded-2xl border border-orange-500/20 bg-orange-950/15 relative overflow-hidden">
                 <div className="w-6 h-6 rounded-lg shimmer shrink-0"></div>
                 <div className="flex-1 space-y-2">
                     <div className="h-4 shimmer rounded w-2/3"></div>
@@ -5897,11 +5911,11 @@
         /* LABEL: PRIORITY-NOTE-SKELETON — Loading state for Priority Note cards */
         const PriorityNoteSkeleton = ({ index = 0 }) => {
             return (
-                <div className="skeleton-priority-card aspect-square rounded-[1.75rem] md:rounded-[2rem] p-4 md:p-5 flex flex-col justify-between overflow-hidden shadow-lg border-b-4 border-white/10">
+                <div className="skeleton-priority-card aspect-square rounded-[1.75rem] md:rounded-[2rem] p-4 md:p-5 flex flex-col justify-between overflow-hidden shadow-lg border-b-4 border-orange-500/25">
                     <div className="w-8 h-8 rounded-xl shimmer mb-auto shrink-0"></div>
                     <div className="mt-auto space-y-1.5 w-full">
                         {/* (2026-07-13) Add PINNED label text to skeleton cards. Prev: bar */}
-                        <p className="text-[9px] font-extrabold uppercase tracking-[0.2em] font-montserrat text-white/30">PINNED</p>
+                        <p className="text-[9px] font-extrabold uppercase tracking-[0.2em] font-montserrat text-orange-400/60">PINNED</p>
                         <div className="w-4/5 h-5 rounded-lg shimmer"></div>
                     </div>
                 </div>
@@ -15303,12 +15317,13 @@
                             if (now < triggerAt || now > (triggerAt + entry.graceMs)) return;
                             nextMarks[reminderKey] = now;
                             hasChanges = true;
+                            // (2026-07-13) Use unified task tag/id for fallback. Prev: stage tag
                             const alertPayload = {
-                                id: Date.now() + Math.random(),
+                                id: getTaskReminderId(task.id),
                                 title: 'Task Reminder! 🔥',
                                 body: entry.body,
                                 type: 'quick-task',
-                                tag: `faiora-fallback-${entry.stage}-${task.id}`,
+                                tag: `faiora-task-${task.id}`,
                                 taskId: task.id
                             };
                             FaioraNotifications.notifyNow(alertPayload.title, alertPayload.body, alertPayload.tag, {

@@ -57,14 +57,16 @@ messaging.onBackgroundMessage((payload) => {
             body: body,
             icon: 'logo.png',
             badge: 'logo.png',
-            tag: 'faiora-' + taskId,
+            // (2026-07-13) Use unified task tag & tomorrow action. Prev: faiora- prefix
+            tag: 'faiora-task-' + taskId,
             renotify: true,
             vibrate: [200, 100, 200],
             requireInteraction: true,
             // (2026-07-13) Pull down quick tap actions. Prev: open/dismiss
             actions: [
                 { action: 'complete_task', title: '✓ Complete' },
-                { action: 'snooze_1h', title: '+1 Hour' }
+                { action: 'snooze_1h', title: '+1 Hour' },
+                { action: 'tomorrow', title: 'Move Tomorrow' }
             ],
             data: {
                 url: self.location.origin,
@@ -139,8 +141,8 @@ self.addEventListener('notificationclick', (event) => {
     // If user clicked "Dismiss", do nothing
     if (event.action === 'dismiss') return;
 
-    // (2026-07-13) Dispatch notification actions to client window. Prev: open only
-    if (event.action === 'complete_task' || event.action === 'snooze_1h') {
+    // (2026-07-13) Dispatch tomorrow action to client window. Prev: 2 actions
+    if (event.action === 'complete_task' || event.action === 'snooze_1h' || event.action === 'tomorrow') {
         event.waitUntil(
             clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
                 const taskId = event.notification.data?.taskId;

@@ -902,13 +902,13 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     }
 }
 
+/* (2026-07-13) Dark orange Faiora skeleton loader theme. Prev: neutral gray */
 .shimmer, .fire-shimmer {
     position: relative !important;
     overflow: hidden !important;
-    background-color: rgba(255, 255, 255, 0.04) !important;
+    background-color: rgba(234, 88, 12, 0.12) !important;
 }
 
-/* (2026-07-13) Faster 1.05s shimmer speed for preloaders. Prev: 1.4s */
 .shimmer::after,
 .fire-shimmer::after,
 .skeleton-priority-card::after,
@@ -919,9 +919,9 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     background: linear-gradient(
         90deg,
         transparent 0%,
-        rgba(255, 255, 255, 0.03) 20%,
-        rgba(255, 255, 255, 0.20) 50%,
-        rgba(255, 255, 255, 0.03) 80%,
+        rgba(234, 88, 12, 0.05) 20%,
+        rgba(249, 115, 22, 0.32) 50%,
+        rgba(234, 88, 12, 0.05) 80%,
         transparent 100%
     ) !important;
     animation: full-card-shimmer 1.05s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
@@ -931,9 +931,9 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
 }
 
 .skeleton-priority-card {
-    background: rgba(255, 255, 255, 0.03) !important;
-    border: 1px solid rgba(255, 255, 255, 0.06) !important;
-    border-bottom: 3px solid rgba(255, 255, 255, 0.09) !important;
+    background: rgba(234, 88, 12, 0.07) !important;
+    border: 1px solid rgba(234, 88, 12, 0.20) !important;
+    border-bottom: 3px solid rgba(234, 88, 12, 0.40) !important;
     border-radius: 1.75rem !important;
     box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5) !important;
     position: relative !important;
@@ -941,11 +941,20 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
 }
 
 .skeleton-quick-task {
-    background: rgba(255, 255, 255, 0.03) !important;
-    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    background: rgba(234, 88, 12, 0.07) !important;
+    border: 1px solid rgba(234, 88, 12, 0.20) !important;
     border-radius: 1rem !important;
     position: relative !important;
     overflow: hidden !important;
+}
+
+.loading-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid rgba(234, 88, 12, 0.2);
+    border-top: 3px solid #ea580c;
+    border-radius: 50%;
+    animation: spin-smooth 0.8s linear infinite;
 }
 
 /* (2026-07-13) Faster 0.35s app fade-in for snappy startup. Prev: 0.8s */

@@ -50,4 +50,17 @@ if (Test-Path "$root\assets") {
     Copy-Item -Path "$root\assets" -Destination "$root\www\assets" -Recurse -Force
 }
 
+# (2026-07-13) Patch TimedNotificationPublisher for single notif. Prev: unpatched
+$tnpPath = "$root\node_modules\@capacitor\local-notifications\android\src\main\java\com\capacitorjs\plugins\localnotifications\TimedNotificationPublisher.java"
+if (Test-Path $tnpPath) {
+    $tnpContent = Get-Content -Raw $tnpPath
+    if (-not $tnpContent.Contains("postNotificationId")) {
+        $tnpContent = $tnpContent.Replace(
+            "notificationManager.notify(id, notification);",
+            "int postNotificationId = id; if (notificationJson != null) { com.getcapacitor.JSObject extra = notificationJson.getJSObject(`"extra`"); if (extra != null) { String taskId = extra.getString(`"taskId`"); if (taskId != null && !taskId.isEmpty()) { int hash = (`"faiora-task-`" + taskId).hashCode(); postNotificationId = Math.abs(hash != 0 ? hash : 1); } } } notificationManager.notify(postNotificationId, notification);"
+        )
+        Set-Content -Path $tnpPath -Value $tnpContent -NoNewline
+    }
+}
+
 Write-Host "Asset clean synchronization complete." -ForegroundColor Green

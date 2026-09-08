@@ -19,7 +19,10 @@
     </style>
 
 
+    <!-- (2026-07-13) Dark Faiora splash screen theme. Prev: default gray background -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">#0c0502</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>
