@@ -2228,9 +2228,10 @@
                 };
             }, [isFabMenuOpen]);
 
-            const closeFabMenu = useCallback(() => {
+            // (2026-07-13) Support action close without history pop. Prev: pop on all close
+            const closeFabMenu = useCallback((popHistory = true) => {
                 setIsFabMenuOpen(false);
-                if (window.history.state?.modal === 'fabMenu') {
+                if (popHistory && window.history.state?.modal === 'fabMenu') {
                     window.history.back();
                 }
             }, []);
@@ -2277,17 +2278,25 @@
                                                 icon: 'alarm', 
                                                 color: 'bg-slate-700', 
                                                 onClick: () => { 
+                                                    closeFabMenu(false);
                                                     navigate('/alarms'); 
-                                                    closeFabMenu(); 
                                                 } 
                                             },
+                                            // (2026-07-13) Replace history on FAB quick task. Prev: pop closed modal
                                             { 
                                                 label: 'QUICK TASK', 
                                                 icon: 'check_circle', 
                                                 color: 'bg-burnt-orange', 
                                                 onClick: () => { 
-                                                    window.dispatchEvent(new CustomEvent('faiora-open-task-creator')); 
-                                                    closeFabMenu(); 
+                                                    if (window.history.state?.modal === 'fabMenu') {
+                                                        window.history.replaceState({ modal: 'quickTask' }, '');
+                                                    }
+                                                    closeFabMenu(false); 
+                                                    if (location.pathname === '/' && onFabClick) {
+                                                        onFabClick();
+                                                    } else {
+                                                        window.dispatchEvent(new CustomEvent('faiora-open-task-creator')); 
+                                                    }
                                                 } 
                                             },
                                             { 
@@ -2295,9 +2304,12 @@
                                                 icon: 'description', 
                                                 color: 'bg-primary', 
                                                 onClick: () => { 
+                                                    if (window.history.state?.modal === 'fabMenu') {
+                                                        window.history.replaceState({ modal: 'creator' }, '');
+                                                    }
+                                                    closeFabMenu(false); 
                                                     if (location.pathname === '/calendar') navigate('/notes');
                                                     else onOpenCreator(); 
-                                                    closeFabMenu(); 
                                                 } 
                                             }
                                         ].map((item, i) => (
@@ -13414,11 +13426,12 @@
             // Ref to track if a history state was pushed by this modal
             const historyPushedRef = useRef(false);
 
-            // Effect to manage browser history for this modal
+            // (2026-07-13) Avoid duplicate history state on quick task. Prev: always push
             useEffect(() => {
                 if (!isClosing) {
-                    // Push a new state when the modal is opened
-                    window.history.pushState({ modal: 'quickTask' }, '');
+                    if (window.history.state?.modal !== 'quickTask') {
+                        window.history.pushState({ modal: 'quickTask' }, '');
+                    }
                     historyPushedRef.current = true;
                 } else if (historyPushedRef.current) {
                     // If the modal is closing, and we previously pushed a state, go back
@@ -15238,9 +15251,11 @@
                 syncDeliveredNativeNotifications();
             }, [syncDeliveredNativeNotifications]);
             useEffect(() => {
-                const handleOpenTaskCreator = () => {
+                // (2026-07-13) Handle category/date in open-task event. Prev: static reset
+                const handleOpenTaskCreator = (e) => {
                     setEditingQuickTask(null);
-                    setPrefillDate(null);
+                    setPrefillDate(e?.detail?.date || null);
+                    setPrefillCategory(e?.detail?.category || null);
                     setIsQuickTaskModalOpen(true);
                 };
                 window.addEventListener('faiora-open-task-creator', handleOpenTaskCreator);
@@ -18091,8 +18106,8 @@
                             onTransitionStart={() => setIsTransitioning(true)}
                             onTransitionEnd={() => setIsTransitioning(false)}
                         >
-                        {/* (2026-07-13) Remove shared viewMode props from routes. Prev: shared props */}
-                        <Route path="/" element={<DashboardPage user={user} notes={notes} quickTasks={quickTasks} alarms={alarms} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} onReorderPriorityNote={handleReorderPriorityNote} onToggleQuickTask={handleToggleQuickTask} onAddQuickTaskClick={() => { handleOpenQuickTaskModal(); }} onDeleteQuickTask={handleDeleteQuickTask} onUpdateQuickTask={handleUpdateQuickTask} onUpdateQuickTasks={handleUpdateQuickTasks} onEditQuickTask={handleOpenQuickTaskEditor} editingQuickTask={editingQuickTask} setEditingQuickTask={setEditingQuickTask} isQuickTaskModalOpen={isQuickTaskModalOpen} setIsQuickTaskModalOpen={setIsQuickTaskModalOpen} onRemoveReminder={handleRemoveReminder} isProbing={isProbing} isFirstSyncDone={isFirstSyncDone} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} setIsPomodoroActive={setIsPomodoroActive} showToast={showToast} onUpdateNote={handleUpdateNoteLocal} activeCollection={activeCollection} />} />
+                        {/* (2026-07-13) Pass category to quick task modal. Prev: ignored category */}
+                        <Route path="/" element={<DashboardPage user={user} notes={notes} quickTasks={quickTasks} alarms={alarms} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} onReorderPriorityNote={handleReorderPriorityNote} onToggleQuickTask={handleToggleQuickTask} onAddQuickTaskClick={(cat) => { handleOpenQuickTaskModal(null, typeof cat === 'string' ? cat : null); }} onDeleteQuickTask={handleDeleteQuickTask} onUpdateQuickTask={handleUpdateQuickTask} onUpdateQuickTasks={handleUpdateQuickTasks} onEditQuickTask={handleOpenQuickTaskEditor} editingQuickTask={editingQuickTask} setEditingQuickTask={setEditingQuickTask} isQuickTaskModalOpen={isQuickTaskModalOpen} setIsQuickTaskModalOpen={setIsQuickTaskModalOpen} onRemoveReminder={handleRemoveReminder} isProbing={isProbing} isFirstSyncDone={isFirstSyncDone} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} setIsPomodoroActive={setIsPomodoroActive} showToast={showToast} onUpdateNote={handleUpdateNoteLocal} activeCollection={activeCollection} />} />
                         <Route path="/notes" element={<NotesPage user={user} notes={notes} onOpenCreator={handleOpenCreator} onEditNote={handleRequestEditNote} noteSections={noteSections} onAddSection={handleAddSection} onDeleteSection={handleDeleteSection} onMoveNote={handleMoveNoteToSection} onReorderNote={handleReorderNote} onRemoveReminder={handleRemoveReminder} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} isProbing={isProbing} isFirstSyncDone={isFirstSyncDone} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
                         {/* (2026-07-13) Pass onUpdateQuickTask to QuickTasksPage. Prev: missing */}
                         <Route path="/quick-tasks" element={<QuickTasksPage user={user} quickTasks={quickTasks} onOpenCreator={handleOpenCreator} onToggleQuickTask={handleToggleQuickTask} onAddQuickTaskClick={() => { handleOpenQuickTaskModal(); }} onDeleteQuickTask={handleDeleteQuickTask} onUpdateQuickTasks={handleUpdateQuickTasks} onUpdateQuickTask={handleUpdateQuickTask} onEditQuickTask={handleOpenQuickTaskEditor} isProbing={isProbing} isFirstSyncDone={isFirstSyncDone} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} showToast={showToast} notes={notes} onUpdateNote={handleUpdateNoteLocal} activeCollection={activeCollection} />} />
