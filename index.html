@@ -1886,12 +1886,21 @@
             };
 
             // ------------------------------------------------------------------
-            // (2026-07-13) Filter out completed/100% tasks on reschedule. Prev: completed only
+            // (2026-07-13) Purge completed task reminders on reschedule. Prev: ignored done
             const rescheduleAll = (tasks) => {
                 timers.forEach((timerIds) => timerIds.forEach(id => clearTimeout(id)));
                 timers.clear();
                 if (!tasks || !Array.isArray(tasks)) return;
-                tasks.filter(t => t.dueDate && !t.completed && (t.progress === undefined || t.progress < 100)).forEach(t => scheduleForTask(t));
+                tasks.forEach(t => {
+                    const isDone = !!t.completed || (t.progress !== undefined && t.progress >= 100);
+                    if (isDone) {
+                        cancelForTask(t.id);
+                        if (window.FaioraNativeAlarmBridge?.markTaskCompleted) window.FaioraNativeAlarmBridge.markTaskCompleted(String(t.id), true);
+                    } else if (t.dueDate) {
+                        if (window.FaioraNativeAlarmBridge?.markTaskCompleted) window.FaioraNativeAlarmBridge.markTaskCompleted(String(t.id), false);
+                        scheduleForTask(t);
+                    }
+                });
             };
 
             const checkCloudHealth = async () => {
@@ -2114,12 +2123,13 @@
                         setPullDistance(56);
                         if (onRefresh) {
                             onRefresh().finally(() => {
+                                // (2026-07-13) Faster 250ms hide timeout for PTR indicator. Prev: 500ms
                                 setTimeout(() => {
                                     statusRef.current = 'idle';
                                     setStatus('idle');
                                     pullDistanceRef.current = 0;
                                     setPullDistance(0);
-                                }, 500);
+                                }, 250);
                             });
                         }
                     } else {
@@ -2721,8 +2731,8 @@
         // ==========================================================================
         // LABEL: TASK CREATOR — The main modal for creating/editing notes
         // ==========================================================================
-        // (2026-07-13) Auto-calc progress & task text sync for official notepad. Prev: manual
-        const TaskCreator = ({ onClose, user, editingNote, activeCollection, onUpdateNote, onDeleteNote, onSaveVersion, showToast, notes = [], onToggleLock, onOpenLockSet, onToggleQuickTask, onUpdateQuickTask }) => {
+        // (2026-07-13) Pass quickTasks to TaskCreator for task sync. Prev: notes only
+        const TaskCreator = ({ onClose, user, editingNote, activeCollection, onUpdateNote, onDeleteNote, onSaveVersion, showToast, notes = [], quickTasks = [], onToggleLock, onOpenLockSet, onToggleQuickTask, onUpdateQuickTask }) => {
             const noteId = useMemo(() => editingNote ? editingNote.id : 'note_' + Date.now(), [editingNote]);
             const [title, setTitle] = useState(editingNote ? editingNote.title || '' : '');
             const [content, setContent] = useState(editingNote ? editingNote.content || '' : '');
@@ -4068,16 +4078,41 @@
                 }
             };
 
-            // (2026-07-13) Auto-update percentage & sync data-qt-id on click. Prev: toggle
+            // (2026-07-13) Sync notepad item check to task & alarms. Prev: data-qt-id only
             const handleEditorClick = (e) => {
                 const target = e.target;
                 if (target.classList.contains('checklist-checkbox')) {
                     const li = target.closest('.checklist-item');
                     if (li) {
                         li.classList.toggle('checked');
-                        const qtId = li.getAttribute('data-qt-id');
-                        if (qtId && typeof onToggleQuickTask === 'function') {
-                            onToggleQuickTask(qtId);
+                        const isChecked = li.classList.contains('checked');
+                        let qtId = li.getAttribute('data-qt-id');
+                        if (!qtId) {
+                            const taskText = (li.innerText || li.textContent || '').trim().toLowerCase();
+                            if (taskText) {
+                                const matched = (quickTasks || []).find(t => (t.text || '').trim().toLowerCase() === taskText);
+                                if (matched) {
+                                    qtId = matched.id;
+                                    li.setAttribute('data-qt-id', String(qtId));
+                                }
+                            }
+                        }
+                        if (qtId) {
+                            if (typeof onToggleQuickTask === 'function') {
+                                onToggleQuickTask(qtId);
+                            }
+                            if (isChecked) {
+                                if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications?.cancelForTask) {
+                                    FaioraNotifications.cancelForTask(qtId);
+                                }
+                                if (window.FaioraNativeAlarmBridge?.markTaskCompleted) {
+                                    window.FaioraNativeAlarmBridge.markTaskCompleted(String(qtId), true);
+                                }
+                            } else {
+                                if (window.FaioraNativeAlarmBridge?.markTaskCompleted) {
+                                    window.FaioraNativeAlarmBridge.markTaskCompleted(String(qtId), false);
+                                }
+                            }
                         }
                         if (isQuickTasksNotepad && editorRef.current) {
                             const autoProgress = calculateQuickTasksProgress(editorRef.current.innerHTML);
@@ -6517,10 +6552,11 @@
                 }
             };
 
+            // (2026-07-13) Flag manual notepad save click. Prev: default param
             const handleSave = () => {
                 setIsSaving(true);
                 if (typeof onSaveToNotes === 'function') {
-                    onSaveToNotes(tasks);
+                    onSaveToNotes(tasks, true);
                 }
                 setTimeout(() => setIsSaving(false), 1000);
             };
@@ -7498,13 +7534,15 @@
 
             const sortedQuickTasks = useMemo(() => sortQuickTasksList(filteredQuickTasks), [filteredQuickTasks]);
 
-            const isLoading = isProbing || !isFirstSyncDone;
+            // (2026-07-13) Show skeletons during pull-to-refresh. Prev: sync flags only
+            const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+            const isLoading = isProbing || !isFirstSyncDone || isPullRefreshing;
 
             const groupedQuickTasks = useMemo(() => groupQuickTasksBySchedule(sortedQuickTasks), [sortedQuickTasks]);
             const dailyQuickTasks = useMemo(() => groupQuickTasksDaily(sortedQuickTasks), [sortedQuickTasks]);
 
-            // (2026-07-13) Align live notepad checkbox with first line. Prev: center
-            const handleSaveQuickTasksToNotes = (tasksToSave) => {
+            // (2026-07-13) Manual save flag for notepad note. Prev: tasksToSave only
+            const handleSaveQuickTasksToNotes = (tasksToSave, isManual = false) => {
                 const list = Array.isArray(tasksToSave) ? tasksToSave : sortedQuickTasks;
                 const dailyData = groupQuickTasksDaily(list);
                 let noteHtml = `<div class="qt-notepad-live-wrapper" style="font-family: 'Montserrat', sans-serif; line-height: 1.35;">`;
@@ -7566,7 +7604,8 @@
                         }, { merge: true });
                     } catch(e) {}
                 }
-                if (showToast) showToast('Quick tasks saved to Notes!');
+                // (2026-07-13) Show saved toast on manual trigger only. Prev: show on auto-save
+                if (isManual && showToast) showToast('Quick tasks saved to Notes!');
             };
 
             // (2026-07-13) Auto-save notepad once for new users with >= 3 tasks. Prev: none
@@ -7579,7 +7618,7 @@
                 if ((quickTasks || []).length >= 3) {
                     hasAutoSavedRef.current = true;
                     try { localStorage.setItem(storageKey, 'true'); } catch {}
-                    handleSaveQuickTasksToNotes(quickTasks);
+                    handleSaveQuickTasksToNotes(quickTasks, false);
                 }
             }, [user?.uid, (quickTasks || []).length]);
 
@@ -7830,13 +7869,12 @@
 
             const sortedPriorityNotes = useMemo(() => localNotes.slice(0, 6), [localNotes]);
 
+            // (2026-07-13) Pulse skeletons during pull-to-refresh. Prev: static delay
             const handleRefresh = async () => {
                 if (navigator.vibrate) try { navigator.vibrate([10, 30, 10]); } catch(err) {}
-                console.log("🔄 Pull-to-refresh triggered: Re-syncing data...");
-                // Force a reload of the snapshot state by pulsing isAuthChecked or similar
-                // But for now, a hard reload or simple 1s delay is a visual enough confirmation
-                // of the live snapshot sync which is already active.
-                return new Promise(resolve => setTimeout(resolve, 1200));
+                setIsPullRefreshing(true);
+                await new Promise(resolve => setTimeout(resolve, 750));
+                setIsPullRefreshing(false);
             };
 
             const handleFabClick = () => {
@@ -8437,10 +8475,19 @@
             const geometryRef = useRef(null);
             const lastUpdateRef = useRef(0);
              const [selectionPopup, setSelectionPopup] = useState(null);
+             // (2026-07-13) Show skeletons during pull-to-refresh. Prev: sync flags only
+             const [isPullRefreshing, setIsPullRefreshing] = useState(false);
              const [newLabelText, setNewLabelText] = useState('');
              
              /* FIX 2026-04-16: Unified loading state for synchronization */
-             const isLoading = isProbing || !isFirstSyncDone;
+             const isLoading = isProbing || !isFirstSyncDone || isPullRefreshing;
+             
+             const handleRefresh = async () => {
+                 if (navigator.vibrate) try { navigator.vibrate([10, 30, 10]); } catch(err) {}
+                 setIsPullRefreshing(true);
+                 await new Promise(resolve => setTimeout(resolve, 750));
+                 setIsPullRefreshing(false);
+             };
              
              // Back button support for popups
              useEffect(() => {
@@ -9242,8 +9289,9 @@
                 }
             };
 
+            // (2026-07-13) Enable pull-to-refresh on NotesPage. Prev: no onRefresh
             return (
-                <Layout onOpenCreator={onOpenCreator} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
+                <Layout onOpenCreator={onOpenCreator} onRefresh={handleRefresh} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
                     {/* (2026-07-13) Fix top margin on notes tab page. Prev: pt-16 */}
                     <div className="max-w-7xl mx-auto w-full px-0 md:px-16 pt-[calc(72px+env(safe-area-inset-top,0px))] md:pt-12 pb-12">
                         {selectionMode ? (
@@ -10236,12 +10284,21 @@
                 return typeof sortQuickTasksList === 'function' ? sortQuickTasksList(list) : list;
             }, [quickTasks, selectedCategory, searchQuery]);
 
+            // (2026-07-13) Show skeletons during pull-to-refresh. Prev: sync flags only
+            const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+            const handleRefresh = async () => {
+                if (navigator.vibrate) try { navigator.vibrate([10, 30, 10]); } catch(err) {}
+                setIsPullRefreshing(true);
+                await new Promise(resolve => setTimeout(resolve, 750));
+                setIsPullRefreshing(false);
+            };
+
             const groupedQuickTasks = useMemo(() => groupQuickTasksBySchedule(filteredTasks), [filteredTasks]);
             // (2026-07-13) Add dailyQuickTasks and notes save in QuickTasksPage. Prev: none
             const dailyQuickTasks = useMemo(() => groupQuickTasksDaily(filteredTasks), [filteredTasks]);
 
-            // (2026-07-13) Align live notepad checkbox with first line. Prev: center
-            const handleSaveQuickTasksToNotes = (tasksToSave) => {
+            // (2026-07-13) Manual save flag for notepad note. Prev: tasksToSave only
+            const handleSaveQuickTasksToNotes = (tasksToSave, isManual = false) => {
                 const list = Array.isArray(tasksToSave) ? tasksToSave : filteredTasks;
                 const dailyData = groupQuickTasksDaily(list);
                 let noteHtml = `<div class="qt-notepad-live-wrapper" style="font-family: 'Montserrat', sans-serif; line-height: 1.35;">`;
@@ -10303,7 +10360,8 @@
                         }, { merge: true });
                     } catch(e) {}
                 }
-                if (showToast) showToast('Quick tasks saved to Notes!');
+                // (2026-07-13) Show saved toast on manual trigger only. Prev: show on auto-save
+                if (isManual && showToast) showToast('Quick tasks saved to Notes!');
             };
 
             // (2026-07-13) Auto-save notepad once for new users with >= 3 tasks. Prev: none
@@ -10316,7 +10374,7 @@
                 if ((quickTasks || []).length >= 3) {
                     hasAutoSavedRef.current = true;
                     try { localStorage.setItem(storageKey, 'true'); } catch {}
-                    handleSaveQuickTasksToNotes(quickTasks);
+                    handleSaveQuickTasksToNotes(quickTasks, false);
                 }
             }, [user?.uid, (quickTasks || []).length]);
 
@@ -10400,8 +10458,9 @@
                 onAddQuickTaskClick(categoryToPass);
             };
 
+            // (2026-07-13) Pass pull-to-refresh to QuickTasksPage. Prev: no onRefresh
             return (
-                <Layout onOpenCreator={onOpenCreator} onFabClick={handleFabClick} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
+                <Layout onOpenCreator={onOpenCreator} onFabClick={handleFabClick} onRefresh={handleRefresh} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
                     <div className="max-w-6xl mx-auto w-full px-4 md:px-8 pt-0 pb-12">
                         {/* (2026-07-13) Fix mobile header gap consistency. Prev: py-4 mb-6 + mt-20 */}
                         <div className="md:py-4 md:px-8 md:mb-6">
@@ -10552,7 +10611,8 @@
 
                         <div className="space-y-6">
 
-                            {(isProbing || !isFirstSyncDone) ? (
+                            {/* (2026-07-13) Show task skeletons on pull refresh. Prev: sync flags only */}
+                            {(isProbing || !isFirstSyncDone || isPullRefreshing) ? (
                                 <div className="space-y-6">
                                     <div className="space-y-3">
                                         <div className="flex items-center gap-3">
@@ -14056,51 +14116,55 @@
                                         </button>
                                     )}
                                 </div>
-                                <div className="flex flex-wrap items-center gap-1.5 max-h-20 progress-logs-scroll pr-0.5">
-                                    {availableCategories.map(cat => {
-                                        const isSelected = categories.includes(cat);
-                                        return (
+                                {/* (2026-07-13) 2-row category scroll with fade gradient. Prev: max-h-20 */}
+                                <div className="relative">
+                                    <div className="flex flex-wrap items-center gap-1.5 max-h-[58px] overflow-y-auto progress-logs-scroll pr-0.5 pb-1">
+                                        {availableCategories.map(cat => {
+                                            const isSelected = categories.includes(cat);
+                                            return (
+                                                <button
+                                                    key={cat}
+                                                    type="button"
+                                                    onClick={() => handleToggleCategory(cat)}
+                                                    className={`h-6 px-2.5 rounded-full text-[9.5px] font-bold font-montserrat uppercase tracking-[0.1em] transition-all duration-200 flex items-center justify-center ${isSelected ? 'bg-primary/20 text-primary border border-primary/40' : 'bg-white/[0.04] hover:bg-white/[0.08] text-cream-light/60 hover:text-cream-light border border-white/[0.08]'}`}
+                                                >
+                                                    {cat}
+                                                </button>
+                                            );
+                                        })}
+                                        {isAddingNewCat ? (
+                                            <div className="h-6 px-2 rounded-full bg-white/[0.04] border border-primary/40 flex items-center gap-1 flex-shrink-0">
+                                                <input
+                                                    type="text"
+                                                    autoFocus
+                                                    value={newCatText}
+                                                    onChange={e => setNewCatText(e.target.value)}
+                                                    onKeyDown={e => {
+                                                        if (e.key === 'Enter') { e.preventDefault(); handleCreateNewCat(); }
+                                                        if (e.key === 'Escape') setIsAddingNewCat(false);
+                                                    }}
+                                                    placeholder="Category..."
+                                                    className="bg-transparent border-none text-[9.5px] text-cream-light focus:ring-0 w-16 p-0 font-montserrat placeholder:text-white/30 leading-none outline-none"
+                                                />
+                                                <button type="button" onClick={handleCreateNewCat} className="text-primary hover:text-primary-light flex items-center justify-center p-0.5" title="Save">
+                                                    <span className="material-symbols-outlined text-xs font-bold">check</span>
+                                                </button>
+                                                <button type="button" onClick={() => setIsAddingNewCat(false)} className="text-white/40 hover:text-white flex items-center justify-center p-0.5" title="Cancel">
+                                                    <span className="material-symbols-outlined text-xs">close</span>
+                                                </button>
+                                            </div>
+                                        ) : (
                                             <button
-                                                key={cat}
                                                 type="button"
-                                                onClick={() => handleToggleCategory(cat)}
-                                                className={`h-6 px-2.5 rounded-full text-[9.5px] font-bold font-montserrat uppercase tracking-[0.1em] transition-all duration-200 flex items-center justify-center ${isSelected ? 'bg-primary/20 text-primary border border-primary/40' : 'bg-white/[0.04] hover:bg-white/[0.08] text-cream-light/60 hover:text-cream-light border border-white/[0.08]'}`}
+                                                onClick={() => setIsAddingNewCat(true)}
+                                                className="h-6 px-2 rounded-full text-[9.5px] font-bold uppercase tracking-[0.1em] font-montserrat text-primary/70 hover:text-primary bg-white/[0.02] hover:bg-primary/15 border border-white/10 hover:border-primary/30 transition-all duration-200 flex items-center gap-0.5"
                                             >
-                                                {cat}
+                                                <span className="material-symbols-outlined text-xs font-bold">add</span>
+                                                New
                                             </button>
-                                        );
-                                    })}
-                                    {isAddingNewCat ? (
-                                        <div className="h-6 px-2 rounded-full bg-white/[0.04] border border-primary/40 flex items-center gap-1 flex-shrink-0">
-                                            <input
-                                                type="text"
-                                                autoFocus
-                                                value={newCatText}
-                                                onChange={e => setNewCatText(e.target.value)}
-                                                onKeyDown={e => {
-                                                    if (e.key === 'Enter') { e.preventDefault(); handleCreateNewCat(); }
-                                                    if (e.key === 'Escape') setIsAddingNewCat(false);
-                                                }}
-                                                placeholder="Category..."
-                                                className="bg-transparent border-none text-[9.5px] text-cream-light focus:ring-0 w-16 p-0 font-montserrat placeholder:text-white/30 leading-none outline-none"
-                                            />
-                                            <button type="button" onClick={handleCreateNewCat} className="text-primary hover:text-primary-light flex items-center justify-center p-0.5" title="Save">
-                                                <span className="material-symbols-outlined text-xs font-bold">check</span>
-                                            </button>
-                                            <button type="button" onClick={() => setIsAddingNewCat(false)} className="text-white/40 hover:text-white flex items-center justify-center p-0.5" title="Cancel">
-                                                <span className="material-symbols-outlined text-xs">close</span>
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsAddingNewCat(true)}
-                                            className="h-6 px-2 rounded-full text-[9.5px] font-bold uppercase tracking-[0.1em] font-montserrat text-primary/70 hover:text-primary bg-white/[0.02] hover:bg-primary/15 border border-white/10 hover:border-primary/30 transition-all duration-200 flex items-center gap-0.5"
-                                        >
-                                            <span className="material-symbols-outlined text-xs font-bold">add</span>
-                                            New
-                                        </button>
-                                    )}
+                                        )}
+                                    </div>
+                                    <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[#0f172a] via-[#0f172a]/80 to-transparent"></div>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 mt-1">
@@ -14944,7 +15008,8 @@
                         }, { merge: true });
                     }
                     localStorage.removeItem('faiora_sync_queue');
-                    showToast('Back online — all changes synced!');
+                    // (2026-07-13) Subtle synced message. Prev: Back online snackbar
+                    showToast('Synced');
                 } catch(e) {
                     console.warn('⚠️ [SYNC] Auto-sync attempt error:', e.message);
                 }
@@ -16104,7 +16169,7 @@
             useEffect(() => {
                 const handleOnline = () => {
                     setIsOnline(true);
-                    showToast("Back online! Syncing...");
+                    // (2026-07-13) Suppressed back online snackbar. Prev: showToast
                     const alarmCollection = quickTasksCollection || activeCollection;
                     if (auth.currentUser && alarmCollection) {
                         db.collection(alarmCollection).doc(auth.currentUser.uid).set({ alarms: alarmsRef.current }, { merge: true }).catch(() => {});
@@ -16113,7 +16178,7 @@
                 };
                 const handleOffline = () => {
                     setIsOnline(false);
-                    showToast("Working offline");
+                    // (2026-07-13) Suppressed working offline snackbar. Prev: showToast
                 };
                 window.addEventListener('online', handleOnline);
                 window.addEventListener('offline', handleOffline);
@@ -17247,6 +17312,8 @@
                     }
                     
                     if (updatedTask.completed) {
+                        // (2026-07-13) Native task completion bridge call. Prev: cancelForTask only
+                        if (window.FaioraNativeAlarmBridge?.markTaskCompleted) window.FaioraNativeAlarmBridge.markTaskCompleted(String(id), true);
                         try {
                             if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications) {
                                 if (typeof FaioraNotifications.playCheckSFX === 'function') FaioraNotifications.playCheckSFX();
@@ -17272,10 +17339,13 @@
                                     };
                                     handleUpdateQuickTasks(reverted);
                                     syncQuickTaskToNotes(id, false);
+                                    if (window.FaioraNativeAlarmBridge?.markTaskCompleted) window.FaioraNativeAlarmBridge.markTaskCompleted(String(id), false);
                                 }
                             }
                         });
                     } else {
+                        // (2026-07-13) Native task uncomplete bridge call. Prev: no bridge call
+                        if (window.FaioraNativeAlarmBridge?.markTaskCompleted) window.FaioraNativeAlarmBridge.markTaskCompleted(String(id), false);
                         const wasCompleted = original.completed;
                         const beforeProgress = original.progress;
                         const beforeLastProgress = original.lastProgress;
@@ -17294,6 +17364,7 @@
                                     };
                                     handleUpdateQuickTasks(reverted);
                                     syncQuickTaskToNotes(id, true);
+                                    if (window.FaioraNativeAlarmBridge?.markTaskCompleted) window.FaioraNativeAlarmBridge.markTaskCompleted(String(id), true);
                                 }
                             }
                         });
@@ -18092,14 +18163,7 @@
                             src={videoSrc}
                         />
                     )}
-                    {/* (2026-07-13) Offline badge clear of status bar. Prev: top-3 overlap */}
-                    {isOffline && (
-                        <div id="faiora_offline_status_badge" className="fixed top-[calc(58px+env(safe-area-inset-top,0px))] md:top-4 left-1/2 -translate-x-1/2 z-[9998] px-3 py-1 bg-amber-950/85 border border-amber-500/30 backdrop-blur-md rounded-full flex items-center gap-1.5 shadow-lg text-[11px] font-medium text-amber-300 pointer-events-none">
-                            <span className="material-symbols-outlined text-xs text-amber-400">cloud_off</span>
-                            {/* Offline mode sync alert */}
-                            <span>Offline Mode — Changes will sync when online</span>
-                        </div>
-                    )}
+                    {/* (2026-07-13) Removed blocking offline badge. Prev: offline badge */}
                     {/* (2026-07-13) Subtle fade-in on app content after preloader. Prev: snap */}
                     <div className={`app-content-fadein ${isTransitioning ? 'page-transitioning' : ''}`}>
                         <TransitionManager 
@@ -18135,8 +18199,8 @@
                         <Route path="/trash" element={<TrashPage user={user} onOpenCreator={handleOpenCreator} trashNotes={trashNotes} trashQuickTasks={trashQuickTasks} onRestoreNote={handleRestoreNote} onRestoreQuickTask={handleRestoreQuickTask} onPermanentDelete={handlePermanentDelete} onPermanentDeleteQuickTask={handlePermanentDeleteQuickTask} onEmptyTrash={handleEmptyTrash} onEmptyQuickTaskTrash={handleEmptyQuickTaskTrash} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive} />} />
                         </TransitionManager>
                     </div>
-                     {/* (2026-07-13) Pass onUpdateQuickTask to TaskCreator. Prev: onToggleQuickTask only */}
-                     {isCreatorOpen && <TaskCreator onClose={handleCloseCreator} user={user} editingNote={editingNote} activeCollection={activeCollection} onUpdateNote={handleUpdateNoteLocal} onDeleteNote={handleDeleteNoteLocal} onSaveVersion={handleSaveVersion} showToast={showToast} notes={notes} onToggleLock={handleRemoveLock} onOpenLockSet={handleOpenSetLock} onToggleQuickTask={handleToggleQuickTask} onUpdateQuickTask={handleUpdateQuickTask} />}
+                     {/* (2026-07-13) Pass quickTasks to TaskCreator. Prev: onUpdateQuickTask */}
+                     {isCreatorOpen && <TaskCreator onClose={handleCloseCreator} user={user} editingNote={editingNote} activeCollection={activeCollection} onUpdateNote={handleUpdateNoteLocal} onDeleteNote={handleDeleteNoteLocal} onSaveVersion={handleSaveVersion} showToast={showToast} notes={notes} quickTasks={quickTasks} onToggleLock={handleRemoveLock} onOpenLockSet={handleOpenSetLock} onToggleQuickTask={handleToggleQuickTask} onUpdateQuickTask={handleUpdateQuickTask} />}
                      {isSetLockModalOpen && <SetLockModal onClose={handleCloseSetLock} showToast={showToast} onSet={handleSetLock} />}
                      {unlockingNote && (
                          <UnlockModal 

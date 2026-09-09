@@ -46,4 +46,16 @@ final class NativeAlarmBridge {
     public void startActiveAlarm() {
         NativeAlarmScheduler.startAlarmPlayback(activity.getApplicationContext());
     }
+
+    // (2026-07-13) Mark task status in native SharedPreferences. Prev: none
+    @JavascriptInterface
+    public void markTaskCompleted(String taskId, boolean completed) {
+        if (taskId == null || taskId.isEmpty()) return;
+        android.content.SharedPreferences sp = activity.getApplicationContext().getSharedPreferences("faiora_completed_tasks", android.content.Context.MODE_PRIVATE);
+        if (completed) {
+            sp.edit().putBoolean(taskId, true).apply();
+        } else {
+            sp.edit().remove(taskId).apply();
+        }
+    }
 }

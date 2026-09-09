@@ -50,15 +50,40 @@ if (Test-Path "$root\assets") {
     Copy-Item -Path "$root\assets" -Destination "$root\www\assets" -Recurse -Force
 }
 
-# (2026-07-13) Patch TimedNotificationPublisher for single notif. Prev: unpatched
+# (2026-07-13) Patch TimedNotificationPublisher deduplication. Prev: old patch
 $tnpPath = "$root\node_modules\@capacitor\local-notifications\android\src\main\java\com\capacitorjs\plugins\localnotifications\TimedNotificationPublisher.java"
 if (Test-Path $tnpPath) {
     $tnpContent = Get-Content -Raw $tnpPath
-    if (-not $tnpContent.Contains("postNotificationId")) {
-        $tnpContent = $tnpContent.Replace(
-            "notificationManager.notify(id, notification);",
-            "int postNotificationId = id; if (notificationJson != null) { com.getcapacitor.JSObject extra = notificationJson.getJSObject(`"extra`"); if (extra != null) { String taskId = extra.getString(`"taskId`"); if (taskId != null && !taskId.isEmpty()) { int hash = (`"faiora-task-`" + taskId).hashCode(); postNotificationId = Math.abs(hash != 0 ? hash : 1); } } } notificationManager.notify(postNotificationId, notification);"
-        )
+    if (-not $tnpContent.Contains("faiora_completed_tasks")) {
+        $replacement = @"
+        JSObject notificationJson = storage.getSavedNotificationAsJSObject(Integer.toString(id));
+        if (notificationJson == null) {
+            return;
+        }
+        LocalNotificationsPlugin.fireReceived(notificationJson);
+        int postNotificationId = id;
+        JSObject extra = notificationJson.getJSObject("extra");
+        if (extra != null) {
+            String taskId = extra.getString("taskId");
+            if (taskId != null && !taskId.isEmpty()) {
+                android.content.SharedPreferences sp = context.getSharedPreferences("faiora_completed_tasks", android.content.Context.MODE_PRIVATE);
+                if (sp != null && sp.getBoolean(taskId, false)) {
+                    storage.deleteNotification(Integer.toString(id));
+                    return;
+                }
+                int hash = ("faiora-task-" + taskId).hashCode();
+                postNotificationId = Math.abs(hash != 0 ? hash : 1);
+                try {
+                    notificationManager.cancel(Math.abs(("faiora-sched-1h-" + taskId).hashCode()));
+                    notificationManager.cancel(Math.abs(("faiora-sched-due-" + taskId).hashCode()));
+                    notificationManager.cancel(Math.abs(("faiora-sched-24h-" + taskId).hashCode()));
+                } catch (Exception e) {}
+            }
+        }
+        notificationManager.notify(postNotificationId, notification);
+"@
+        $regex = '(?s)JSObject notificationJson = storage\.getSavedNotificationAsJSObject\(Integer\.toString\(id\)\);.*?notificationManager\.notify\([^;]+, notification\);'
+        $tnpContent = [regex]::Replace($tnpContent, $regex, $replacement)
         Set-Content -Path $tnpPath -Value $tnpContent -NoNewline
     }
 }
