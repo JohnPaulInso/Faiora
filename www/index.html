@@ -2223,6 +2223,8 @@
             const location = useLocation();
             
             const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
+            // (2026-07-13) Add tactile touch feedback to FAB buttons. Prev: instant modal
+            const [pressedFabIndex, setPressedFabIndex] = useState(null);
             const navigate = useNavigate();
             const pomodoroProgress = isPomodoroActive ? ((1500 - pomodoroTime) / 1500) * 100 : 0;
 
@@ -2246,6 +2248,23 @@
                     window.history.back();
                 }
             }, []);
+
+            useEffect(() => {
+                window.__faioraFabMenuOpen = isFabMenuOpen;
+                window.__faioraCloseFabMenu = () => closeFabMenu(false);
+                return () => {
+                    window.__faioraFabMenuOpen = false;
+                    window.__faioraCloseFabMenu = null;
+                };
+            }, [isFabMenuOpen, closeFabMenu]);
+
+            useEffect(() => {
+                const handleClosePopups = () => {
+                    if (isFabMenuOpen) closeFabMenu(false);
+                };
+                window.addEventListener('faiora-close-popups', handleClosePopups);
+                return () => window.removeEventListener('faiora-close-popups', handleClosePopups);
+            }, [isFabMenuOpen, closeFabMenu]);
 
             const handleMainFabClick = () => {
                 if (location.pathname === '/notes') {
@@ -2323,15 +2342,24 @@
                                                     else onOpenCreator(); 
                                                 } 
                                             }
-                                        // (2026-07-13) Add mobile tap and hover effects for FAB options. Prev: scale-95
                                         ].map((item, i) => (
                                             <button
                                                 key={i}
-                                                onClick={item.onClick}
-                                                className="flex items-center gap-3 group active:scale-90 active:brightness-125 transition-all duration-150 ease-out cursor-pointer select-none"
+                                                onClick={() => {
+                                                    setPressedFabIndex(i);
+                                                    setTimeout(() => {
+                                                        setPressedFabIndex(null);
+                                                        item.onClick();
+                                                    }, 110);
+                                                }}
+                                                onTouchStart={() => setPressedFabIndex(i)}
+                                                onTouchEnd={() => setTimeout(() => setPressedFabIndex(null), 150)}
+                                                onPointerDown={() => setPressedFabIndex(i)}
+                                                onPointerUp={() => setTimeout(() => setPressedFabIndex(null), 150)}
+                                                className={`flex items-center gap-3 group active:scale-90 active:brightness-125 transition-all duration-150 ease-out cursor-pointer select-none ${pressedFabIndex === i ? 'scale-90 brightness-125' : ''}`}
                                             >
-                                                <span className="text-[10.5px] font-bold text-cream-light font-montserrat px-3.5 py-1.5 bg-zinc-900/90 backdrop-blur-xl rounded-xl border border-white/10 shadow-xl uppercase tracking-wider select-none group-hover:border-primary/50 group-hover:text-primary group-active:scale-95 group-active:bg-zinc-800 transition-all duration-150">{item.label}</span>
-                                                <div className={`w-14 h-14 md:w-16 md:h-16 ${item.color} rounded-[1.25rem] md:rounded-3xl flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(249,115,22,0.4)] group-active:scale-90 group-active:ring-4 group-active:ring-white/30 transition-all duration-150 border border-white/15`}>
+                                                <span className={`text-[10.5px] font-bold text-cream-light font-montserrat px-3.5 py-1.5 bg-zinc-900/90 backdrop-blur-xl rounded-xl border border-white/10 shadow-xl uppercase tracking-wider select-none group-hover:border-primary/50 group-hover:text-primary transition-all duration-150 ${pressedFabIndex === i ? 'border-primary text-primary scale-95 bg-zinc-800' : ''}`}>{item.label}</span>
+                                                <div className={`w-14 h-14 md:w-16 md:h-16 ${item.color} rounded-[1.25rem] md:rounded-3xl flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(249,115,22,0.4)] transition-all duration-150 border border-white/15 ${pressedFabIndex === i ? 'scale-90 ring-4 ring-white/40 shadow-none' : ''}`}>
                                                     <span className="material-symbols-outlined text-2xl md:text-3xl">{item.icon}</span>
                                                 </div>
                                             </button>
@@ -5906,13 +5934,12 @@
             ).join(' ');
         };
 
+        // (2026-07-13) Capitalize every word in task text. Prev: lowercase word render
         const formatTaskText = (text) => {
             if (!text) return '';
-            const t = text.trim();
+            const t = String(text).trim();
             if (t.length === 0) return '';
-            return t.split(/\s+/).map(word => 
-                word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-            ).join(' ');
+            return t.replace(/\b[a-zA-Z]/g, match => match.toUpperCase());
         };
 
         const hashPIN = async (pin) => {
@@ -6699,8 +6726,9 @@
                                                                 {/* (2026-07-13) Smart 1 vs 2 line clamp on notepad item. Prev: fixed 2 */}
                                                                 {/* (2026-07-13) Orange text on long-press, muted if completed. Prev: static */}
                                                                 <div className="flex items-center gap-1.5 flex-wrap">
+                                                                    {/* (2026-07-13) Format task with capital words. Prev: unformatted text */}
                                                                     <span className={`qt-notepad-item-text text-xs md:text-sm font-montserrat leading-5 transition-all duration-200 ${(isInProgress && (task.text || '').length <= 48) ? 'clamp-1' : 'clamp-2'} ${longPressingId === task.id ? (task.completed ? 'text-primary/40 line-through' : 'text-primary font-semibold') : task.completed ? 'line-through text-white/50' : 'text-cream-light'}`}>
-                                                                        {task.text}
+                                                                        {formatTaskText(task.text)}
                                                                     </span>
                                                                     {isDuplicate && (
                                                                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8.5px] font-bold font-montserrat uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0" title="Duplicate task">
@@ -13673,8 +13701,9 @@
                             timestamp: Date.now()
                         });
                     }
-                    onAdd(text.trim(), dueDate, dueTime, categories, progress, finalHistory, reminders);
-                    if (showToast) showToast(initialData ? "Task updated!" : "Quick task added!");
+                    // (2026-07-13) Format task name & replace toast. Prev: raw text & duplicate
+                    onAdd(formatTaskText(text.trim()), dueDate, dueTime, categories, progress, finalHistory, reminders);
+                    if (showToast) showToast(initialData ? "Task updated!" : "Quick task added!", null, initialData?.id ? `task-${initialData.id}` : null);
                     setIsClosing(true);
                     setTimeout(() => {
                         if (typeof onClose === 'function') onClose();
@@ -13774,7 +13803,7 @@
                     ></div>
                     {/* (2026-07-13) Reduce modal height to clear status bar. Prev: 92vh */}
                     <div 
-                        className={`bg-[#0f172a] w-full max-w-md max-h-[82vh] sm:max-h-[85vh] overflow-y-auto rounded-3xl p-5 sm:p-6 relative z-10 shadow-2xl border border-white/5 custom-scrollbar ${isClosing ? 'qt-modal-card-out' : 'qt-modal-card-in'}`}
+                        className={`bg-[#0f172a] w-full max-w-md max-h-[82vh] sm:max-h-[85vh] overflow-y-auto rounded-3xl p-5 sm:p-6 pb-8 sm:pb-8 relative z-10 shadow-2xl border border-white/5 custom-scrollbar ${isClosing ? 'qt-modal-card-out' : 'qt-modal-card-in'}`}
                     >
                         <div className="flex justify-between items-center mb-2.5">
                             <h3 className="text-base font-bold text-cream-light font-montserrat tracking-wide">{initialData ? 'Edit Task' : 'New Quick Task'}</h3>
@@ -13799,12 +13828,19 @@
                                     </div>
                                 </div>
                                 <div className="relative">
+                                    {/* (2026-07-13) Enter key saves task on edit mode. Prev: insert newline */}
                                     <textarea
                                         autoFocus
                                         value={text}
                                         onChange={(e) => handleTextChange(e.target.value.slice(0, 150))}
+                                        onKeyDown={(e) => {
+                                            if (initialData && e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                handleSubmit(e);
+                                            }
+                                        }}
                                         maxLength={150}
-                                        placeholder="What needs to be done? (Each new line creates a new quick task)"
+                                        placeholder={initialData ? "Task name" : "What needs to be done? (Each new line creates a new quick task)"}
                                         className={`w-full bg-white/5 border rounded-xl p-2.5 pr-10 text-cream-light placeholder:text-white/10 focus:ring-2 transition-all font-montserrat text-xs quick-task-input ${error ? 'border-red-500/60 focus:ring-red-500/20' : 'border-white/10 focus:ring-primary/20'}`}
                                         rows={2}
                                         style={{ textTransform: 'capitalize', resize: 'none' }}
@@ -14169,7 +14205,8 @@
                                     <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[#0f172a] via-[#0f172a]/80 to-transparent"></div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2 mt-1">
+                            {/* (2026-07-13) Add bottom padding for task modal. Prev: cut off button */}
+                            <div className="flex items-center gap-2 mt-2 pb-3">
                                 {initialData && onDelete && (
                                     <button
                                         type="button"
@@ -14971,14 +15008,24 @@
                 return () => clearInterval(interval);
             }, [toasts.length]);
 
-            const showToast = useCallback((message, action = null) => {
+            // (2026-07-13) Replace duplicate task toasts. Prev: stacked multiple toasts
+            const showToast = useCallback((message, action = null, key = null) => {
                 if (!message) return;
                 const id = Date.now() + Math.random();
                 const createdAt = Date.now();
+                const taskKey = key || action?.key || action?.taskId || (
+                    typeof message === 'string' && message.startsWith('Task "') 
+                        ? (message.match(/^Task "([^"]+)"/)?.[1] || null)
+                        : null
+                );
                 setToasts(prev => {
                     const now = Date.now();
-                    const active = prev.filter(t => (now - (t.createdAt || 0)) < 5000);
-                    return [...active, { id, message, action, createdAt, duration: 5000 }];
+                    const active = prev.filter(t => {
+                        if ((now - (t.createdAt || 0)) >= 5000) return false;
+                        if (taskKey && t.taskKey && t.taskKey === taskKey) return false;
+                        return true;
+                    });
+                    return [...active, { id, message, action, createdAt, duration: 5000, taskKey }];
                 });
             }, []);
 
@@ -15988,6 +16035,7 @@
                 return () => document.body.classList.remove('faiora-overlay-open');
             }, [isOverlayOpen]);
 
+            // (2026-07-13) Fix universal back: modal, tab, scroll, exit. Prev: broken exit
             useEffect(() => {
                  const handleBackButton = () => {
                      const now = Date.now();
@@ -16009,26 +16057,26 @@
                      }
 
                      const state = window.history.state || {};
-                     const currentPath = getHashPath();
 
-                     // 1. Dispatch close event for all internal popups/dropdowns
+                     // 1. Check open modals / items first
                      window.dispatchEvent(new CustomEvent('faiora-close-popups'));
 
-                     // 2. Handle Unlock PIN modal FIRST (highest priority)
+                     if (window.__faioraFabMenuOpen) {
+                         window.__faioraCloseFabMenu?.();
+                         return;
+                     }
+
                      if (unlockingNote) {
                          setUnlockingNote(null);
                          return;
                      }
 
-                     // 3. Handle Set Lock modal
                      if (isSetLockModalOpen) {
                          setIsSetLockModalOpen(false);
                          return;
                      }
 
-                     // 4. Handle Creator/Notepad Modal
                      if (isCreatorOpen) {
-                         // If we are still in a 'creator' state after popping, it means we only closed a sub-popup
                          if (state && state.modal === 'creator') {
                              return; 
                          }
@@ -16037,9 +16085,7 @@
                          return;
                      }
 
-                     // 5. Handle Quick Task Modal
                      if (isQuickTaskModalOpen || editingQuickTask) {
-                         // Generic check for quicktask state
                          if (state && (state.modal === 'quickTask' || state.modal === 'quicktask')) {
                              return;
                          }
@@ -16049,44 +16095,41 @@
                          return;
                      }
 
-                     // Double-check the current path to prevent showing exit toast on wrong page
+                     if (state && (state.modal || state.popup)) {
+                         return;
+                     }
+
+                     // 2. Check current tab - if not homepage, navigate home
                      const currentHash = window.location.hash || '#/';
                      const actualPath = currentHash.startsWith('#') ? currentHash.slice(1).split('?')[0] : '/';
                      
-                     // If we just redirected home, don't show exit toast
-                     if (isRedirectingHome.current) {
-                         return;
-                     }
-                     
                      if (actualPath !== '/' && actualPath !== '') {
-                         // Not on home — navigate to home and scroll to top
-                         prevPopState.current = 0; // Reset exit timer
+                         prevPopState.current = 0;
                          redirectToHomeFromBack(false);
                          return;
                      }
 
-                     // On homepage - check if scrolled down
-                     const scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+                     // 3. On homepage - check if scrolled down
+                     const mainEl = document.getElementById('faiora_main_content_scroll') || document.querySelector('main');
+                     const scrollY = (mainEl ? mainEl.scrollTop : 0) || window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
                      if (scrollY > 50) {
-                         // Scrolled down - scroll to top first
                          scrollHomeToTop();
-                         prevPopState.current = 0; // Reset exit timer
+                         prevPopState.current = 0;
                          return;
                      }
 
-                     // On homepage and at top - handle exit
+                     // 4. On homepage and at top - exit app
                      if (now - prevPopState.current < 2000) {
                          prevPopState.current = 0;
                          exitApp();
                      } else {
                          showToast("Press back again to exit");
                          prevPopState.current = now;
-                        window.history.pushState({ exitGate: true }, '');
-                    }
-                };
+                     }
+                 };
 
-                window.addEventListener('popstate', handleBackButton);
-                return () => window.removeEventListener('popstate', handleBackButton);
+                 window.addEventListener('popstate', handleBackButton);
+                 return () => window.removeEventListener('popstate', handleBackButton);
             }, [editingQuickTask, exitApp, getHashPath, isCreatorOpen, isQuickTaskModalOpen, isSetLockModalOpen, redirectToHomeFromBack, scrollHomeToTop, showToast, unlockingNote]);
 
             useEffect(() => {
@@ -16100,43 +16143,70 @@
                     try {
                         const handle = await appPlugin.addListener('backButton', () => {
                             const currentState = window.history.state;
-                            if (
-                                currentState?.popup ||
-                                unlockingNote ||
-                                isSetLockModalOpen ||
-                                isCreatorOpen ||
-                                isQuickTaskModalOpen ||
-                                editingQuickTask
-                            ) {
+
+                            // 1. Close any open modal or FAB menu first
+                            if (window.__faioraFabMenuOpen) {
+                                window.__faioraCloseFabMenu?.();
+                                return;
+                            }
+
+                            if (unlockingNote) {
+                                setUnlockingNote(null);
+                                return;
+                            }
+
+                            if (isSetLockModalOpen) {
+                                setIsSetLockModalOpen(false);
+                                return;
+                            }
+
+                            if (isCreatorOpen || editingNote) {
+                                setIsCreatorOpen(false);
+                                setEditingNote(null);
+                                return;
+                            }
+
+                            if (isQuickTaskModalOpen || editingQuickTask) {
+                                setIsQuickTaskModalOpen(false);
+                                setEditingQuickTask(null);
+                                setPrefillDate(null);
+                                return;
+                            }
+
+                            if (currentState?.popup || currentState?.modal) {
                                 window.history.back();
                                 return;
                             }
 
-                            const currentPath = getHashPath();
+                            if (document.querySelector('.qt-modal-backdrop-in, .animate-in.fade-in')) {
+                                window.dispatchEvent(new CustomEvent('faiora-close-popups'));
+                                return;
+                            }
+
+                            // 2. If not on homepage, navigate to homepage
                             const currentHash = window.location.hash || '#/';
                             const actualPath = currentHash.startsWith('#') ? currentHash.slice(1).split('?')[0] : '/';
                             
-                            // If we just redirected home, don't show exit toast
                             if (isRedirectingHome.current) {
                                 return;
                             }
                             
                             if (actualPath !== '/' && actualPath !== '') {
-                                prevPopState.current = 0; // Reset exit timer
+                                prevPopState.current = 0;
                                 redirectToHomeFromBack(false);
                                 return;
                             }
 
-                            // On homepage - check if scrolled down
-                            const scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+                            // 3. On homepage - if scrolled down, scroll to top first
+                            const mainEl = document.getElementById('faiora_main_content_scroll') || document.querySelector('main');
+                            const scrollY = (mainEl ? mainEl.scrollTop : 0) || window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
                             if (scrollY > 50) {
-                                // Scrolled down - scroll to top first
                                 scrollHomeToTop();
-                                prevPopState.current = 0; // Reset exit timer
+                                prevPopState.current = 0;
                                 return;
                             }
 
-                            // On homepage and at top - handle exit
+                            // 4. On homepage and at top - exit app
                             const now = Date.now();
                             if (now - prevPopState.current < 2000) {
                                 prevPopState.current = 0;
@@ -16146,7 +16216,6 @@
 
                             showToast("Press back again to exit");
                             prevPopState.current = now;
-                            window.history.pushState({ exitGate: true }, '');
                         });
 
                         if (isMounted) {
@@ -17085,9 +17154,10 @@
                     const isDone = progress !== undefined ? progress === 100 : original.completed;
                     const lastProg = (taskProg > 0 && taskProg < 100) ? taskProg : (original.lastProgress ?? null);
                     const taskHistory = progressHistory !== undefined ? progressHistory : (original.progressHistory || []);
+                    // (2026-07-13) Format task name on update. Prev: raw unformatted text
                     const updatedTask = {
                         ...original,
-                        text,
+                        text: formatTaskText(text),
                         dueDate,
                         dueTime,
                         dueTimestamp,
@@ -17327,8 +17397,10 @@
                         }
                         const originalProgress = original.progress;
                         const originalLastProgress = original.lastProgress;
+                        // (2026-07-13) Deduplicate undo toasts per task. Prev: multiple stacked toasts
                         showToast(`Task "${displayName}" completed`, {
                             label: 'UNDO',
+                            taskId: id,
                             onClick: () => {
                                 const reverted = [...(quickTasksRef.current || [])];
                                 const undoIndex = reverted.findIndex(t => String(t.id) === String(id));
@@ -17345,7 +17417,7 @@
                                     if (window.FaioraNativeAlarmBridge?.markTaskCompleted) window.FaioraNativeAlarmBridge.markTaskCompleted(String(id), false);
                                 }
                             }
-                        });
+                        }, `task-${id}`);
                     } else {
                         // (2026-07-13) Native task uncomplete bridge call. Prev: no bridge call
                         if (window.FaioraNativeAlarmBridge?.markTaskCompleted) window.FaioraNativeAlarmBridge.markTaskCompleted(String(id), false);
@@ -17354,6 +17426,7 @@
                         const beforeLastProgress = original.lastProgress;
                         showToast(`Task "${displayName}" marked active`, {
                             label: 'UNDO',
+                            taskId: id,
                             onClick: () => {
                                 const reverted = [...(quickTasksRef.current || [])];
                                 const undoIndex = reverted.findIndex(t => String(t.id) === String(id));
@@ -17370,7 +17443,7 @@
                                     if (window.FaioraNativeAlarmBridge?.markTaskCompleted) window.FaioraNativeAlarmBridge.markTaskCompleted(String(id), true);
                                 }
                             }
-                        });
+                        }, `task-${id}`);
                     }
                     
                     handleUpdateQuickTasks(updated);
