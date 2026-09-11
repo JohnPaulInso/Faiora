@@ -54,8 +54,16 @@ final class NativeAlarmBridge {
         android.content.SharedPreferences sp = activity.getApplicationContext().getSharedPreferences("faiora_completed_tasks", android.content.Context.MODE_PRIVATE);
         if (completed) {
             sp.edit().putBoolean(taskId, true).apply();
-        } else {
-            sp.edit().remove(taskId).apply();
         }
     }
+
+    // (2026-07-13) Expose background task actions to WebView. Prev: none
+    @JavascriptInterface
+    public String consumeTaskActions() {
+        android.content.SharedPreferences sp = activity.getApplicationContext().getSharedPreferences("faiora_pending_task_actions", android.content.Context.MODE_PRIVATE);
+        String actions = sp.getString("actions", "[]");
+        sp.edit().remove("actions").apply();
+        return actions == null ? "[]" : actions;
+    }
 }
+

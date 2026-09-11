@@ -7,12 +7,14 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+        <!-- (2026-07-13) Lock portrait mode & register task receiver. Prev: unspecified -->
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:screenOrientation="portrait"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -23,8 +25,17 @@
             android:name=".AlarmRingActivity"
             android:excludeFromRecents="true"
             android:exported="false"
+            android:screenOrientation="portrait"
             android:launchMode="singleTask"
             android:theme="@style/AppTheme.NoActionBarLaunch" />
+        <receiver
+            android:name=".TaskActionReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.faiora.app.ACTION_TASK_NOTIFICATION" />
+            </intent-filter>
+        </receiver>
         <service
             android:name=".AlarmOverlayService"
             android:enabled="true"

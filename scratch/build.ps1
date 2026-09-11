@@ -88,4 +88,44 @@ if (Test-Path $tnpPath) {
     }
 }
 
+# (2026-07-13) Patch LocalNotificationManager broadcast actions. Prev: activity
+$lnmPath = "$root\node_modules\@capacitor\local-notifications\android\src\main\java\com\capacitorjs\plugins\localnotifications\LocalNotificationManager.java"
+if (Test-Path $lnmPath) {
+    $lnmContent = Get-Content -Raw $lnmPath
+    if (-not $lnmContent.Contains("TaskActionReceiver")) {
+        $target = 'Intent actionIntent = buildIntent(localNotification, notificationAction.getId());' + [Environment]::NewLine + '                PendingIntent actionPendingIntent = PendingIntent.getActivity(' + [Environment]::NewLine + '                    context,' + [Environment]::NewLine + '                    localNotification.getId() + notificationAction.getId().hashCode(),' + [Environment]::NewLine + '                    actionIntent,' + [Environment]::NewLine + '                    flags' + [Environment]::NewLine + '                );'
+        $rep = @'
+                Intent actionIntent;
+                PendingIntent actionPendingIntent;
+                if ("FAIORA_TASK_ACTIONS".equals(actionTypeId)) {
+                    actionIntent = new Intent("com.faiora.app.ACTION_TASK_NOTIFICATION");
+                    actionIntent.setClassName(context.getPackageName(), "com.faiora.app.TaskActionReceiver");
+                    actionIntent.putExtra("notificationId", localNotification.getId());
+                    actionIntent.putExtra("actionId", notificationAction.getId());
+                    actionIntent.putExtra("notification", localNotification.getSource());
+                    int bFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                        bFlags |= PendingIntent.FLAG_IMMUTABLE;
+                    }
+                    actionPendingIntent = PendingIntent.getBroadcast(
+                        context,
+                        localNotification.getId() + notificationAction.getId().hashCode(),
+                        actionIntent,
+                        bFlags
+                    );
+                } else {
+                    actionIntent = buildIntent(localNotification, notificationAction.getId());
+                    actionPendingIntent = PendingIntent.getActivity(
+                        context,
+                        localNotification.getId() + notificationAction.getId().hashCode(),
+                        actionIntent,
+                        flags
+                    );
+                }
+'@
+        $lnmContent = $lnmContent.Replace($target, $rep)
+        Set-Content -Path $lnmPath -Value $lnmContent -NoNewline
+    }
+}
+
 Write-Host "Asset clean synchronization complete." -ForegroundColor Green

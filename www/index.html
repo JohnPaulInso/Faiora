@@ -1280,10 +1280,11 @@
                 const now = Date.now();
                 const dueMs = dueDateTime.getTime();
                 const taskName = formatTaskText(task.text || task.title || 'Task');
+                // (2026-07-13) Remove trailing newline in reminder body. Prev: with \n
                 const stages = [
-                    { stage: '24h', offsetMs: 24 * 60 * 60 * 1000, title: 'Task Reminder! 🔥', body: `⚡ Due in 24hrs: ${taskName}\n` },
-                    { stage: '1h', offsetMs: 60 * 60 * 1000, title: 'Task Reminder! 🔥', body: `⏳ Due in 1hr: ${taskName}\n` },
-                    { stage: 'due', offsetMs: 0, title: 'Task Reminder! 🔥', body: `📌 Due Now: ${taskName}\n` }
+                    { stage: '24h', offsetMs: 24 * 60 * 60 * 1000, title: 'Task Reminder! 🔥', body: `⚡ Due in 24hrs: ${taskName}` },
+                    { stage: '1h', offsetMs: 60 * 60 * 1000, title: 'Task Reminder! 🔥', body: `⏳ Due in 1hr: ${taskName}` },
+                    { stage: 'due', offsetMs: 0, title: 'Task Reminder! 🔥', body: `📌 Due Now: ${taskName}` }
                 ];
 
                 const activeReminders = task.reminders;
@@ -1809,13 +1810,13 @@
                 const taskName = formatTaskText(task.text || task.title || 'Task');
                 const timeStr = formatNotifTime(dueDateTime);
 
-                // (2026-07-13) Unify task timer notification tags. Prev: stage-specific
+                // (2026-07-13) Clean trailing newlines in reminder bodies. Prev: with \n
                 // Timer 1: At exact due time
                 if (dueMs > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`Task Reminder! 🔥`, `📌 Due Now: ${taskName}\n`, `faiora-task-${task.id}`, { type: 'quick-task', stage: 'due', taskId: task.id });
+                        sendNotification(`Task Reminder! 🔥`, `📌 Due Now: ${taskName}`, `faiora-task-${task.id}`, { type: 'quick-task', stage: 'due', taskId: task.id });
                         const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                        scheduled[`faiora-task-${task.id}`] = { title: `Task Reminder! 🔥`, body: `📌 Due Now: ${taskName}\n`, timestamp: dueMs, taskId: task.id };
+                        scheduled[`faiora-task-${task.id}`] = { title: `Task Reminder! 🔥`, body: `📌 Due Now: ${taskName}`, timestamp: dueMs, taskId: task.id };
                         localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                     }, dueMs - now);
                     taskTimers.push(id);
@@ -1825,9 +1826,9 @@
                 const oneHourBefore = dueMs - (1 * 60 * 60 * 1000);
                 if (oneHourBefore > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`Task Reminder! 🔥`, `⏳ Due in 1hr: ${taskName}\n`, `faiora-task-${task.id}`, { type: 'quick-task', stage: '1h', taskId: task.id });
+                        sendNotification(`Task Reminder! 🔥`, `⏳ Due in 1hr: ${taskName}`, `faiora-task-${task.id}`, { type: 'quick-task', stage: '1h', taskId: task.id });
                         const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                        scheduled[`faiora-task-${task.id}`] = { title: `Task Reminder! 🔥`, body: `⏳ Due in 1hr: ${taskName}\n`, timestamp: dueMs, taskId: task.id };
+                        scheduled[`faiora-task-${task.id}`] = { title: `Task Reminder! 🔥`, body: `⏳ Due in 1hr: ${taskName}`, timestamp: dueMs, taskId: task.id };
                         localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                     }, oneHourBefore - now);
                     taskTimers.push(id);
@@ -1837,9 +1838,9 @@
                 const twentyFourHoursBefore = dueMs - (24 * 60 * 60 * 1000);
                 if (twentyFourHoursBefore > now) {
                     const id = setTimeout(() => {
-                        sendNotification(`Task Reminder! 🔥`, `⚡ Due in 24hrs: ${taskName}\n`, `faiora-task-${task.id}`, { type: 'quick-task', stage: '24h', taskId: task.id });
+                        sendNotification(`Task Reminder! 🔥`, `⚡ Due in 24hrs: ${taskName}`, `faiora-task-${task.id}`, { type: 'quick-task', stage: '24h', taskId: task.id });
                         const scheduled = JSON.parse(localStorage.getItem('faiora_scheduled_notifs') || '{}');
-                        scheduled[`faiora-task-${task.id}`] = { title: `Task Reminder! 🔥`, body: `⚡ Due in 24hrs: ${taskName}\n`, timestamp: dueMs, taskId: task.id };
+                        scheduled[`faiora-task-${task.id}`] = { title: `Task Reminder! 🔥`, body: `⚡ Due in 24hrs: ${taskName}`, timestamp: dueMs, taskId: task.id };
                         localStorage.setItem('faiora_scheduled_notifs', JSON.stringify(scheduled));
                     }, twentyFourHoursBefore - now);
                     taskTimers.push(id);
@@ -2322,14 +2323,15 @@
                                                     else onOpenCreator(); 
                                                 } 
                                             }
+                                        // (2026-07-13) Add mobile tap and hover effects for FAB options. Prev: scale-95
                                         ].map((item, i) => (
                                             <button
                                                 key={i}
                                                 onClick={item.onClick}
-                                                className="flex items-center gap-3 group active:scale-95 transition-transform"
+                                                className="flex items-center gap-3 group active:scale-90 active:brightness-125 transition-all duration-150 ease-out cursor-pointer select-none"
                                             >
-                                                <span className="text-[10.5px] font-bold text-cream-light font-montserrat px-3 py-1.5 bg-zinc-900/90 backdrop-blur-xl rounded-xl border border-white/10 shadow-xl uppercase tracking-wider select-none">{item.label}</span>
-                                                <div className={`w-14 h-14 md:w-16 md:h-16 ${item.color} rounded-[1.25rem] md:rounded-3xl flex items-center justify-center text-white shadow-2xl group-hover:scale-105 transition-transform border border-white/10`}>
+                                                <span className="text-[10.5px] font-bold text-cream-light font-montserrat px-3.5 py-1.5 bg-zinc-900/90 backdrop-blur-xl rounded-xl border border-white/10 shadow-xl uppercase tracking-wider select-none group-hover:border-primary/50 group-hover:text-primary group-active:scale-95 group-active:bg-zinc-800 transition-all duration-150">{item.label}</span>
+                                                <div className={`w-14 h-14 md:w-16 md:h-16 ${item.color} rounded-[1.25rem] md:rounded-3xl flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(249,115,22,0.4)] group-active:scale-90 group-active:ring-4 group-active:ring-white/30 transition-all duration-150 border border-white/15`}>
                                                     <span className="material-symbols-outlined text-2xl md:text-3xl">{item.icon}</span>
                                                 </div>
                                             </button>
@@ -13731,9 +13733,9 @@
 
             const selected = getSelectedLabel();
 
-            // (2026-07-13) Floating modal side margins and PRIO preset. Prev: p-0, no prio
+            // (2026-07-13) Pad top for status bar and reduce height to 82vh. Prev: 92vh
             return (
-                <div className="fixed inset-0 z-[2000] flex items-center justify-center p-3.5 sm:p-4">
+                <div className="fixed inset-0 z-[2000] flex items-center justify-center p-3.5 pt-[max(env(safe-area-inset-top),1.75rem)] sm:p-4">
                     <style>{`
                         /* (2026-07-13) Invert picker indicator to white for dark inputs. Prev: black */
                         .quick-task-input:focus {
@@ -13770,9 +13772,9 @@
                         className={`fixed inset-0 bg-black/85 backdrop-blur-md ${isClosing ? 'qt-modal-backdrop-out' : 'qt-modal-backdrop-in'}`} 
                         onClick={handleClose}
                     ></div>
-                    {/* (2026-07-13) Increase modal height & width for spacious view. Prev: 85vh */}
+                    {/* (2026-07-13) Reduce modal height to clear status bar. Prev: 92vh */}
                     <div 
-                        className={`bg-[#0f172a] w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl p-5 sm:p-6 relative z-10 shadow-2xl border border-white/5 custom-scrollbar ${isClosing ? 'qt-modal-card-out' : 'qt-modal-card-in'}`}
+                        className={`bg-[#0f172a] w-full max-w-md max-h-[82vh] sm:max-h-[85vh] overflow-y-auto rounded-3xl p-5 sm:p-6 relative z-10 shadow-2xl border border-white/5 custom-scrollbar ${isClosing ? 'qt-modal-card-out' : 'qt-modal-card-in'}`}
                     >
                         <div className="flex justify-between items-center mb-2.5">
                             <h3 className="text-base font-bold text-cream-light font-montserrat tracking-wide">{initialData ? 'Edit Task' : 'New Quick Task'}</h3>
@@ -15377,10 +15379,11 @@
                         const dueMs = new Date(`${task.dueDate}T${task.dueTime || '23:59'}`).getTime();
                         if (Number.isNaN(dueMs)) return;
                         const taskName = formatTaskText(task.text || task.title || 'Task');
+                        // (2026-07-13) Clean trailing newlines in fallback bodies. Prev: with \n
                         [
-                            { stage: '24h', offsetMs: 24 * 60 * 60 * 1000, graceMs: 45 * 60 * 1000, body: `⚡ Due in 24hrs: ${taskName}\n` },
-                            { stage: '1h', offsetMs: 60 * 60 * 1000, graceMs: 20 * 60 * 1000, body: `⏳ Due in 1hr: ${taskName}\n` },
-                            { stage: 'due', offsetMs: 0, graceMs: 25 * 60 * 1000, body: `📌 Due Now: ${taskName}\n` }
+                            { stage: '24h', offsetMs: 24 * 60 * 60 * 1000, graceMs: 45 * 60 * 1000, body: `⚡ Due in 24hrs: ${taskName}` },
+                            { stage: '1h', offsetMs: 60 * 60 * 1000, graceMs: 20 * 60 * 1000, body: `⏳ Due in 1hr: ${taskName}` },
+                            { stage: 'due', offsetMs: 0, graceMs: 25 * 60 * 1000, body: `📌 Due Now: ${taskName}` }
                         ].forEach(entry => {
                             const reminderKey = `${task.id}:${task.dueDate}:${task.dueTime || '23:59'}:${entry.stage}`;
                             activeKeys.add(reminderKey);
@@ -17420,10 +17423,43 @@
                         showToast('Task moved to tomorrow 10:00 AM');
                     }
                 };
+                // (2026-07-13) Consume background task actions on open/resume. Prev: in-app only
+                const consumeNativeBackgroundActions = () => {
+                    try {
+                        if (!window.FaioraNativeAlarmBridge?.consumeTaskActions) return;
+                        const raw = window.FaioraNativeAlarmBridge.consumeTaskActions();
+                        if (!raw || raw === '[]') return;
+                        const actions = JSON.parse(raw);
+                        if (!Array.isArray(actions) || !actions.length) return;
+                        actions.forEach(item => {
+                            if (!item.taskId) return;
+                            if (item.action === 'complete_task') {
+                                onCompleteAction({ detail: { taskId: item.taskId } });
+                            } else if (item.action === 'snooze_1h') {
+                                onSnoozeAction({ detail: { taskId: item.taskId } });
+                            } else if (item.action === 'tomorrow') {
+                                onTomorrowAction({ detail: { taskId: item.taskId } });
+                            }
+                        });
+                    } catch (err) {
+                        console.warn('Native task actions sync failed', err);
+                    }
+                };
+                consumeNativeBackgroundActions();
+                const onVisibilityChange = () => {
+                    if (document.visibilityState === 'visible') {
+                        consumeNativeBackgroundActions();
+                    }
+                };
+                document.addEventListener('visibilitychange', onVisibilityChange);
+                window.addEventListener('focus', consumeNativeBackgroundActions);
+
                 window.addEventListener('faiora-task-action-complete', onCompleteAction);
                 window.addEventListener('faiora-task-action-snooze', onSnoozeAction);
                 window.addEventListener('faiora-task-action-tomorrow', onTomorrowAction);
                 return () => {
+                    document.removeEventListener('visibilitychange', onVisibilityChange);
+                    window.removeEventListener('focus', consumeNativeBackgroundActions);
                     window.removeEventListener('faiora-task-action-complete', onCompleteAction);
                     window.removeEventListener('faiora-task-action-snooze', onSnoozeAction);
                     window.removeEventListener('faiora-task-action-tomorrow', onTomorrowAction);
