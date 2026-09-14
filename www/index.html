@@ -1980,6 +1980,8 @@
                 cancelAlarmNotification,
                 removeDeliveredAlarmNotifications,
                 getDeliveredNotifications,
+                // (2026-07-13) Export getTaskReminderId. Prev: unexported
+                getTaskReminderId,
                 show: (title, body, tag = 'faiora-generic', extra = {}) => notifyNow(title, body, tag, extra)
             };
         })();
@@ -6109,6 +6111,12 @@
             const startPosRef = useRef({ x: 0, y: 0 });
             const isPointerDownRef = useRef(false);
             const [isCompleting, setIsCompleting] = useState(false);
+            // (2026-07-13) Optimistic completed state for zero-latency tap. Prev: prop only
+            const [isOptimisticCompleted, setIsOptimisticCompleted] = useState(task.completed);
+            useEffect(() => {
+                setIsOptimisticCompleted(task.completed);
+            }, [task.completed]);
+            const isCompletedState = isOptimisticCompleted;
 
             const handlePointerDown = (e) => {
                 if (isSelectionMode) return;
@@ -6217,14 +6225,15 @@
                     isLongPressRef.current = false;
                     return;
                 }
-                if (!task.completed) {
+                const nextState = !isCompletedState;
+                setIsOptimisticCompleted(nextState);
+                if (nextState) {
                     try {
                         if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications?.playCheckSFX) {
                             FaioraNotifications.playCheckSFX();
                         }
                     } catch(err) {}
                 }
-                // (2026-07-13) Instant toggle on tap for mobile APK reliability. Prev: 350ms delay
                 onToggle(task.id);
             };
 
@@ -6279,7 +6288,7 @@
                     )}
 
                     <div 
-                        className={`glass-panel rounded-2xl ${hideDateSubtitle ? 'py-2 px-3 md:py-2.5 md:px-3.5' : 'py-2.5 px-3 md:py-3 md:px-4'} flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${isSelectionMode && isSelected ? '!border-primary !bg-primary/15 shadow-md shadow-primary/20 scale-[0.99]' : ''} ${(task.completed || isCompleting) && !isSelectionMode ? 'opacity-40 grayscale-[0.5]' : ''} ${isLongPressing ? 'border-primary/80 shadow-[0_0_0_2px_rgba(249,115,22,0.4)] bg-primary/10 scale-[0.98]' : isPressed && !isSelectionMode ? 'border-primary/50 bg-white/[0.08] shadow-md shadow-primary/15 scale-[0.99]' : isOverdue && !(task.completed || isCompleting) && !isSelectionMode ? 'border-red-500/30' : isNearDeadline && !(task.completed || isCompleting) && !isSelectionMode ? 'border-primary/60' : isDueToday && !(task.completed || isCompleting) && !isSelectionMode ? 'border-primary/40' : 'border-white/5'} ${isDueToday && !isNearDeadline && !(task.completed || isCompleting) && !isSelectionMode ? 'today-task-glow' : ''} ${isNearDeadline && !(task.completed || isCompleting) && !isSelectionMode ? 'near-deadline-glow' : ''} ${isDueTomorrow && !(task.completed || isCompleting) && !isSelectionMode ? 'tomorrow-glow' : ''}`}
+                        className={`glass-panel rounded-2xl ${hideDateSubtitle ? 'py-2 px-3 md:py-2.5 md:px-3.5' : 'py-2.5 px-3 md:py-3 md:px-4'} flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${isSelectionMode && isSelected ? '!border-primary !bg-primary/15 shadow-md shadow-primary/20 scale-[0.99]' : ''} ${(isCompletedState || isCompleting) && !isSelectionMode ? 'opacity-40 grayscale-[0.5]' : ''} ${isLongPressing ? 'border-primary/80 shadow-[0_0_0_2px_rgba(249,115,22,0.4)] bg-primary/10 scale-[0.98]' : isPressed && !isSelectionMode ? 'border-primary/50 bg-white/[0.08] shadow-md shadow-primary/15 scale-[0.99]' : isOverdue && !(isCompletedState || isCompleting) && !isSelectionMode ? 'border-red-500/30' : isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? 'border-primary/60' : isDueToday && !(isCompletedState || isCompleting) && !isSelectionMode ? 'border-primary/40' : 'border-white/5'} ${isDueToday && !isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? 'today-task-glow' : ''} ${isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? 'near-deadline-glow' : ''} ${isDueTomorrow && !(isCompletedState || isCompleting) && !isSelectionMode ? 'tomorrow-glow' : ''}`}
                         style={{ 
                             minHeight: (hideDateSubtitle && !task.dueTime) ? '42px' : (window.innerWidth < 768 ? '52px' : 'auto'),
                             touchAction: 'pan-y',
@@ -6297,17 +6306,17 @@
                         }}
                     >
                     <div className="flex items-center gap-2.5 md:gap-3 pointer-events-none flex-1 min-w-0 pr-2">
-                        <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${isSelectionMode ? (isSelected ? 'bg-primary border-primary text-white scale-105 shadow-sm shadow-primary/30' : 'border-white/40 text-transparent group-hover:border-white/70') : ((task.completed || isCompleting) ? 'bg-primary border-primary text-white scale-105' : 'border-white/30 text-transparent group-hover:border-white/60')}`}>
+                        <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${isSelectionMode ? (isSelected ? 'bg-primary border-primary text-white scale-105 shadow-sm shadow-primary/30' : 'border-white/40 text-transparent group-hover:border-white/70') : ((isCompletedState || isCompleting) ? 'bg-primary border-primary text-white scale-105' : 'border-white/30 text-transparent group-hover:border-white/60')}`}>
                             <span className="material-symbols-outlined text-xs font-bold">check</span>
                         </div>
                         <div className="flex flex-col justify-center flex-1 min-w-0">
-                            <h4 className={`${hideDateSubtitle ? 'text-[10.5px] md:text-[11.5px]' : 'text-xs md:text-[13px]'} text-cream-light font-montserrat font-semibold tracking-wide leading-snug transition-all duration-300 line-clamp-2 overflow-hidden ${(task.completed || isCompleting) ? 'line-through decoration-primary/50 opacity-60' : isPressed || isLongPressing ? 'text-primary' : 'group-hover:text-primary'} ${isOverdue && !(task.completed || isCompleting) ? 'text-red-400' : ''}`}>
+                            <h4 className={`${hideDateSubtitle ? 'text-[10.5px] md:text-[11.5px]' : 'text-xs md:text-[13px]'} text-cream-light font-montserrat font-semibold tracking-wide leading-snug transition-all duration-300 line-clamp-2 overflow-hidden ${(isCompletedState || isCompleting) ? 'line-through decoration-primary/50 opacity-60' : isPressed || isLongPressing ? 'text-primary' : 'group-hover:text-primary'} ${isOverdue && !(isCompletedState || isCompleting) ? 'text-red-400' : ''}`}>
                                 {formatTaskText(task.text)}
                             </h4>
                             {hideDateSubtitle ? (
                                 task.dueTime && (
                                     <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                        <p className={`text-[8.5px] md:text-[9.5px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1 transition-opacity ${isOverdue && !(task.completed || isCompleting) ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
+                                        <p className={`text-[8.5px] md:text-[9.5px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1 transition-opacity ${isOverdue && !(isCompletedState || isCompleting) ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
                                             <span className="material-symbols-outlined text-[9px] md:text-[10px]">schedule</span>
                                             {formatTime(task.dueTime)}
                                         </p>
@@ -6316,7 +6325,7 @@
                             ) : (
                                 dueDateStr && (
                                     <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                        <p className={`text-[8.5px] md:text-[9.5px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1 transition-opacity ${isOverdue && !(task.completed || isCompleting) ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
+                                        <p className={`text-[8.5px] md:text-[9.5px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1 transition-opacity ${isOverdue && !(isCompletedState || isCompleting) ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
                                             <span className="material-symbols-outlined text-[9px] md:text-[10px]">event</span>
                                             {dueDateStr}
                                         </p>
@@ -6325,7 +6334,7 @@
                             )}
                         </div>
                     </div>
-                    {task.progress > 0 && !(task.completed || isCompleting) && (
+                    {task.progress > 0 && !(isCompletedState || isCompleting) && (
                         <div className="flex flex-col items-end gap-0.5 shrink-0 px-2 pointer-events-none">
                             <span className="text-[9px] font-montserrat font-bold text-white/50">{task.progress}%</span>
                             <div className="w-12 md:w-14 h-1 bg-white/10 rounded-full overflow-hidden">
@@ -6463,9 +6472,9 @@
             const isLongPressTriggered = useRef(false);
             // (2026-07-13) Track which notepad item is being long-pressed. Prev: none
             const [longPressingId, setLongPressingId] = useState(null);
-            // (2026-07-13) Pagination state for finished tasks (20 per page). Prev: none
+            // (2026-07-13) Set 15 items per page for finished tasks. Prev: 10
             const [finishedPage, setFinishedPage] = useState(1);
-            const FINISHED_PAGE_SIZE = 20;
+            const FINISHED_PAGE_SIZE = 15;
 
             const selectedTasksRef = useRef(selectedTasks);
             useEffect(() => { selectedTasksRef.current = selectedTasks; }, [selectedTasks]);
@@ -6782,23 +6791,36 @@
                                                 >
                                                     <span className="material-symbols-outlined text-[13px]">chevron_left</span>
                                                 </button>
+                                                {/* (2026-07-13) Dynamic 5-page window with ellipsis pagination. Prev: fraction */}
                                                 <div className="flex items-center gap-0.5">
-                                                    {totalPages <= 5 ? (
-                                                        Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
-                                                            <button
-                                                                key={pageNum}
-                                                                type="button"
-                                                                onClick={(e) => { e.stopPropagation(); setFinishedPage(pageNum); }}
-                                                                className={`min-w-[22px] h-6 px-1 rounded-md text-[10px] font-medium font-montserrat transition-all active:scale-90 cursor-pointer ${pageNum === currentPage ? 'bg-primary/20 text-primary border border-primary/30 font-semibold' : 'text-white/35 hover:text-white/70 hover:bg-white/[0.04]'}`}
-                                                            >
-                                                                {pageNum}
-                                                            </button>
-                                                        ))
-                                                    ) : (
-                                                        <span className="px-1.5 py-0.5 text-[9px] text-white/40 font-montserrat">
-                                                            {currentPage} / {totalPages}
-                                                        </span>
-                                                    )}
+                                                    {(() => {
+                                                        const items = (() => {
+                                                            if (totalPages <= 6) {
+                                                                return Array.from({ length: totalPages }, (_, i) => i + 1);
+                                                            }
+                                                            if (currentPage <= 4) {
+                                                                return [1, 2, 3, 4, 5, '...', totalPages];
+                                                            }
+                                                            if (currentPage >= totalPages - 3) {
+                                                                return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+                                                            }
+                                                            return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+                                                        })();
+                                                        return items.map((item, idx) => (
+                                                            item === '...' ? (
+                                                                <span key={`dots_${idx}`} className="px-0.5 text-[9px] text-white/30 select-none">...</span>
+                                                            ) : (
+                                                                <button
+                                                                    key={`page_${item}`}
+                                                                    type="button"
+                                                                    onClick={(e) => { e.stopPropagation(); setFinishedPage(item); }}
+                                                                    className={`min-w-[22px] h-6 px-1 rounded-md text-[10px] font-medium font-montserrat transition-all active:scale-90 cursor-pointer ${item === currentPage ? 'bg-primary/20 text-primary border border-primary/30 font-semibold' : 'text-white/35 hover:text-white/70 hover:bg-white/[0.04]'}`}
+                                                                >
+                                                                    {item}
+                                                                </button>
+                                                            )
+                                                        ));
+                                                    })()}
                                                 </div>
                                                 <button
                                                     type="button"
@@ -15462,9 +15484,9 @@
                             if (now < triggerAt || now > (triggerAt + entry.graceMs)) return;
                             nextMarks[reminderKey] = now;
                             hasChanges = true;
-                            // (2026-07-13) Use unified task tag/id for fallback. Prev: stage tag
+                            // (2026-07-13) Call FaioraNotifications.getTaskReminderId. Prev: bare call
                             const alertPayload = {
-                                id: getTaskReminderId(task.id),
+                                id: FaioraNotifications.getTaskReminderId ? FaioraNotifications.getTaskReminderId(task.id) : undefined,
                                 title: 'Task Reminder! 🔥',
                                 body: entry.body,
                                 type: 'quick-task',
@@ -17004,38 +17026,42 @@
             }, [activeCollection, isProbing, quickTasksCollection]);
 
             const handleUpdateQuickTasks = useCallback((updatedTasks, updatedTrash = trashQuickTasksRef.current) => {
+                // (2026-07-13) Offline-first optimistic update, defer sync. Prev: sync block
                 setQuickTasks(updatedTasks);
                 quickTasksRef.current = updatedTasks;
                 setTrashQuickTasks(updatedTrash);
                 trashQuickTasksRef.current = updatedTrash;
-                FaioraNotifications.rescheduleAll(updatedTasks);
 
-                // (2026-07-13) Persist offline first, defer cloud sync. Prev: early return
-                const currentUid = auth.currentUser?.uid || user?.uid;
-                if (currentUid) {
-                    localStorage.setItem('faiora_quick_tasks_' + currentUid, JSON.stringify(updatedTasks));
-                    localStorage.setItem('faiora_quick_task_trash_' + currentUid, JSON.stringify(updatedTrash));
-                }
+                setTimeout(() => {
+                    if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications?.rescheduleAll) {
+                        try { FaioraNotifications.rescheduleAll(updatedTasks); } catch(e) {}
+                    }
 
-                const currentUser = auth.currentUser;
-                const taskCollection = quickTasksCollection || activeCollection;
-                if (!navigator.onLine || !currentUser || isProbing) {
-                    return;
-                }
+                    const currentUid = auth.currentUser?.uid || user?.uid;
+                    if (currentUid) {
+                        try {
+                            localStorage.setItem('faiora_quick_tasks_' + currentUid, JSON.stringify(updatedTasks));
+                            localStorage.setItem('faiora_quick_task_trash_' + currentUid, JSON.stringify(updatedTrash));
+                        } catch(e) {}
+                    }
 
-                if (!taskCollection) {
-                    return;
-                }
+                    const currentUser = auth.currentUser;
+                    const taskCollection = quickTasksCollection || activeCollection;
+                    if (!navigator.onLine || !currentUser || isProbing || !taskCollection) {
+                        return;
+                    }
 
-                // (2026-07-13) Sanitize tasks before Firestore sync. Prev: undefined error
-                const cleanTasks = JSON.parse(JSON.stringify(updatedTasks));
-                const cleanTrash = JSON.parse(JSON.stringify(updatedTrash));
-                db.collection(taskCollection).doc(currentUser.uid).set({
-                    quickTasks: cleanTasks,
-                    quickTaskTrash: cleanTrash
-                }, { merge: true }).catch(err => {
-                    console.warn('QuickTasks sync failed on', taskCollection, ':', err.message);
-                });
+                    try {
+                        const cleanTasks = JSON.parse(JSON.stringify(updatedTasks));
+                        const cleanTrash = JSON.parse(JSON.stringify(updatedTrash));
+                        db.collection(taskCollection).doc(currentUser.uid).set({
+                            quickTasks: cleanTasks,
+                            quickTaskTrash: cleanTrash
+                        }, { merge: true }).catch(err => {
+                            console.warn('QuickTasks sync failed on', taskCollection, ':', err.message);
+                        });
+                    } catch(e) {}
+                }, 0);
             }, [activeCollection, isProbing, quickTasksCollection, user]);
 
             const handleUpdateAlarms = useCallback((updatedAlarms) => {
@@ -17470,7 +17496,10 @@
                     }
                     
                     handleUpdateQuickTasks(updated);
-                    syncQuickTaskToNotes(id, updatedTask.completed);
+                    // (2026-07-13) Defer note sync to keep check tap instantaneous. Prev: blocking
+                    setTimeout(() => {
+                        syncQuickTaskToNotes(id, updatedTask.completed);
+                    }, 0);
                 }
             };
 
