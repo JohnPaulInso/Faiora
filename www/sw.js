@@ -180,8 +180,8 @@ self.addEventListener('notificationclick', (event) => {
 // --------------------------------------------------------------------------
 // SECTION: SW-LIFECYCLE — Install, Activate & Offline Cache
 // --------------------------------------------------------------------------
-// (2026-07-13) Cache app shell and vendor assets for offline use. Prev: none
-const CACHE_NAME = 'faiora-offline-v1';
+// (2026-07-13) Bump cache name to v2 and purge old caches. Prev: v1
+const CACHE_NAME = 'faiora-offline-v2';
 const PRECACHE_ASSETS = [
     './',
     './index.html',
@@ -209,10 +209,11 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
+    // (2026-07-13) Claim clients immediately on SW activation. Prev: no claim
     event.waitUntil(
         caches.keys().then((keys) =>
             Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-        )
+        ).then(() => self.clients.claim())
     );
 });
 
@@ -221,6 +222,20 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     if (!url.protocol.startsWith('http')) return;
     if (url.origin.includes('firestore.googleapis.com') || url.origin.includes('identitytoolkit')) return;
+
+    // (2026-07-13) Network-first for navigation requests. Prev: cache-first
+    if (event.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname === '/' || url.pathname.endsWith('/')) {
+        event.respondWith(
+            fetch(event.request).then((res) => {
+                if (res && res.status === 200) {
+                    const clone = res.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+                }
+                return res;
+            }).catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html') || caches.match('./')))
+        );
+        return;
+    }
 
     event.respondWith(
         caches.match(event.request).then((cached) => {

@@ -993,13 +993,16 @@
                 window.addEventListener('load', () => {
                     // FIX 2026-04-22: Deep 2000ms delay to satisfy Chrome Extensions (AdBlock, etc.)
                     // This prevents the "Unchecked runtime.lastError: message port closed" console spam.
+                    // (2026-07-13) Purge stale offline cache and force SW update. Prev: delayed
+                    if (window.caches) {
+                        caches.delete('faiora-offline-v1').catch(() => {});
+                    }
                     setTimeout(() => {
                         navigator.serviceWorker.register('sw.js').then(reg => {
                             swRegistration = reg;
                             swReady = true;
                             console.log('🔥 Faiora SW registered');
-                            
-                            // Re-enable update check but avoid immediate spam
+                            try { reg.update(); } catch(e) {}
                             setTimeout(() => { try { reg.update(); } catch(e) {} }, 5000);
 
                             if (navigator.storage && navigator.storage.persist) {
@@ -1253,7 +1256,9 @@
             };
             // (2026-07-13) Unify task notif tag/id per task. Prev: stage-specific tags
             const getTaskReminderTag = (taskId, stage = '') => `faiora-task-${taskId}`;
+            // (2026-07-13) Expose getTaskReminderId globally. Prev: scoped only
             const getTaskReminderId = (taskId, stage = '') => hashNotificationId(`faiora-task-${taskId}`);
+            try { window.getTaskReminderId = getTaskReminderId; } catch (e) {}
             const getTaskScheduleId = (taskId, stage = '') => hashNotificationId(`faiora-sched-${stage}-${taskId}`);
             const getAlarmNotificationTag = (alarmId) => `faiora-alarm-${alarmId}`;
             const getAlarmNotificationId = (alarmId) => hashNotificationId(getAlarmNotificationTag(alarmId));
