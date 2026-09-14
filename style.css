@@ -1181,10 +1181,10 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     user-select: text !important;
 }
 
-/* block-input heading sizes */
-.block-input.h1 { font-size: 1.91rem; font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; } /* FIX 2026-04-15: Reduced 15% from 2.25rem */
-.block-input.h2 { font-size: 1.49rem; font-weight: 700; line-height: 1.3; } /* FIX 2026-04-15: Reduced 15% from 1.75rem */
-.block-input { font-size: 1.02rem !important; } /* FIX 2026-04-15: Reduced 15% from 1.2rem */
+/* (2026-07-13) Reduce block input sizes by 15%. Prev: 1.91rem/1.49rem/1.02rem */
+.block-input.h1 { font-size: 1.62rem; font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; }
+.block-input.h2 { font-size: 1.27rem; font-weight: 700; line-height: 1.3; }
+.block-input { font-size: 0.87rem !important; }
 
 .theme-amber input::placeholder, .theme-orange input::placeholder, .theme-peach input::placeholder,
 .theme-yellow input::placeholder, .theme-green input::placeholder, .theme-blue input::placeholder,
@@ -1198,14 +1198,14 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
 }
 
 /* note-editor-area - main content editing area inside the notepad */
-/* (2026-07-13) Remove left/right padding on note editor. Prev: 0 1rem */
+/* (2026-07-13) Reduce note editor text size by 15%. Prev: 1.02rem */
 .note-editor-area {
     outline: none;
     min-height: 200px;
     font-family: 'Inter', sans-serif;
     color: #334155;
     line-height: 1.6;
-    font-size: 1.02rem;
+    font-size: 0.87rem;
     padding: 0;
 }
 
@@ -1301,8 +1301,9 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     transform: scale(0.92);
 }
 
+/* (2026-07-13) Reduce note headings by 15%. Prev: 1.8rem/1.4rem */
 .note-editor-area h1 {
-    font-size: 1.8rem !important;
+    font-size: 1.53rem !important;
     font-weight: 800 !important;
     color: #1e293b;
     margin: 0.5rem 0;
@@ -1310,7 +1311,7 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
 }
 
 .note-editor-area h2 {
-    font-size: 1.4rem !important;
+    font-size: 1.19rem !important;
     font-weight: 700 !important;
     color: #334155;
     margin: 0.4rem 0;
@@ -1572,17 +1573,25 @@ body.dragging-image-active { cursor: grabbing !important; user-select: none !imp
     font-size: 0.85rem;
     color: #1e293b;
 }
-/* (2026-07-13) Subtle small breathing glow for 4h deadline. Prev: 22px glow */
+/* (2026-07-13) Balanced medium breathing glow for 4h tasks. Prev: 0.25-0.75 */
 @keyframes deadline-glow {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 0.75; }
+    0%, 100% { opacity: 0.22; }
+    50% { opacity: 0.65; }
 }
 
+/* (2026-07-13) Warm orange styling for today tasks. Prev: default border */
+.today-task-glow {
+    border-color: rgba(249, 115, 22, 0.38) !important;
+    background: rgba(249, 115, 22, 0.04) !important;
+}
+
+/* (2026-07-13) Mid 10px balanced glow for 4h tasks. Prev: 20px / 7px */
 .near-deadline-glow {
     position: relative;
-    border-color: rgba(249, 115, 22, 0.3) !important;
+    border-color: rgba(249, 115, 22, 0.52) !important;
     border-width: 1px !important;
-    background: rgba(249, 115, 22, 0.03) !important;
+    background: rgba(249, 115, 22, 0.035) !important;
+    box-shadow: 0 0 10px rgba(249, 115, 22, 0.25) !important;
     overflow: visible;
 }
 .near-deadline-glow::before {
@@ -1590,17 +1599,17 @@ body.dragging-image-active { cursor: grabbing !important; user-select: none !imp
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    box-shadow: 0 0 7px rgba(249, 115, 22, 0.22);
-    animation: deadline-glow 3s ease-in-out infinite;
+    box-shadow: 0 0 9px rgba(249, 115, 22, 0.24);
+    animation: deadline-glow 2.8s ease-in-out infinite;
     will-change: opacity;
     pointer-events: none;
 }
 
 .tomorrow-glow {
-    border-color: rgba(251, 191, 36, 0.4) !important;
-    box-shadow: 0 0 12px rgba(251, 191, 36, 0.15) !important;
+    border-color: rgba(251, 191, 36, 0.28) !important;
+    box-shadow: 0 0 6px rgba(251, 191, 36, 0.07) !important;
     background: rgba(251, 191, 36, 0.02) !important;
-    border-width: 1.2px !important;
+    border-width: 1px !important;
 }
 
 /* CSS Custom Highlights API for Search */

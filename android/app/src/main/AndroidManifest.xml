@@ -8,13 +8,14 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <!-- (2026-07-13) Lock portrait mode & register task receiver. Prev: unspecified -->
+        <!-- (2026-07-13) Allow rotation for tablet support. Prev: portrait -->
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
-            android:screenOrientation="portrait"
+            android:screenOrientation="unspecified"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

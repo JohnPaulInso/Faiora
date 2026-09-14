@@ -271,6 +271,15 @@
             setTimeout(trigger, 0);
         })();
 
+        // (2026-07-13) Lock portrait for phones, allow on tablet. Prev: free rotate
+        try {
+            if (screen.orientation && screen.orientation.lock) {
+                const isPhone = window.matchMedia('(max-width: 767px)').matches || Math.min(window.screen.width, window.screen.height) < 600;
+                if (isPhone) {
+                    screen.orientation.lock('portrait').catch(() => {});
+                }
+            }
+        } catch (e) {}
 
     </script>
 
@@ -425,9 +434,11 @@
                 isOverdue = true;
             }
 
-            // (2026-07-13) Clean date string without redundant prefix. Prev: Past due •
+            // (2026-07-13) Return isDueToday flag for today styling. Prev: no flag
             let isDueTomorrow = false;
+            let isDueToday = false;
             if (date === today) {
+                isDueToday = true;
                 let label = 'Today';
                 let isNearDeadline = false;
                 if (time) {
@@ -451,7 +462,7 @@
                     const h12 = hours % 12 || 12;
                     label += ` • ${h12}:${m} ${ampm}`;
                 }
-                return { label, isOverdue, isNearDeadline, isDueTomorrow };
+                return { label, isOverdue, isNearDeadline, isDueTomorrow, isDueToday };
             }
             
             if (date === tomorrowStr) {
@@ -477,7 +488,7 @@
                     label += ` • ${h12}:${m} ${ampm}`;
                 }
                 isDueTomorrow = true;
-                return { label, isOverdue, isNearDeadline, isDueTomorrow };
+                return { label, isOverdue, isNearDeadline, isDueTomorrow, isDueToday: false };
             }
 
             const options = { month: 'short', day: 'numeric' };
@@ -489,7 +500,7 @@
                 const h12 = hours % 12 || 12;
                 str += ` • ${h12}:${m} ${ampm}`;
             }
-            return { label: str, isOverdue, isNearDeadline: false, isDueTomorrow: false };
+            return { label: str, isOverdue, isNearDeadline: false, isDueTomorrow: false, isDueToday: false };
         };
 
         // --- GLOBAL UTILITY ---
@@ -6088,7 +6099,7 @@
 
         // (2026-07-13) 1s pause and fade-out on complete, transparent swipe. Prev: instant toggle
         const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQuickTask, showToast, hideDateSubtitle = false, isSelectionMode = false, isSelected = false, onSelectToggle = null }) => {
-            const { label: dueDateStr, isOverdue, isNearDeadline, isDueTomorrow } = formatDueDate(task.dueDate, task.dueTime);
+            const { label: dueDateStr, isOverdue, isNearDeadline, isDueTomorrow, isDueToday } = formatDueDate(task.dueDate, task.dueTime);
             const timerRef = useRef(null);
             const isLongPressRef = useRef(false);
             const [isLongPressing, setIsLongPressing] = useState(false);
@@ -6232,8 +6243,8 @@
 
             return (
                 <div 
-                    // (2026-07-13) Reliable interactive quick task card. Prev: pointer-events block
-                    className="quick-task-card relative rounded-2xl select-none overflow-hidden"
+                    // (2026-07-13) Unclip outer glow on quick task card. Prev: overflow-hidden
+                    className="quick-task-card relative rounded-2xl select-none"
                     style={{
                         minHeight: (hideDateSubtitle && !task.dueTime) ? '42px' : (window.innerWidth < 768 ? '52px' : 'auto'),
                         maxHeight: '300px',
@@ -6268,7 +6279,7 @@
                     )}
 
                     <div 
-                        className={`glass-panel rounded-2xl ${hideDateSubtitle ? 'py-2 px-3 md:py-2.5 md:px-3.5' : 'py-2.5 px-3 md:py-3 md:px-4'} flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${isSelectionMode && isSelected ? '!border-primary !bg-primary/15 shadow-md shadow-primary/20 scale-[0.99]' : ''} ${(task.completed || isCompleting) && !isSelectionMode ? 'opacity-40 grayscale-[0.5]' : ''} ${isLongPressing ? 'border-primary/80 shadow-[0_0_0_2px_rgba(249,115,22,0.4)] bg-primary/10 scale-[0.98]' : isPressed && !isSelectionMode ? 'border-primary/50 bg-white/[0.08] shadow-md shadow-primary/15 scale-[0.99]' : isOverdue && !(task.completed || isCompleting) && !isSelectionMode ? 'border-red-500/30' : isNearDeadline && !(task.completed || isCompleting) && !isSelectionMode ? 'border-amber-500/20' : 'border-white/5'} ${isNearDeadline && !(task.completed || isCompleting) && !isSelectionMode ? 'near-deadline-glow' : ''} ${isDueTomorrow && !(task.completed || isCompleting) && !isSelectionMode ? 'tomorrow-glow' : ''}`}
+                        className={`glass-panel rounded-2xl ${hideDateSubtitle ? 'py-2 px-3 md:py-2.5 md:px-3.5' : 'py-2.5 px-3 md:py-3 md:px-4'} flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${isSelectionMode && isSelected ? '!border-primary !bg-primary/15 shadow-md shadow-primary/20 scale-[0.99]' : ''} ${(task.completed || isCompleting) && !isSelectionMode ? 'opacity-40 grayscale-[0.5]' : ''} ${isLongPressing ? 'border-primary/80 shadow-[0_0_0_2px_rgba(249,115,22,0.4)] bg-primary/10 scale-[0.98]' : isPressed && !isSelectionMode ? 'border-primary/50 bg-white/[0.08] shadow-md shadow-primary/15 scale-[0.99]' : isOverdue && !(task.completed || isCompleting) && !isSelectionMode ? 'border-red-500/30' : isNearDeadline && !(task.completed || isCompleting) && !isSelectionMode ? 'border-primary/60' : isDueToday && !(task.completed || isCompleting) && !isSelectionMode ? 'border-primary/40' : 'border-white/5'} ${isDueToday && !isNearDeadline && !(task.completed || isCompleting) && !isSelectionMode ? 'today-task-glow' : ''} ${isNearDeadline && !(task.completed || isCompleting) && !isSelectionMode ? 'near-deadline-glow' : ''} ${isDueTomorrow && !(task.completed || isCompleting) && !isSelectionMode ? 'tomorrow-glow' : ''}`}
                         style={{ 
                             minHeight: (hideDateSubtitle && !task.dueTime) ? '42px' : (window.innerWidth < 768 ? '52px' : 'auto'),
                             touchAction: 'pan-y',
@@ -7989,16 +8000,28 @@
 
                                         {sortedPriorityNotes.length < 6 && (
                                             sortedPriorityNotes.length === 2 || sortedPriorityNotes.length === 4 ? (
-                                                /* (2026-07-13) Light orange hover & card corners on Add Note. Prev: pill */
-                                                <button 
-                                                    onClick={onOpenCreator}
-                                                    className="col-span-2 sm:col-span-3 lg:col-span-6 h-10 md:h-12 border border-dashed border-primary/40 hover:border-orange-400 active:border-orange-400 rounded-xl flex items-center justify-center gap-2 group cursor-pointer hover:bg-orange-500/15 active:bg-orange-500/25 hover:shadow-[0_0_20px_rgba(249,115,22,0.35)] active:shadow-[0_0_20px_rgba(249,115,22,0.35)] active:scale-95 transition-all duration-200 px-4 select-none"
-                                                >
-                                                    <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-primary/10 group-hover:bg-orange-500/30 group-active:bg-orange-500/35 flex items-center justify-center text-primary group-hover:text-orange-200 group-active:text-orange-200 transition-all shrink-0">
-                                                        <span className="material-symbols-outlined text-sm md:text-base group-hover:rotate-90 transition-transform duration-300">add</span>
-                                                    </div>
-                                                    <p className="text-[11px] md:text-xs font-bold text-primary/80 group-hover:text-orange-200 group-active:text-orange-200 uppercase tracking-widest transition-colors">Add Note</p>
-                                                </button>
+                                                <React.Fragment>
+                                                    {/* (2026-07-13) Retain wide Add Note on mobile only. Prev: all screens */}
+                                                    <button 
+                                                        onClick={onOpenCreator}
+                                                        className="md:hidden col-span-2 h-10 border border-dashed border-primary/40 hover:border-orange-400 active:border-orange-400 rounded-xl flex items-center justify-center gap-2 group cursor-pointer hover:bg-orange-500/15 active:bg-orange-500/25 hover:shadow-[0_0_20px_rgba(249,115,22,0.35)] active:shadow-[0_0_20px_rgba(249,115,22,0.35)] active:scale-95 transition-all duration-200 px-4 select-none"
+                                                    >
+                                                        <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-primary/10 group-hover:bg-orange-500/30 group-active:bg-orange-500/35 flex items-center justify-center text-primary group-hover:text-orange-200 group-active:text-orange-200 transition-all shrink-0">
+                                                            <span className="material-symbols-outlined text-sm md:text-base group-hover:rotate-90 transition-transform duration-300">add</span>
+                                                        </div>
+                                                        <p className="text-[11px] md:text-xs font-bold text-primary/80 group-hover:text-orange-200 group-active:text-orange-200 uppercase tracking-widest transition-colors">Add Note</p>
+                                                    </button>
+                                                    {/* (2026-07-13) Square Add Note on tablet/PC when 2/4. Prev: wide bar */}
+                                                    <button 
+                                                        onClick={onOpenCreator}
+                                                        className="hidden md:flex sticky-note-add aspect-square border-2 border-dashed border-primary/40 rounded-[1.5rem] md:rounded-[1.75rem] flex-col items-center justify-center group cursor-pointer hover:bg-orange-500/15 active:bg-orange-500/25 hover:border-orange-400 active:border-orange-400 hover:shadow-[0_0_20px_rgba(249,115,22,0.35)] active:shadow-[0_0_20px_rgba(249,115,22,0.35)] hover:scale-[1.01] active:scale-95 transition-all duration-200 p-3.5 md:p-4 select-none"
+                                                    >
+                                                        <div className="w-8 h-8 md:w-9 md:h-9 mb-1.5 md:mb-2 rounded-full bg-primary/10 group-hover:bg-orange-500/30 group-active:bg-orange-500/35 group-hover:shadow-[0_0_12px_rgba(249,115,22,0.4)] group-hover:scale-110 flex items-center justify-center text-primary group-hover:text-orange-200 group-active:text-orange-200 transition-all shrink-0">
+                                                            <span className="material-symbols-outlined text-base md:text-xl group-hover:rotate-90 transition-transform duration-300">add</span>
+                                                        </div>
+                                                        <p className="text-[10px] md:text-[11px] font-bold text-primary/80 group-hover:text-orange-200 group-active:text-orange-200 uppercase tracking-widest text-center px-1 transition-colors">Add Note</p>
+                                                    </button>
+                                                </React.Fragment>
                                             ) : (
                                                 <button 
                                                     onClick={onOpenCreator}
