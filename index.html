@@ -2320,6 +2320,7 @@
                                         onClick={closeFabMenu}
                                     />
                                     <div className="fixed bottom-[180px] md:bottom-36 right-5 md:right-12 flex flex-col items-end gap-4 z-[950] animate-in slide-in-from-bottom-10 fade-in duration-300">
+                                        {/* (2026-07-13) Instant click execution without delay. Prev: 110-150ms delay */}
                                         {[
                                             { 
                                                 label: 'ALARM', 
@@ -2364,20 +2365,13 @@
                                             <button
                                                 key={i}
                                                 onClick={() => {
-                                                    setPressedFabIndex(i);
-                                                    setTimeout(() => {
-                                                        setPressedFabIndex(null);
-                                                        item.onClick();
-                                                    }, 110);
+                                                    setPressedFabIndex(null);
+                                                    item.onClick();
                                                 }}
-                                                onTouchStart={() => setPressedFabIndex(i)}
-                                                onTouchEnd={() => setTimeout(() => setPressedFabIndex(null), 150)}
-                                                onPointerDown={() => setPressedFabIndex(i)}
-                                                onPointerUp={() => setTimeout(() => setPressedFabIndex(null), 150)}
-                                                className={`flex items-center gap-3 group active:scale-90 active:brightness-125 transition-all duration-150 ease-out cursor-pointer select-none ${pressedFabIndex === i ? 'scale-90 brightness-125' : ''}`}
+                                                className="flex items-center gap-3 group active:scale-90 active:brightness-125 transition-all duration-150 ease-out cursor-pointer select-none"
                                             >
-                                                <span className={`text-[10.5px] font-bold text-cream-light font-montserrat px-3.5 py-1.5 bg-zinc-900/90 backdrop-blur-xl rounded-xl border border-white/10 shadow-xl uppercase tracking-wider select-none group-hover:border-primary/50 group-hover:text-primary transition-all duration-150 ${pressedFabIndex === i ? 'border-primary text-primary scale-95 bg-zinc-800' : ''}`}>{item.label}</span>
-                                                <div className={`w-14 h-14 md:w-16 md:h-16 ${item.color} rounded-[1.25rem] md:rounded-3xl flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(249,115,22,0.4)] transition-all duration-150 border border-white/15 ${pressedFabIndex === i ? 'scale-90 ring-4 ring-white/40 shadow-none' : ''}`}>
+                                                <span className="text-[10.5px] font-bold text-cream-light font-montserrat px-3.5 py-1.5 bg-zinc-900/90 backdrop-blur-xl rounded-xl border border-white/10 shadow-xl uppercase tracking-wider select-none group-hover:border-primary/50 group-hover:text-primary transition-all duration-150 group-active:border-primary group-active:text-primary group-active:scale-95 group-active:bg-zinc-800">{item.label}</span>
+                                                <div className={`w-14 h-14 md:w-16 md:h-16 ${item.color} rounded-[1.25rem] md:rounded-3xl flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(249,115,22,0.4)] transition-all duration-150 border border-white/15 group-active:scale-90 group-active:ring-4 group-active:ring-white/40`}>
                                                     <span className="material-symbols-outlined text-2xl md:text-3xl">{item.icon}</span>
                                                 </div>
                                             </button>
@@ -6364,8 +6358,266 @@
             );
         });
 
-        // (2026-07-13) Support multiple selection in Notepad view. Prev: none
-        const QuickTasksNotepadView = ({ tasks = [], onToggle, onSaveToNotes, onEditQuickTask, groupBy = 'date', categoriesOrder = [], isSelectionMode = false, selectedTasks = [], onSelectToggle, onToggleSelectionMode }) => {
+        // (2026-07-13) Swipeable notepad task item. Prev: static inline row
+        const QuickTaskNotepadItem = React.memo(({
+            task,
+            secKey,
+            onToggle,
+            onDelete,
+            onEditQuickTask,
+            onUpdateQuickTask,
+            showToast,
+            isSelectionMode,
+            isSelected,
+            onSelectToggle,
+            isDuplicate,
+            handleItemTouchStart,
+            handleItemTouchEnd,
+            handleItemTouchMove,
+            longPressingId
+        }) => {
+            const [swipeOffset, setSwipeOffset] = useState(0);
+            const isSwipingRef = useRef(false);
+            const startPosRef = useRef({ x: 0, y: 0 });
+            const isPointerDownRef = useRef(false);
+            const timerRef = useRef(null);
+            const isLongPressRef = useRef(false);
+            // (2026-07-13) Restore hover, tap & longpress effects. Prev: missing states
+            const [isPressed, setIsPressed] = useState(false);
+            const [isLongPressing, setIsLongPressing] = useState(false);
+
+            const taskProgress = task.progress !== undefined ? task.progress : (task.completed ? 100 : 0);
+            const isInProgress = taskProgress > 0 && taskProgress < 100;
+            const { isOverdue } = formatDueDate(task.dueDate, task.dueTime);
+
+            const handlePointerDown = (e) => {
+                if (isSelectionMode) return;
+                if (e.button && e.button !== 0) return;
+                isPointerDownRef.current = true;
+                isLongPressRef.current = false;
+                isSwipingRef.current = false;
+                setIsPressed(true);
+                startPosRef.current = { x: e.clientX, y: e.clientY };
+                if (timerRef.current) clearTimeout(timerRef.current);
+                timerRef.current = setTimeout(() => {
+                    if (!isSwipingRef.current && Math.abs(swipeOffset) < 10) {
+                        isLongPressRef.current = true;
+                        setIsLongPressing(true);
+                        if (navigator.vibrate) {
+                            try { navigator.vibrate(40); } catch {}
+                        }
+                        if (onEditQuickTask) onEditQuickTask(task);
+                        setTimeout(() => setIsLongPressing(false), 350);
+                    }
+                }, 450);
+            };
+
+            const handlePointerMove = (e) => {
+                if (isSelectionMode || !isPointerDownRef.current) return;
+                const dx = e.clientX - startPosRef.current.x;
+                const dy = Math.abs(e.clientY - startPosRef.current.y);
+
+                if (Math.abs(dx) > 8 || dy > 8) {
+                    setIsPressed(false);
+                    if (timerRef.current) {
+                        clearTimeout(timerRef.current);
+                        timerRef.current = null;
+                    }
+                }
+
+                if (dy > Math.abs(dx) && !isSwipingRef.current) {
+                    return;
+                }
+
+                if (dx > 8 && onUpdateQuickTask) {
+                    isSwipingRef.current = true;
+                    setSwipeOffset(Math.min(dx, 140));
+                } else if (dx < -8 && onDelete) {
+                    isSwipingRef.current = true;
+                    setSwipeOffset(Math.max(dx, -130));
+                }
+            };
+
+            const handlePointerUp = () => {
+                if (isSelectionMode) return;
+                isPointerDownRef.current = false;
+                setIsPressed(false);
+                setIsLongPressing(false);
+                if (timerRef.current) {
+                    clearTimeout(timerRef.current);
+                    timerRef.current = null;
+                }
+                if (isSwipingRef.current) {
+                    const raw = (task.text || 'Task').trim();
+                    const displayName = raw.length > 8 ? raw.slice(0, 4) + '…' + raw.slice(-3) : raw;
+
+                    if (swipeOffset >= 75 && onUpdateQuickTask) {
+                        const now = new Date();
+                        const todayStr = formatDateLocal(now);
+                        const isPastDueToday = isOverdue && (!task.dueDate || task.dueDate <= todayStr);
+                        let targetDate = getTomorrow();
+                        let targetTime = '10:00';
+                        let toastLabel = `Moved "${displayName}" to Tomorrow`;
+                        if (isPastDueToday) {
+                            const laterDate = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+                            if (formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 20) {
+                                const h = String(laterDate.getHours()).padStart(2, '0');
+                                const m = String(laterDate.getMinutes()).padStart(2, '0');
+                                targetDate = todayStr;
+                                targetTime = `${h}:${m}`;
+                                toastLabel = `Moved "${displayName}" to Later (${formatTime(targetTime)})`;
+                            }
+                        }
+                        const prevDueDate = task.dueDate;
+                        const prevDueTime = task.dueTime;
+                        onUpdateQuickTask(task.id, task.text, targetDate, targetTime, task.categories, task.progress);
+                        if (navigator.vibrate) try { navigator.vibrate([40, 60, 40]); } catch {}
+                        if (showToast) {
+                            showToast(toastLabel, {
+                                label: 'UNDO',
+                                onClick: () => onUpdateQuickTask(task.id, task.text, prevDueDate, prevDueTime, task.categories, task.progress)
+                            });
+                        }
+                    } else if (swipeOffset <= -75 && onDelete) {
+                        if (navigator.vibrate) try { navigator.vibrate([40, 80]); } catch {}
+                        onDelete(task.id);
+                    }
+                    setSwipeOffset(0);
+                    setTimeout(() => { isSwipingRef.current = false; }, 150);
+                }
+            };
+
+            const handleClick = (e) => {
+                if (isSelectionMode) {
+                    if (onSelectToggle) onSelectToggle(task.id);
+                    return;
+                }
+                if (isLongPressRef.current || isSwipingRef.current || Math.abs(swipeOffset) > 10) {
+                    isLongPressRef.current = false;
+                    return;
+                }
+                try {
+                    if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications?.playCheckSFX) {
+                        FaioraNotifications.playCheckSFX();
+                    }
+                } catch(err) {}
+                if (onToggle) onToggle(task.id);
+            };
+
+            const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
+                const now = new Date();
+                const todayStr = formatDateLocal(now);
+                const isPastDueToday = isOverdue && (!task.dueDate || task.dueDate <= todayStr);
+                if (isPastDueToday) {
+                    const laterDate = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+                    if (formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 20) {
+                        return { label: 'LATER', icon: 'schedule' };
+                    }
+                }
+                return { label: 'TOMORROW', icon: 'event_upcoming' };
+            })() : null;
+
+            return (
+                <div className="relative overflow-hidden rounded-lg select-none">
+                    {/* (2026-07-13) Add subtle 3px glow to swipe labels. Prev: no glow */}
+                    {swipeOffset > 0 && swipeRescheduleInfo && (
+                        <div 
+                            className="absolute inset-y-0 left-0 flex items-center pl-2.5 gap-1.5 z-0 pointer-events-none"
+                            style={{ opacity: Math.min(swipeOffset / 20, 1), width: `${Math.max(0, swipeOffset)}px`, overflow: 'hidden' }}
+                        >
+                            <span className="material-symbols-outlined text-base text-primary drop-shadow-[0_0_3px_rgba(249,115,22,0.5)]">{swipeRescheduleInfo.icon}</span>
+                            <span className={`text-[10px] font-black font-montserrat uppercase tracking-wider ${swipeOffset >= 75 ? 'text-amber-300 drop-shadow-[0_0_4px_rgba(249,115,22,0.6)]' : 'text-primary drop-shadow-[0_0_3px_rgba(249,115,22,0.4)]'}`}>
+                                {swipeRescheduleInfo.label}
+                            </span>
+                        </div>
+                    )}
+                    {swipeOffset < 0 && (
+                        <div 
+                            className="absolute inset-y-0 right-0 flex items-center justify-end pr-2.5 gap-1.5 z-0 pointer-events-none"
+                            style={{ opacity: Math.min(Math.abs(swipeOffset) / 20, 1), width: `${Math.max(0, -swipeOffset)}px`, overflow: 'hidden' }}
+                        >
+                            <span className={`text-[10px] font-black font-montserrat uppercase tracking-wider ${swipeOffset <= -75 ? 'text-red-400 drop-shadow-[0_0_4px_rgba(239,68,68,0.6)]' : 'text-red-500 drop-shadow-[0_0_3px_rgba(239,68,68,0.4)]'}`}>
+                                DELETE
+                            </span>
+                            <span className="material-symbols-outlined text-base text-red-500 drop-shadow-[0_0_3px_rgba(239,68,68,0.5)]">delete</span>
+                        </div>
+                    )}
+
+                    <div
+                        data-task-id={task.id}
+                        onTouchStart={isSelectionMode ? (e) => handleItemTouchStart(task, e) : undefined}
+                        onTouchEnd={isSelectionMode ? handleItemTouchEnd : undefined}
+                        onTouchMove={isSelectionMode ? handleItemTouchMove : undefined}
+                        onPointerDown={handlePointerDown}
+                        onPointerMove={handlePointerMove}
+                        onPointerUp={handlePointerUp}
+                        onPointerCancel={handlePointerUp}
+                        onClick={handleClick}
+                        onContextMenu={(e) => {
+                            e.preventDefault();
+                            if (!isSelectionMode && onEditQuickTask) onEditQuickTask(task);
+                        }}
+                        className={`qt-notepad-item relative z-10 flex items-start justify-between gap-2.5 py-1 px-1.5 rounded-lg hover:bg-white/[0.05] active:bg-white/[0.08] cursor-pointer select-none group transition-all duration-150 ${isLongPressing || longPressingId === task.id ? 'bg-primary/10' : isPressed ? 'bg-white/[0.06]' : ''} ${isSelected ? '!bg-primary/15 !border border-primary/40 shadow-sm shadow-primary/20' : ''}`}
+                        style={{
+                            // (2026-07-13) Transparent bg on swiping item. Prev: rgba(20, 20, 24, 0.95)
+                            opacity: (task.completed && !isSelectionMode) ? 0.4 : 1,
+                            touchAction: 'pan-y',
+                            transform: `translateX(${swipeOffset}px)`,
+                            transition: isSwipingRef.current ? 'none' : 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease'
+                        }}
+                    >
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1 pointer-events-none">
+                            {isSelectionMode ? (
+                                <div className={`w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all ${isSelected ? 'bg-primary border-primary text-white shadow-sm shadow-primary/40 scale-105' : 'border-white/35 bg-white/5 hover:border-primary/50'}`}>
+                                    {isSelected && <span className="material-symbols-outlined text-xs font-bold">check</span>}
+                                </div>
+                            ) : (
+                                <div className={`qt-notepad-checkbox w-5 h-5 flex items-center justify-center flex-shrink-0 transition-all group-hover:border-primary/80 ${task.completed ? 'checked' : (isInProgress ? 'in-progress' : '')}`}>
+                                    {task.completed ? (
+                                        <span className="material-symbols-outlined text-white text-xs font-bold">check</span>
+                                    ) : isInProgress ? (
+                                        <div className="w-1.5 h-1.5 rounded-sm bg-primary shadow-[0_0_6px_rgba(249,115,22,0.8)]"></div>
+                                    ) : null}
+                                </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className={`qt-notepad-item-text text-xs md:text-sm font-montserrat leading-5 transition-all duration-150 ${(isInProgress && (task.text || '').length <= 48) ? 'clamp-1' : 'clamp-2'} ${isLongPressing || longPressingId === task.id ? (task.completed ? 'text-primary/40 line-through' : 'text-primary font-semibold') : isPressed ? 'text-primary font-semibold' : task.completed ? 'line-through text-white/50 group-hover:text-white/70' : 'text-cream-light group-hover:text-primary'}`}>
+                                        {formatTaskText(task.text)}
+                                        {/* (2026-07-13) Bold weight for inline time. Prev: font-semibold */}
+                                        {task.dueTime && (secKey === 'today' || secKey === 'tomorrow' || secKey === 'yesterday') && !task.completed && (
+                                            <span className="ml-1.5 text-[10px] font-bold text-orange-500/50 align-middle" style={{fontVariantNumeric:'tabular-nums',letterSpacing:'0.02em'}}>
+                                                {formatTime(task.dueTime).replace(/\s+([AP]M)/i, '$1')}
+                                            </span>
+                                        )}
+                                    </span>
+                                    {isDuplicate && (
+                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8.5px] font-bold font-montserrat uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0" title="Duplicate task">
+                                            <span className="material-symbols-outlined text-[10px]">content_copy</span>
+                                            DUP
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        {taskProgress > 0 && !task.completed && (
+                            <div className="flex items-center gap-1.5 shrink-0 pl-2 pointer-events-none self-center">
+                                <span className="text-[10px] font-montserrat font-bold text-primary/90">{taskProgress}%</span>
+                                <div className="w-12 md:w-14 h-1 bg-white/10 rounded-full overflow-hidden">
+                                    <div 
+                                        className="h-full bg-primary rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(249,115,22,0.4)]"
+                                        style={{ width: `${taskProgress}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        });
+
+        // (2026-07-13) Add swipe props to QuickTasksNotepadView. Prev: no swipe
+        const QuickTasksNotepadView = ({ tasks = [], onToggle, onSaveToNotes, onEditQuickTask, onDelete, onUpdateQuickTask, showToast, groupBy = 'date', categoriesOrder = [], isSelectionMode = false, selectedTasks = [], onSelectToggle, onToggleSelectionMode }) => {
             const [showCheckedTasks, setShowCheckedTasks] = useState(() => {
                 try {
                     const saved = localStorage.getItem('faiora_qt_notepad_show_checked');
@@ -6687,96 +6939,30 @@
                                         <span className="text-[9px] text-white/30 font-bold font-montserrat">({sec.items.length})</span>
                                     </div>
                                     <div className="qt-notepad-section-list space-y-1 pl-0.5">
-                                        {/* (2026-07-13) Right-aligned minimal progress bar for notepad. Prev: none */}
+                                        {/* (2026-07-13) Swipeable notepad task item. Prev: static inline row */}
                                         {displayItems.map(task => {
-                                            const taskProgress = task.progress !== undefined ? task.progress : (task.completed ? 100 : 0);
-                                            const isInProgress = taskProgress > 0 && taskProgress < 100;
                                             const cleanTaskText = (task.text || '').trim().toLowerCase();
-                                            // (2026-07-13) Show duplicate badge on both notepad & category views. Prev: category only
                                             const isDuplicate = cleanTaskText && (duplicateTextCounts.get(cleanTaskText) || 0) > 1;
-                                            // (2026-07-13) Multi-select checkbox & item styling in notepad. Prev: static
                                             const isSelected = isSelectionMode && selectedTasks.includes(task.id);
                                             return (
-                                                // (2026-07-13) Bind data-task-id and drag select touch events. Prev: edit tap
-                                                <div
+                                                <QuickTaskNotepadItem
                                                     key={task.id}
-                                                    data-task-id={task.id}
-                                                    onTouchStart={(e) => handleItemTouchStart(task, e)}
-                                                    onTouchEnd={handleItemTouchEnd}
-                                                    onTouchMove={handleItemTouchMove}
-                                                    // (2026-07-13) Context menu edits task if select mode off. Prev: prevent default
-                                                    onContextMenu={(e) => {
-                                                        e.preventDefault();
-                                                        if (!isSelectionModeRef.current && onEditQuickTask) onEditQuickTask(task);
-                                                    }}
-                                                    className={`qt-notepad-item flex items-start justify-between gap-2.5 py-0.5 px-1.5 rounded-lg hover:bg-white/[0.03] cursor-pointer select-none group transition-all ${isSelected ? '!bg-primary/15 !border border-primary/40 shadow-sm shadow-primary/20' : ''}`}
-                                                        style={{
-                                                            // (2026-08-24) No disabling effect in notepad view - instant check
-                                                            opacity: (task.completed && !isSelectionMode) ? 0.4 : 1,
-                                                            transition: 'opacity 0.3s ease'
-                                                        }}
-                                                    >
-                                                        <div 
-                                                            className="flex items-start gap-2.5 min-w-0 flex-1"
-                                                            onClick={(e) => {
-                                                                if (isLongPressTriggered.current) {
-                                                                    isLongPressTriggered.current = false;
-                                                                    e.stopPropagation();
-                                                                    return;
-                                                                }
-                                                                if (isSelectionMode) {
-                                                                    if (onSelectToggle) onSelectToggle(task.id);
-                                                                    return;
-                                                                }
-                                                                // (2026-08-24) Instant check for both category and date views in notepad
-                                                                if (onToggle) {
-                                                                    onToggle(task.id);
-                                                                }
-                                                            }}
-                                                        >
-                                                            {isSelectionMode ? (
-                                                                <div className={`w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all ${isSelected ? 'bg-primary border-primary text-white shadow-sm shadow-primary/40 scale-105' : 'border-white/35 bg-white/5 hover:border-primary/50'}`}>
-                                                                    {isSelected && <span className="material-symbols-outlined text-xs font-bold">check</span>}
-                                                                </div>
-                                                            ) : (
-                                                                <div className={`qt-notepad-checkbox w-5 h-5 flex items-center justify-center flex-shrink-0 ${task.completed ? 'checked' : (isInProgress ? 'in-progress' : '')}`}>
-                                                                    {task.completed ? (
-                                                                        <span className="material-symbols-outlined text-white text-xs font-bold">check</span>
-                                                                    ) : isInProgress ? (
-                                                                        <div className="w-1.5 h-1.5 rounded-sm bg-primary shadow-[0_0_6px_rgba(249,115,22,0.8)]"></div>
-                                                                    ) : null}
-                                                                </div>
-                                                            )}
-                                                            <div className="flex-1 min-w-0">
-                                                                {/* (2026-07-13) Smart 1 vs 2 line clamp on notepad item. Prev: fixed 2 */}
-                                                                {/* (2026-07-13) Orange text on long-press, muted if completed. Prev: static */}
-                                                                <div className="flex items-center gap-1.5 flex-wrap">
-                                                                    {/* (2026-07-13) Format task with capital words. Prev: unformatted text */}
-                                                                    <span className={`qt-notepad-item-text text-xs md:text-sm font-montserrat leading-5 transition-all duration-200 ${(isInProgress && (task.text || '').length <= 48) ? 'clamp-1' : 'clamp-2'} ${longPressingId === task.id ? (task.completed ? 'text-primary/40 line-through' : 'text-primary font-semibold') : task.completed ? 'line-through text-white/50' : 'text-cream-light'}`}>
-                                                                        {formatTaskText(task.text)}
-                                                                    </span>
-                                                                    {isDuplicate && (
-                                                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8.5px] font-bold font-montserrat uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0" title="Duplicate task">
-                                                                            <span className="material-symbols-outlined text-[10px]">content_copy</span>
-                                                                            DUP
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        {/* (2026-07-13) Center notepad progress bar vertically. Prev: top-aligned */}
-                                                        {taskProgress > 0 && !task.completed && (
-                                                            <div className="flex items-center gap-1.5 shrink-0 pl-2 pointer-events-none self-center">
-                                                                <span className="text-[10px] font-montserrat font-bold text-primary/90">{taskProgress}%</span>
-                                                                <div className="w-12 md:w-14 h-1 bg-white/10 rounded-full overflow-hidden">
-                                                                    <div 
-                                                                        className="h-full bg-primary rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(249,115,22,0.4)]"
-                                                                        style={{ width: `${taskProgress}%` }}
-                                                                    ></div>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                    task={task}
+                                                    secKey={sec.key}
+                                                    onToggle={onToggle}
+                                                    onDelete={onDelete}
+                                                    onEditQuickTask={onEditQuickTask}
+                                                    onUpdateQuickTask={onUpdateQuickTask}
+                                                    showToast={showToast}
+                                                    isSelectionMode={isSelectionMode}
+                                                    isSelected={isSelected}
+                                                    onSelectToggle={onSelectToggle}
+                                                    isDuplicate={isDuplicate}
+                                                    handleItemTouchStart={handleItemTouchStart}
+                                                    handleItemTouchEnd={handleItemTouchEnd}
+                                                    handleItemTouchMove={handleItemTouchMove}
+                                                    longPressingId={longPressingId}
+                                                />
                                             );
                                         })}
                                     </div>
@@ -8259,6 +8445,9 @@
                                                 onSaveToNotes={handleSaveQuickTasksToNotes}
                                                 onAddQuickTask={onAddQuickTaskClick}
                                                 onEditQuickTask={onEditQuickTask}
+                                                onDelete={onDeleteQuickTask}
+                                                onUpdateQuickTask={onUpdateQuickTask}
+                                                showToast={showToast}
                                                 groupBy={viewMode === 'categories' ? 'category' : 'date'}
                                                 categoriesOrder={allCategories}
                                                 isSelectionMode={isSelectionMode}
@@ -10727,6 +10916,9 @@
                                             onSaveToNotes={handleSaveQuickTasksToNotes}
                                             onAddQuickTask={onAddQuickTaskClick}
                                             onEditQuickTask={onEditQuickTask}
+                                            onDelete={onDeleteQuickTask}
+                                            onUpdateQuickTask={onUpdateQuickTask}
+                                            showToast={showToast}
                                             groupBy={viewMode === 'categories' ? 'category' : 'date'}
                                             categoriesOrder={allCategories}
                                             isSelectionMode={isSelectionMode}
@@ -13592,19 +13784,27 @@
             }, []);
 
             // (2026-07-13) Auto-categorize from description on change. Prev: text only
+            // [FIX 2026-09-17] Debounce ref to stop mic dictation duplication; was: inline extraction
+            const extractDebounceRef = React.useRef(null);
             const handleTextChange = (val) => {
                 if (error && val.trim()) setError('');
+                // Set raw text immediately — never modify mid-keystroke (fixes Android dictation duplication)
+                setText(val);
                 autoCategorizeFromText(val);
-                const { date, time, cleanText, isPending } = extractDateFromText(val);
-                if (isPending) {
-                    setText(val);
-                    setPendingExtraction({ date, time, cleanText });
-                } else {
-                    setText(cleanText);
-                    setPendingExtraction(null);
-                    if (date) { setDueDate(date); setShowCustom(true); setSelectedPreset('custom'); }
-                    if (time) { setDueTime(time); setShowCustom(true); setSelectedPreset('custom'); }
-                }
+                // Debounce extraction so dictation can finish before we strip keywords
+                if (extractDebounceRef.current) clearTimeout(extractDebounceRef.current);
+                extractDebounceRef.current = setTimeout(() => {
+                    const { date, time, cleanText, isPending } = extractDateFromText(val);
+                    if (isPending) {
+                        setPendingExtraction({ date, time, cleanText });
+                    } else {
+                        setText(cleanText);
+                        autoCategorizeFromText(cleanText);
+                        setPendingExtraction(null);
+                        if (date) { setDueDate(date); setShowCustom(true); setSelectedPreset('custom'); }
+                        if (time) { setDueTime(time); setShowCustom(true); setSelectedPreset('custom'); }
+                    }
+                }, 800);
             };
 
             useEffect(() => {
@@ -13701,10 +13901,34 @@
                     rec.onresult = (event) => {
                         setIsSpeaking(true);
                         resetSilenceTimer();
-                        const currentTranscript = Array.from(event.results).map(r => r[0].transcript).join('');
+                        // [FIX 2026-09-17] Use only final results to build transcript; was: all results joined causing duplication
+                        let finalTranscript = '';
+                        let interimTranscript = '';
+                        for (let i = 0; i < event.results.length; i++) {
+                            const res = event.results[i];
+                            if (res.isFinal) {
+                                finalTranscript += res[0].transcript;
+                            } else {
+                                interimTranscript += res[0].transcript;
+                            }
+                        }
+                        const currentTranscript = finalTranscript || interimTranscript;
                         if (currentTranscript) {
                             const prefix = speechBaseTextRef.current ? speechBaseTextRef.current + ' ' : '';
-                            handleTextChange((prefix + currentTranscript.trimStart()).slice(0, 150));
+                            const assembled = (prefix + currentTranscript.trimStart()).slice(0, 150);
+                            // Set text directly without extraction — handleTextChange debounce handles that
+                            if (error) setError('');
+                            setText(assembled);
+                            if (extractDebounceRef.current) clearTimeout(extractDebounceRef.current);
+                            extractDebounceRef.current = setTimeout(() => {
+                                const { date, time, cleanText, isPending } = extractDateFromText(assembled);
+                                if (!isPending) {
+                                    setText(cleanText);
+                                    autoCategorizeFromText(cleanText);
+                                    if (date) { setDueDate(date); setShowCustom(true); setSelectedPreset('custom'); }
+                                    if (time) { setDueTime(time); setShowCustom(true); setSelectedPreset('custom'); }
+                                }
+                            }, 1200);
                         }
                     };
 
@@ -15079,7 +15303,7 @@
                 });
             }, []);
 
-            // (2026-07-13) Auto-sync queued mutations when network restores. Prev: none
+            // [FIX 2026-09-17] Auto-sync: fetch server first, merge by timestamp, then push. Prev: push local blindly
             const triggerAutoSync = useCallback(async () => {
                 const targetUid = auth.currentUser?.uid || user?.uid;
                 if (!targetUid) return;
@@ -15087,28 +15311,55 @@
                 const noteColl = activeCollectionRef.current || 'tasks';
 
                 try {
-                    const savedTasks = JSON.parse(localStorage.getItem('faiora_quick_tasks_' + targetUid) || '[]');
-                    const savedTrash = JSON.parse(localStorage.getItem('faiora_quick_task_trash_' + targetUid) || '[]');
-                    if (savedTasks.length > 0 || savedTrash.length > 0) {
-                        await db.collection(taskColl).doc(targetUid).set({
-                            quickTasks: JSON.parse(JSON.stringify(savedTasks)),
-                            quickTaskTrash: JSON.parse(JSON.stringify(savedTrash))
-                        }, { merge: true });
-                    }
+                    console.log('🌐 [SYNC] Back online — fetching server state first...');
+                    // Step 1: Fetch fresh server doc before touching anything
+                    const serverDoc = await db.collection(taskColl).doc(targetUid).get({ source: 'server' });
+                    const serverData = serverDoc.exists ? serverDoc.data() : {};
 
-                    const savedNotes = JSON.parse(localStorage.getItem('faiora_notes_' + targetUid) || '[]');
-                    if (savedNotes.length > 0) {
-                        const notesMap = {};
-                        savedNotes.forEach(n => {
-                            notesMap[n.id] = { ...n, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+                    // Step 2: Merge quick tasks — server + local, newest updatedAt wins per id
+                    const localTasks = JSON.parse(localStorage.getItem('faiora_quick_tasks_' + targetUid) || '[]');
+                    const localTrash = JSON.parse(localStorage.getItem('faiora_quick_task_trash_' + targetUid) || '[]');
+                    const serverTasks = Array.isArray(serverData.quickTasks) ? serverData.quickTasks : Object.values(serverData.quickTasks || {});
+                    const serverTrash = Array.isArray(serverData.quickTaskTrash) ? serverData.quickTaskTrash : Object.values(serverData.quickTaskTrash || {});
+
+                    const mergeById = (local, server) => {
+                        const map = {};
+                        server.forEach(t => { map[t.id] = t; });
+                        local.forEach(t => {
+                            const s = map[t.id];
+                            // Local wins only if it is strictly newer
+                            if (!s || (t.updatedAt || t.createdAt || 0) > (s.updatedAt || s.createdAt || 0)) {
+                                map[t.id] = t;
+                            }
                         });
-                        await db.collection(noteColl).doc(targetUid).set({
-                            notes: notesMap
-                        }, { merge: true });
-                    }
+                        return Object.values(map);
+                    };
+
+                    const mergedTasks = mergeById(localTasks, serverTasks);
+                    const mergedTrash = mergeById(localTrash, serverTrash);
+
+                    // Step 3: Merge notes the same way
+                    const localNotes = JSON.parse(localStorage.getItem('faiora_notes_' + targetUid) || '[]');
+                    const serverNotesRaw = serverData.notes || {};
+                    const serverNotes = Object.values(serverNotesRaw);
+                    const mergedNotesArr = mergeById(localNotes, serverNotes);
+                    const mergedNotesMap = {};
+                    mergedNotesArr.forEach(n => { mergedNotesMap[n.id] = n; });
+
+                    // Step 4: Push merged state back to Firestore
+                    await db.collection(taskColl).doc(targetUid).set({
+                        quickTasks: JSON.parse(JSON.stringify(mergedTasks)),
+                        quickTaskTrash: JSON.parse(JSON.stringify(mergedTrash)),
+                        notes: mergedNotesMap
+                    }, { merge: true });
+
+                    // Step 5: Hydrate local state with merged result so UI reflects server
+                    setQuickTasks(mergedTasks);
+                    localStorage.setItem('faiora_quick_tasks_' + targetUid, JSON.stringify(mergedTasks));
                     localStorage.removeItem('faiora_sync_queue');
                     // (2026-07-13) Subtle synced message. Prev: Back online snackbar
                     showToast('Synced');
+                    console.log('✅ [SYNC] Merge complete. Tasks:', mergedTasks.length);
                 } catch(e) {
                     console.warn('⚠️ [SYNC] Auto-sync attempt error:', e.message);
                 }
