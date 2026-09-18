@@ -6186,12 +6186,16 @@
                         let targetDate = getTomorrow();
                         let targetTime = '10:00';
                         let toastLabel = `Moved "${displayName}" to Tomorrow`;
+                        // (2026-07-13) 8pm-12am +1h, daytime +4h, round 10m. Prev: 4h fixed / cutoff
                         if (isPastDueToday) {
-                            const laterDate = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-                            if (formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 20) {
+                            const hour = now.getHours();
+                            const isNight = hour >= 20;
+                            const laterDate = new Date(now.getTime() + (isNight ? 1 : 4) * 60 * 60 * 1000);
+                            laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
+                            if (formatDateLocal(laterDate) === todayStr || isNight) {
                                 const h = String(laterDate.getHours()).padStart(2, '0');
                                 const m = String(laterDate.getMinutes()).padStart(2, '0');
-                                targetDate = todayStr;
+                                targetDate = formatDateLocal(laterDate);
                                 targetTime = `${h}:${m}`;
                                 toastLabel = `Moved "${displayName}" to Later (${formatTime(targetTime)})`;
                             }
@@ -6236,13 +6240,17 @@
                 onToggle(task.id);
             };
 
+            // (2026-07-13) 8pm-12am LATER icon badge logic. Prev: cutoff at 8pm
             const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
                 const now = new Date();
                 const todayStr = formatDateLocal(now);
                 const isPastDueToday = isOverdue && (!task.dueDate || task.dueDate <= todayStr);
                 if (isPastDueToday) {
-                    const laterDate = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-                    if (formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 20) {
+                    const hour = now.getHours();
+                    const isNight = hour >= 20;
+                    const laterDate = new Date(now.getTime() + (isNight ? 1 : 4) * 60 * 60 * 1000);
+                    laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
+                    if (formatDateLocal(laterDate) === todayStr || isNight) {
                         return { label: 'LATER', icon: 'schedule' };
                     }
                 }
@@ -6458,12 +6466,16 @@
                         let targetDate = getTomorrow();
                         let targetTime = '10:00';
                         let toastLabel = `Moved "${displayName}" to Tomorrow`;
+                        // (2026-07-13) 8pm-12am +1h, daytime +4h, round 10m. Prev: 4h fixed / cutoff
                         if (isPastDueToday) {
-                            const laterDate = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-                            if (formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 20) {
+                            const hour = now.getHours();
+                            const isNight = hour >= 20;
+                            const laterDate = new Date(now.getTime() + (isNight ? 1 : 4) * 60 * 60 * 1000);
+                            laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
+                            if (formatDateLocal(laterDate) === todayStr || isNight) {
                                 const h = String(laterDate.getHours()).padStart(2, '0');
                                 const m = String(laterDate.getMinutes()).padStart(2, '0');
-                                targetDate = todayStr;
+                                targetDate = formatDateLocal(laterDate);
                                 targetTime = `${h}:${m}`;
                                 toastLabel = `Moved "${displayName}" to Later (${formatTime(targetTime)})`;
                             }
@@ -6504,13 +6516,17 @@
                 if (onToggle) onToggle(task.id);
             };
 
+            // (2026-07-13) 8pm-12am LATER icon badge logic. Prev: cutoff at 8pm
             const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
                 const now = new Date();
                 const todayStr = formatDateLocal(now);
                 const isPastDueToday = isOverdue && (!task.dueDate || task.dueDate <= todayStr);
                 if (isPastDueToday) {
-                    const laterDate = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-                    if (formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 20) {
+                    const hour = now.getHours();
+                    const isNight = hour >= 20;
+                    const laterDate = new Date(now.getTime() + (isNight ? 1 : 4) * 60 * 60 * 1000);
+                    laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
+                    if (formatDateLocal(laterDate) === todayStr || isNight) {
                         return { label: 'LATER', icon: 'schedule' };
                     }
                 }
@@ -6557,7 +6573,8 @@
                             e.preventDefault();
                             if (!isSelectionMode && onEditQuickTask) onEditQuickTask(task);
                         }}
-                        className={`qt-notepad-item relative z-10 flex items-start justify-between gap-2.5 py-1 px-1.5 rounded-lg hover:bg-white/[0.05] active:bg-white/[0.08] cursor-pointer select-none group transition-all duration-150 ${isLongPressing || longPressingId === task.id ? 'bg-primary/10' : isPressed ? 'bg-white/[0.06]' : ''} ${isSelected ? '!bg-primary/15 !border border-primary/40 shadow-sm shadow-primary/20' : ''}`}
+                        // (2026-07-13) Reduce notepad item vertical padding. Prev: py-1
+                        className={`qt-notepad-item relative z-10 flex items-start justify-between gap-2.5 py-0.5 px-1.5 rounded-lg hover:bg-white/[0.05] active:bg-white/[0.08] cursor-pointer select-none group transition-all duration-150 ${isLongPressing || longPressingId === task.id ? 'bg-primary/10' : isPressed ? 'bg-white/[0.06]' : ''} ${isSelected ? '!bg-primary/15 !border border-primary/40 shadow-sm shadow-primary/20' : ''}`}
                         style={{
                             // (2026-07-13) Transparent bg on swiping item. Prev: rgba(20, 20, 24, 0.95)
                             opacity: (task.completed && !isSelectionMode) ? 0.4 : 1,
@@ -6582,11 +6599,12 @@
                             )}
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className={`qt-notepad-item-text text-xs md:text-sm font-montserrat leading-5 transition-all duration-150 ${(isInProgress && (task.text || '').length <= 48) ? 'clamp-1' : 'clamp-2'} ${isLongPressing || longPressingId === task.id ? (task.completed ? 'text-primary/40 line-through' : 'text-primary font-semibold') : isPressed ? 'text-primary font-semibold' : task.completed ? 'line-through text-white/50 group-hover:text-white/70' : 'text-cream-light group-hover:text-primary'}`}>
+                                    {/* (2026-07-13) Dynamic 18/30 char clamp for progress bar. Prev: 48 */}
+                                    <span className={`qt-notepad-item-text text-xs md:text-sm font-montserrat leading-5 transition-all duration-150 ${((task.text || '').length <= ((taskProgress > 0 && !task.completed) ? (task.dueTime ? 18 : 22) : (task.dueTime ? 30 : 38))) ? 'clamp-1' : 'clamp-2'} ${isLongPressing || longPressingId === task.id ? (task.completed ? 'text-primary/40 line-through' : 'text-primary font-semibold') : isPressed ? 'text-primary font-semibold' : task.completed ? 'line-through text-white/50 group-hover:text-white/70' : 'text-cream-light group-hover:text-primary'}`}>
                                         {formatTaskText(task.text)}
-                                        {/* (2026-07-13) Bold weight for inline time. Prev: font-semibold */}
+                                        {/* (2026-07-13) Baseline align time to fix spacing. Prev: align-middle */}
                                         {task.dueTime && (secKey === 'today' || secKey === 'tomorrow' || secKey === 'yesterday') && !task.completed && (
-                                            <span className="ml-1.5 text-[10px] font-bold text-orange-500/50 align-middle" style={{fontVariantNumeric:'tabular-nums',letterSpacing:'0.02em'}}>
+                                            <span className="ml-1.5 text-[10px] font-bold text-orange-500/50 align-baseline whitespace-nowrap" style={{fontVariantNumeric:'tabular-nums',letterSpacing:'0.02em'}}>
                                                 {formatTime(task.dueTime).replace(/\s+([AP]M)/i, '$1')}
                                             </span>
                                         )}
@@ -12536,6 +12554,90 @@
             );
         };
 
+        // (2026-07-13) Default category keyword dictionary. Prev: hardcoded in modal
+        const DEFAULT_CATEGORY_KEYWORDS = {
+            Development: [
+                'fix', 'fixes', 'fixed', 'fixing', 'bug', 'bugs', 'debug', 'debugging',
+                'app', 'apps', 'apk', 'apks', 'software', 'build', 'version',
+                'code', 'coding', 'developer', 'dev', 'develop', 'programming', 'program',
+                'script', 'scripts', 'repo', 'git', 'github', 'commit', 'pr',
+                'branch', 'merge', 'frontend', 'backend', 'fullstack', 'api', 'apis', 'endpoint',
+                'database', 'db', 'sql', 'firestore', 'firebase', 'server', 'deploy', 'deployment',
+                'feature', 'refactor', 'component', 'algorithm', 'logic', 'integration', 'webhook',
+                'crash', 'patch', 'hotfix', 'issue', 'issues', 'npm', 'node', 'react', 'python',
+                'ai', 'model', 'prompt', 'kimi', 'chatgpt', 'gemini', 'workflow', 'automate'
+            ],
+            Design: [
+                'design', 'designs', 'designer', 'ui', 'ux', 'figma', 'layout', 'mockup',
+                'wireframe', 'prototype', 'theme', 'logo', 'logos', 'banner', 'graphic',
+                'graphics', 'illustration', 'svg', 'icon', 'icons', 'typography', 'font',
+                'fonts', 'color', 'palette', 'animation', 'css', 'styling', 'style', 'poster',
+                'photoshop', 'canva', 'render', 'asset', 'assets'
+            ],
+            Maintenance: [
+                'maintenance', 'maintain', 'clean', 'cleaning', 'cleanup', 'tidy', 'wash',
+                'repair', 'repairs', 'repairing', 'service', 'servicing', 'inspect', 'inspection',
+                'checkup', 'organize', 'declutter', 'backup', 'restore', 'renew', 'charge',
+                'battery', 'reboot', 'restart', 'hardware', 'drill', 'gate', 'light', 'wire',
+                'bulb', 'tire', 'tires', 'bulkit', 'bag', 'tahi', 'sew', 'assemble', 'replace'
+            ],
+            Trading: [
+                'trading', 'trade', 'trader', 'forex', 'crypto', 'bitcoin', 'btc', 'eth',
+                'stock', 'stocks', 'shares', 'market', 'chart', 'charts', 'indicator',
+                'indicators', 'signal', 'signals', 'broker', 'mt4', 'mt5', 'binance', 'bybit',
+                'vt markets', 'pnl', 'loss', 'profit', 'leverage', 'exchange', 'candlestick',
+                'ea forex', 'migs'
+            ],
+            Career: [
+                'career', 'job', 'jobs', 'work', 'resume', 'cv', 'interview', 'interviews',
+                'hr', 'ceo', 'manager', 'intern', 'internship', 'junior', 'senior', 'promotion',
+                'salary', 'apply', 'applying', 'application', 'linkedin', 'contract', 'portfolio',
+                'proposal', 'pitch', 'client', 'clients', 'freelance', 'status', 'role'
+            ],
+            Events: [
+                'event', 'events', 'party', 'birthday', 'wedding', 'anniversary', 'ceremony',
+                'concert', 'festival', 'gathering', 'seminar', 'webinar', 'conference',
+                'dinner', 'lunch', 'breakfast', 'celebration', 'call', 'zoom', 'appointment',
+                'meetup', 'meeting'
+            ],
+            Shopping: [
+                'shopping', 'shop', 'buy', 'buying', 'purchase', 'order', 'ordering',
+                'groceries', 'grocery', 'store', 'mall', 'supermarket', 'cart', 'checkout',
+                'delivery', 'shopee', 'lazada', 'amazon', 'parcel', 'package'
+            ],
+            Playstore: [
+                'playstore', 'play store', 'google play', 'app store', 'appstore', 'publish',
+                'listing', 'bundle', 'aab', 'console', 'store listing', 'internal test',
+                'closed test', 'production release'
+            ],
+            Music: [
+                'music', 'song', 'songs', 'sing', 'singing', 'choir', 'choirbook', 'rehearsal',
+                'practice', 'audio', 'beat', 'track', 'playlist', 'guitar', 'piano', 'chords',
+                'lyrics', 'record', 'recording', 'speaker', 'sound', 'headphone', 'instrument'
+            ],
+            Finance: [
+                'finance', 'money', 'bill', 'bills', 'billing', 'pay', 'paying', 'payment',
+                'paid', 'bank', 'banking', 'maribank', 'gcash', 'bdo', 'bpi', 'loan', 'debt',
+                'tax', 'taxes', 'receipt', 'invoice', 'budget', 'expense', 'expenses', 'transfer',
+                'wallet', 'fund', 'funds', 'cash'
+            ],
+            Health: [
+                'health', 'doctor', 'dentist', 'dental', 'clinic', 'hospital', 'medicine',
+                'meds', 'medication', 'pill', 'pills', 'vitamin', 'vitamins', 'gym', 'workout',
+                'fitness', 'exercise', 'diet', 'water', 'sleep', 'therapy'
+            ],
+            Study: [
+                'study', 'studying', 'homework', 'assignment', 'exam', 'quiz', 'course',
+                'lecture', 'class', 'lesson', 'reading', 'book', 'books', 'learn', 'learning',
+                'school', 'college', 'university'
+            ],
+            Errands: [
+                'errand', 'errands', 'lto', 'license', 'plate', 'galleria', 'registration',
+                'pick up', 'pickup', 'drop off', 'dropoff', 'deliver', 'laundry', 'cleaners',
+                'pharmacy', 'gas', 'refuel', 'hardware', 'lost 500', 'lost phone', 'claim'
+            ]
+        };
+
         // ==========================================================================
         // LABEL: PAGE-SETTINGS
         // Path: /settings
@@ -12545,13 +12647,125 @@
             const [compactMode, setCompactMode] = useState(!!settingsData?.compactMode);
             const [dailyReminders, setDailyReminders] = useState(settingsData?.dailyReminders !== false);
             const [bgVideoEnabled, setBgVideoEnabled] = useState(settingsData?.bgVideoEnabled !== false);
+            // (2026-07-13) Auto-categorization and preset settings states. Prev: none
+            const [defaultCategory, setDefaultCategory] = useState(settingsData?.defaultCategory || 'Errands');
+            const [prioOffset, setPrioOffset] = useState(Number(settingsData?.prioOffsetMinutes) || 10);
+            const [autoCatEnabled, setAutoCatEnabled] = useState(settingsData?.autoCategorizeEnabled !== false);
+            const [categoryKeywords, setCategoryKeywords] = useState(() => {
+                if (settingsData?.categoryKeywords && typeof settingsData.categoryKeywords === 'object' && Object.keys(settingsData.categoryKeywords).length > 0) {
+                    return settingsData.categoryKeywords;
+                }
+                return DEFAULT_CATEGORY_KEYWORDS;
+            });
+            const [selectedCat, setSelectedCat] = useState('Development');
+            const [newKeywordInput, setNewKeywordInput] = useState('');
+            const [newCatRuleName, setNewCatRuleName] = useState('');
             const navigate = useNavigate();
 
             useEffect(() => {
                 setCompactMode(!!settingsData?.compactMode);
                 setDailyReminders(settingsData?.dailyReminders !== false);
                 setBgVideoEnabled(settingsData?.bgVideoEnabled !== false);
+                if (settingsData?.defaultCategory) setDefaultCategory(settingsData.defaultCategory);
+                if (settingsData?.prioOffsetMinutes) setPrioOffset(Number(settingsData.prioOffsetMinutes));
+                if (settingsData?.autoCategorizeEnabled !== undefined) setAutoCatEnabled(settingsData.autoCategorizeEnabled !== false);
+                if (settingsData?.categoryKeywords && typeof settingsData.categoryKeywords === 'object' && Object.keys(settingsData.categoryKeywords).length > 0) {
+                    setCategoryKeywords(settingsData.categoryKeywords);
+                }
             }, [settingsData]);
+
+            // (2026-07-13) Save categorization settings to cloud. Prev: basic
+            const saveCategorizationSettings = (patch) => {
+                const nextDefault = patch.defaultCategory !== undefined ? patch.defaultCategory : defaultCategory;
+                const nextPrio = patch.prioOffsetMinutes !== undefined ? patch.prioOffsetMinutes : prioOffset;
+                const nextAuto = patch.autoCategorizeEnabled !== undefined ? patch.autoCategorizeEnabled : autoCatEnabled;
+                const nextKeywords = patch.categoryKeywords !== undefined ? patch.categoryKeywords : categoryKeywords;
+
+                if (patch.defaultCategory !== undefined) setDefaultCategory(patch.defaultCategory);
+                if (patch.prioOffsetMinutes !== undefined) setPrioOffset(patch.prioOffsetMinutes);
+                if (patch.autoCategorizeEnabled !== undefined) setAutoCatEnabled(patch.autoCategorizeEnabled);
+                if (patch.categoryKeywords !== undefined) setCategoryKeywords(patch.categoryKeywords);
+
+                onSaveSettings({
+                    compactMode,
+                    dailyReminders,
+                    bgVideoEnabled,
+                    defaultCategory: nextDefault,
+                    prioOffsetMinutes: nextPrio,
+                    autoCategorizeEnabled: nextAuto,
+                    categoryKeywords: nextKeywords
+                });
+            };
+
+            const handleAddKeyword = (cat, text) => {
+                const clean = (text || '').trim().toLowerCase();
+                if (!clean || !cat) return;
+                const existing = categoryKeywords[cat] || [];
+                if (!existing.includes(clean)) {
+                    const updated = {
+                        ...categoryKeywords,
+                        [cat]: [...existing, clean]
+                    };
+                    saveCategorizationSettings({ categoryKeywords: updated });
+                    if (showToast) showToast(`Added "${clean}" to ${cat}`);
+                }
+                setNewKeywordInput('');
+            };
+
+            const handleRemoveKeyword = (cat, text) => {
+                if (!cat) return;
+                const existing = categoryKeywords[cat] || [];
+                const updated = {
+                    ...categoryKeywords,
+                    [cat]: existing.filter(k => k !== text)
+                };
+                saveCategorizationSettings({ categoryKeywords: updated });
+                if (showToast) showToast(`Removed "${text}"`);
+            };
+
+            const handleAddCategoryRule = () => {
+                const clean = (newCatRuleName || '').trim();
+                if (!clean) return;
+                const capitalized = clean.charAt(0).toUpperCase() + clean.slice(1);
+                if (categoryKeywords[capitalized]) {
+                    if (showToast) showToast(`Category "${capitalized}" already exists`);
+                    setSelectedCat(capitalized);
+                    setNewCatRuleName('');
+                    return;
+                }
+                const updated = {
+                    ...categoryKeywords,
+                    [capitalized]: []
+                };
+                saveCategorizationSettings({ categoryKeywords: updated });
+                setSelectedCat(capitalized);
+                setNewCatRuleName('');
+                if (showToast) showToast(`Created category "${capitalized}"`);
+            };
+
+            const handleDeleteCategoryRule = (cat) => {
+                const copy = { ...categoryKeywords };
+                delete copy[cat];
+                const remaining = Object.keys(copy);
+                if (remaining.length > 0) setSelectedCat(remaining[0]);
+                saveCategorizationSettings({ categoryKeywords: copy });
+                if (showToast) showToast(`Deleted ${cat} rules`);
+            };
+
+            const handleResetKeywords = () => {
+                saveCategorizationSettings({
+                    categoryKeywords: DEFAULT_CATEGORY_KEYWORDS,
+                    defaultCategory: 'Errands',
+                    prioOffsetMinutes: 10,
+                    autoCategorizeEnabled: true
+                });
+                setDefaultCategory('Errands');
+                setPrioOffset(10);
+                setAutoCatEnabled(true);
+                setCategoryKeywords(DEFAULT_CATEGORY_KEYWORDS);
+                setSelectedCat('Development');
+                if (showToast) showToast("Keywords reset to defaults");
+            };
 
             const updateSetting = (key, value) => {
                 if (key === 'compactMode') setCompactMode(value);
@@ -12560,7 +12774,11 @@
                 onSaveSettings({ 
                     compactMode: key === 'compactMode' ? value : compactMode,
                     dailyReminders: key === 'dailyReminders' ? value : dailyReminders,
-                    bgVideoEnabled: key === 'bgVideoEnabled' ? value : bgVideoEnabled
+                    bgVideoEnabled: key === 'bgVideoEnabled' ? value : bgVideoEnabled,
+                    defaultCategory,
+                    prioOffsetMinutes: prioOffset,
+                    autoCategorizeEnabled: autoCatEnabled,
+                    categoryKeywords
                 });
                 showToast("Setting saved");
             };
@@ -12790,6 +13008,175 @@
                                         description="Receive daily notifications and streak reminders"
                                         icon="notifications_active"
                                     />
+                                </div>
+                            </div>
+                            
+                            {/* (2026-07-13) Auto-categorization & presets settings panel. Prev: none */}
+                            <div className="glass-panel rounded-3xl p-6 md:p-8 space-y-5">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                                            <span className="material-symbols-outlined text-lg">auto_awesome</span>
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xs font-bold text-primary uppercase tracking-widest">Auto-Categorization Rules</h3>
+                                            <p className="text-[11px] text-cream-light/40 mt-0.5">Customize keywords, default categories, and deadline offsets</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleResetKeywords}
+                                        className="text-[10px] font-bold text-white/40 hover:text-primary transition-colors flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10"
+                                        title="Reset keywords to defaults"
+                                    >
+                                        <span className="material-symbols-outlined text-xs">restart_alt</span>
+                                        Reset
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <ToggleSwitch
+                                        checked={autoCatEnabled}
+                                        onChange={(val) => saveCategorizationSettings({ autoCategorizeEnabled: val })}
+                                        label="Smart Keyword Categorization"
+                                        description="Automatically tag categories while typing task titles"
+                                        icon="label"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                                    <div className="p-3.5 bg-white/[0.03] rounded-2xl border border-white/5 space-y-1.5">
+                                        <label className="text-[11px] font-bold text-cream-light/70 uppercase tracking-wider block">Default Category</label>
+                                        <p className="text-[10px] text-cream-light/40">Fallback when no keywords match</p>
+                                        <input
+                                            type="text"
+                                            value={defaultCategory}
+                                            onChange={(e) => setDefaultCategory(e.target.value)}
+                                            onBlur={() => saveCategorizationSettings({ defaultCategory })}
+                                            placeholder="e.g. Errands"
+                                            className="w-full bg-[#0a0f1d] text-white text-xs px-3 py-2 rounded-xl border border-white/10 focus:border-primary/50 outline-none font-montserrat mt-1"
+                                        />
+                                    </div>
+
+                                    <div className="p-3.5 bg-white/[0.03] rounded-2xl border border-white/5 space-y-1.5">
+                                        <label className="text-[11px] font-bold text-cream-light/70 uppercase tracking-wider block">Prio Deadline Offset</label>
+                                        <p className="text-[10px] text-cream-light/40">Minutes before earliest task (rounded 10m)</p>
+                                        <div className="flex items-center gap-1.5 mt-1">
+                                            {[5, 10, 15, 20, 30].map(mins => (
+                                                <button
+                                                    key={mins}
+                                                    type="button"
+                                                    onClick={() => saveCategorizationSettings({ prioOffsetMinutes: mins })}
+                                                    className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all ${prioOffset === mins ? 'bg-primary text-white shadow-[0_0_10px_rgba(249,115,22,0.4)]' : 'bg-white/5 text-white/50 hover:text-white hover:bg-white/10'}`}
+                                                >
+                                                    {mins}m
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3 pt-1">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[11px] font-bold text-cream-light/70 uppercase tracking-wider">Category Keywords & Synonyms</span>
+                                        <span className="text-[10px] text-primary/70">{Object.keys(categoryKeywords).length} categories</span>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto custom-scrollbar p-1 bg-black/20 rounded-2xl border border-white/5">
+                                        {Object.keys(categoryKeywords).map(catName => (
+                                            <button
+                                                key={catName}
+                                                type="button"
+                                                onClick={() => setSelectedCat(catName)}
+                                                className={`px-2.5 py-1 text-[11px] font-bold rounded-xl transition-all ${selectedCat.toLowerCase() === catName.toLowerCase() ? 'bg-primary text-white shadow-sm' : 'bg-white/5 text-cream-light/60 hover:text-white hover:bg-white/10'}`}
+                                            >
+                                                {catName}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {selectedCat && (
+                                        <div className="p-4 bg-[#0a0f1d]/80 rounded-2xl border border-white/10 space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                                                    <span className="text-xs font-bold text-white font-montserrat tracking-wide uppercase">{selectedCat} Keywords</span>
+                                                    <span className="text-[10px] text-cream-light/40">({(categoryKeywords[selectedCat] || []).length} keywords)</span>
+                                                </div>
+                                                {Object.keys(categoryKeywords).length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteCategoryRule(selectedCat)}
+                                                        className="text-white/30 hover:text-rose-400 text-xs transition-colors p-1 rounded-lg"
+                                                        title={`Delete ${selectedCat} category rule`}
+                                                    >
+                                                        <span className="material-symbols-outlined text-sm">delete</span>
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto custom-scrollbar p-1">
+                                                {(categoryKeywords[selectedCat] || []).map((keyword, kidx) => (
+                                                    <span
+                                                        key={kidx}
+                                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/5 border border-white/10 text-white/80 text-[11px] hover:border-rose-400/40"
+                                                    >
+                                                        <span>{keyword}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveKeyword(selectedCat, keyword)}
+                                                            className="text-white/30 hover:text-rose-400 transition-colors ml-0.5"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[12px]">close</span>
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                                {(categoryKeywords[selectedCat] || []).length === 0 && (
+                                                    <p className="text-[11px] text-white/30 italic py-1">No keywords yet. Add keywords or synonyms below.</p>
+                                                )}
+                                            </div>
+
+                                            <div className="flex items-center gap-2 pt-1">
+                                                <input
+                                                    type="text"
+                                                    value={newKeywordInput}
+                                                    onChange={(e) => setNewKeywordInput(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ',') {
+                                                            e.preventDefault();
+                                                            handleAddKeyword(selectedCat, newKeywordInput);
+                                                        }
+                                                    }}
+                                                    placeholder={`Add keyword for ${selectedCat} (Enter to add)...`}
+                                                    className="flex-1 bg-white/5 text-white text-xs px-3 py-2 rounded-xl border border-white/10 focus:border-primary/50 outline-none"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleAddKeyword(selectedCat, newKeywordInput)}
+                                                    className="px-3 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 font-bold text-xs rounded-xl transition-all"
+                                                >
+                                                    Add
+                                                </button>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                                                <input
+                                                    type="text"
+                                                    value={newCatRuleName}
+                                                    onChange={(e) => setNewCatRuleName(e.target.value)}
+                                                    placeholder="Add new category name..."
+                                                    className="flex-1 bg-white/5 text-white text-xs px-3 py-1.5 rounded-xl border border-white/10 focus:border-primary/50 outline-none"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={handleAddCategoryRule}
+                                                    className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl transition-all"
+                                                >
+                                                    + Category
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             
@@ -13381,7 +13768,8 @@
 
         // (2026-07-13) Support quickTasks prop in QuickTaskModal. Prev: no quickTasks
         // (2026-08-24) Support prefillCategory to auto-set category from filter. Prev: none
-        const QuickTaskModal = ({ onClose, onAdd, onDelete = null, initialData = null, showToast, prefillDate = null, prefillCategory = null, quickTasks = [] }) => {
+        // (2026-07-13) Support settingsData in QuickTaskModal. Prev: none
+        const QuickTaskModal = ({ onClose, onAdd, onDelete = null, initialData = null, showToast, prefillDate = null, prefillCategory = null, quickTasks = [], settingsData = null }) => {
             const getTomorrow = () => {
                 const d = new Date();
                 d.setDate(d.getDate() + 1);
@@ -13393,28 +13781,38 @@
                 return formatDateLocal(d);
             };
 
-            // (2026-07-13) Calculate PRIO deadline (-10 mins from earliest task today). Prev: none
+            // (2026-07-13) Prio offset from settings or 10m, rounded 10s. Prev: 10m fixed
             const getPrioTarget = () => {
+                const prioOffset = Number(settingsData?.prioOffsetMinutes) || 10;
                 const todayStr = formatDateLocal(new Date());
-                const validTodayTasks = (quickTasks || []).filter(t => t && t.dueDate === todayStr && t.dueTime && (!initialData || t.id !== initialData.id));
-                if (validTodayTasks.length > 0) {
-                    const sorted = [...validTodayTasks].sort((a, b) => a.dueTime.localeCompare(b.dueTime));
+                const allToday = (quickTasks || []).filter(t => t && t.dueDate === todayStr && t.dueTime && (!initialData || t.id !== initialData.id));
+                const activeToday = allToday.filter(t => !t.completed);
+                const candidates = activeToday.length > 0 ? activeToday : allToday;
+                if (candidates.length > 0) {
+                    const sorted = [...candidates].sort((a, b) => a.dueTime.localeCompare(b.dueTime));
                     const earliest = sorted[0].dueTime;
                     const [h, m] = earliest.split(':').map(Number);
-                    let totalMins = h * 60 + m - 10;
+                    let totalMins = Math.round((h * 60 + m - prioOffset) / 10) * 10;
                     if (totalMins < 0) totalMins = 0;
+                    if (totalMins >= 24 * 60) totalMins = 23 * 60 + 50;
                     const prioH = String(Math.floor(totalMins / 60)).padStart(2, '0');
                     const prioM = String(totalMins % 60).padStart(2, '0');
                     return { date: todayStr, time: `${prioH}:${prioM}` };
                 }
                 if (initialData && initialData.dueTime) {
                     const [h, m] = initialData.dueTime.split(':').map(Number);
-                    let totalMins = Math.max(0, h * 60 + m - 10);
+                    let totalMins = Math.max(0, Math.round((h * 60 + m - prioOffset) / 10) * 10);
+                    if (totalMins >= 24 * 60) totalMins = 23 * 60 + 50;
                     const prioH = String(Math.floor(totalMins / 60)).padStart(2, '0');
                     const prioM = String(totalMins % 60).padStart(2, '0');
                     return { date: todayStr, time: `${prioH}:${prioM}` };
                 }
-                return { date: todayStr, time: '09:00' };
+                const now = new Date();
+                const nowMins = Math.round((now.getHours() * 60 + now.getMinutes()) / 10) * 10;
+                const clamped = Math.min(23 * 60 + 50, Math.max(0, nowMins));
+                const prioH = String(Math.floor(clamped / 60)).padStart(2, '0');
+                const prioM = String(clamped % 60).padStart(2, '0');
+                return { date: todayStr, time: `${prioH}:${prioM}` };
             };
              const extractDateFromText = (input) => {
                 let lower = input.toLowerCase();
@@ -13563,25 +13961,28 @@
 
 
 
-             const getLaterTiming = () => {
+            // (2026-07-13) Later preset matches swipe right logic. Prev: static timing
+            const getLaterTiming = () => {
                 const now = new Date();
+                const todayStr = formatDateLocal(now);
                 const hour = now.getHours();
-                
-                // 6PM - 6AM -> Tomorrow 10AM
-                if (hour >= 18 || hour < 6) {
-                    const target = new Date(now);
-                    if (hour >= 18) target.setDate(target.getDate() + 1);
+                if (hour < 6) {
+                    return { date: todayStr, time: '10:00' };
+                }
+                const isNight = hour >= 20;
+                const laterDate = new Date(now.getTime() + (isNight ? 1 : 4) * 60 * 60 * 1000);
+                laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
+                if (formatDateLocal(laterDate) === todayStr || isNight) {
+                    const h = String(laterDate.getHours()).padStart(2, '0');
+                    const m = String(laterDate.getMinutes()).padStart(2, '0');
                     return {
-                        date: formatDateLocal(target),
-                        time: '10:00'
+                        date: formatDateLocal(laterDate),
+                        time: `${h}:${m}`
                     };
                 }
-                
-                // 6AM - 6PM -> 4 Hours later
-                const future = new Date(now.getTime() + 4 * 60 * 60 * 1000);
                 return {
-                    date: formatDateLocal(future),
-                    time: future.getHours().toString().padStart(2, '0') + ':' + future.getMinutes().toString().padStart(2, '0')
+                    date: getTomorrow(),
+                    time: '10:00'
                 };
             };
 
@@ -13638,9 +14039,22 @@
                 setIsAddingNewCat(false);
             };
 
-            // (2026-07-13) Auto-categorize keywords & hashtags for new tasks. Prev: strict match
+            // (2026-07-13) Dynamic keywords from settings or defaults. Prev: static list
+            const categoryKeywordMap = useMemo(() => {
+                const source = (settingsData && settingsData.categoryKeywords && typeof settingsData.categoryKeywords === 'object' && Object.keys(settingsData.categoryKeywords).length > 0)
+                    ? settingsData.categoryKeywords
+                    : DEFAULT_CATEGORY_KEYWORDS;
+                if (Array.isArray(source)) return source;
+                return Object.entries(source).map(([name, keys]) => ({
+                    name,
+                    keys: Array.isArray(keys) ? keys : (typeof keys === 'string' ? keys.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) : [])
+                }));
+            }, [settingsData]);
+
+            // (2026-07-13) Auto-categorize by rules & default setting. Prev: hardcoded
             const autoCategorizeFromText = useCallback((str) => {
-                if (!str) return;
+                if (!str || !str.trim()) return;
+                if (settingsData?.autoCategorizeEnabled === false) return;
                 const lower = str.toLowerCase();
                 const matched = [];
                 (availableCategories || []).forEach(cat => {
@@ -13653,22 +14067,28 @@
                         matched.push(clean);
                     }
                 });
-                const smartKeywords = [
-                    { cat: 'Work', keys: ['work', 'meeting', 'project', 'client', 'deadline', 'office', 'presentation'] },
-                    { cat: 'Personal', keys: ['personal', 'family', 'home', 'errand'] },
-                    { cat: 'Health', keys: ['gym', 'workout', 'exercise', 'doctor', 'clinic', 'dentist', 'medication'] },
-                    { cat: 'Study', keys: ['study', 'exam', 'homework', 'assignment', 'school', 'course', 'reading'] },
-                    { cat: 'Finance', keys: ['bill', 'payment', 'tax', 'invoice', 'salary', 'rent', 'budget'] },
-                    { cat: 'Shopping', keys: ['buy', 'shop', 'groceries', 'supermarket', 'order'] }
-                ];
-                smartKeywords.forEach(({ cat, keys }) => {
-                    if (keys.some(k => new RegExp(`(^|[^a-zA-Z0-9_#])#?${k}([^a-zA-Z0-9_]|$)`, 'i').test(lower))) {
-                        matched.push(cat);
+                categoryKeywordMap.forEach(({ name, keys }) => {
+                    const hasKey = (keys || []).some(k => {
+                        const escaped = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        return new RegExp(`(^|[^a-zA-Z0-9_#])#?${escaped}([^a-zA-Z0-9_]|$)`, 'i').test(lower);
+                    });
+                    if (hasKey) {
+                        const target = (availableCategories || []).find(c => c.toLowerCase() === name.toLowerCase()) || name;
+                        matched.push(target);
                     }
                 });
+                const defaultCatName = settingsData?.defaultCategory || 'Errands';
+                if (matched.length === 0) {
+                    if (prefillCategory) {
+                        matched.push(prefillCategory);
+                    } else {
+                        const fallbackCat = (availableCategories || []).find(c => c.toLowerCase() === defaultCatName.toLowerCase()) || defaultCatName;
+                        matched.push(fallbackCat);
+                    }
+                }
                 if (matched.length > 0) {
                     setCategories(prev => {
-                        const next = [...prev];
+                        const next = [];
                         matched.forEach(m => {
                             if (!next.some(c => c.toLowerCase() === m.toLowerCase())) {
                                 next.push(m);
@@ -13677,7 +14097,7 @@
                         return next;
                     });
                 }
-            }, [availableCategories]);
+            }, [availableCategories, categoryKeywordMap, prefillCategory, settingsData]);
 
             // (2026-07-13) Turn off 24h reminder by default for new tasks. Prev: all true
             const [reminders, setReminders] = useState(() => {
@@ -13716,17 +14136,29 @@
                 }
                 return 0;
             });
-            // (2026-07-13) Reverse-chronological progress history. Prev: unsorted
+            // (2026-07-13) Auto-log 100% completion in history. Prev: missing 100% log
             const [progressHistory, setProgressHistory] = useState(() => {
+                let history = [];
                 if (initialData && Array.isArray(initialData.progressHistory)) {
-                    return [...initialData.progressHistory].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                    history = [...initialData.progressHistory];
                 }
-                return [];
+                const isCompleted = initialData && (initialData.completed || initialData.progress === 100);
+                if (isCompleted && !history.some(h => Number(h.percentage) === 100)) {
+                    history.push({
+                        id: 'log_100_' + (initialData.id || Date.now()),
+                        percentage: 100,
+                        note: 'Completed',
+                        timestamp: initialData.completedAt || Date.now()
+                    });
+                }
+                return history.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
             });
             const [newLogNote, setNewLogNote] = useState('');
 
+            // (2026-07-13) Capitalize progress note words. Prev: raw text
             const handleAddProgressLog = (customNote, customProg) => {
-                const noteText = (customNote !== undefined ? customNote : newLogNote).trim();
+                const rawNote = (customNote !== undefined ? customNote : newLogNote).trim();
+                const noteText = formatTaskText(rawNote);
                 if (!noteText) return;
                 const targetProg = customProg !== undefined ? customProg : progress;
                 const newEntry = {
@@ -13971,7 +14403,16 @@
                         finalHistory.unshift({
                             id: 'log_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
                             percentage: progress,
-                            note: newLogNote.trim(),
+                            note: formatTaskText(newLogNote.trim()),
+                            timestamp: Date.now()
+                        });
+                    }
+                    // (2026-07-13) Ensure 100% completion log in history. Prev: missing 100%
+                    if (progress === 100 && !finalHistory.some(h => Number(h.percentage) === 100)) {
+                        finalHistory.unshift({
+                            id: 'log_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                            percentage: 100,
+                            note: 'Completed',
                             timestamp: Date.now()
                         });
                     }
@@ -13982,6 +14423,16 @@
                     setTimeout(() => {
                         if (typeof onClose === 'function') onClose();
                     }, 180);
+                }
+            };
+
+            // (2026-07-13) Auto-save task on backdrop click. Prev: close only
+            const handleBackdropClick = (e) => {
+                if (e && e.stopPropagation) e.stopPropagation();
+                if (text.trim() && !isSubmitting) {
+                    handleSubmit(e);
+                } else {
+                    handleClose();
                 }
             };
 
@@ -13999,11 +14450,12 @@
                     return parts.length === 3 ? `${parts[1]}/${parts[2]}` : '';
                 };
 
-                // Use logic to determine which preset to show if possible
+                // (2026-07-13) Match dynamic later in getSelectedLabel. Prev: static
                 if (selectedPreset === 'later') {
-                    const isLaterMatch = (dueDate === initialLater.date && dueTime === initialLater.time);
+                    const currentLater = getLaterTiming();
+                    const isLaterMatch = (dueDate === currentLater.date && dueTime === currentLater.time) || (dueDate === initialLater.date && dueTime === initialLater.time);
                     if (isLaterMatch) {
-                        return { label: 'Later', sub: (initialLater.date === todayStr ? 'Today, ' : 'Tomorrow, ') + formatTime(initialLater.time), icon: 'wb_twilight' };
+                        return { label: 'Later', sub: (dueDate === todayStr ? 'Today, ' : 'Tomorrow, ') + formatTime(dueTime), icon: 'wb_twilight' };
                     }
                 }
                 
@@ -14028,7 +14480,8 @@
                 }
 
                 // Fallback smart matching if preset is somehow lost or doesn't match
-                if (dueDate === initialLater.date && dueTime === initialLater.time) return { label: 'Later', sub: (initialLater.date === todayStr ? 'Today, ' : 'Tomorrow, ') + formatTime(initialLater.time), icon: 'wb_twilight' };
+                const fallbackLater = getLaterTiming();
+                if ((dueDate === fallbackLater.date && dueTime === fallbackLater.time) || (dueDate === initialLater.date && dueTime === initialLater.time)) return { label: 'Later', sub: (dueDate === todayStr ? 'Today, ' : 'Tomorrow, ') + formatTime(dueTime), icon: 'wb_twilight' };
                 if (dueDate === tomorrowStr && dueTime === '10:00') return { label: 'Tomorrow', sub: 'Tomorrow, 10:00 AM', icon: 'event' };
                 if (dueDate === nextMonStr && dueTime === '08:00') return { label: 'Next Monday', sub: 'Monday, 8:00 AM', icon: 'calendar_month' };
                 return { label: 'Custom', sub: `${formatD(dueDate)}, ${formatTime(dueTime)}`, icon: 'schedule' };
@@ -14036,9 +14489,12 @@
 
             const selected = getSelectedLabel();
 
-            // (2026-07-13) Pad top for status bar and reduce height to 82vh. Prev: 92vh
+            // (2026-07-13) Add horizontal margin outside modal. Prev: p-2
             return (
-                <div className="fixed inset-0 z-[2000] flex items-center justify-center p-3.5 pt-[max(env(safe-area-inset-top),1.75rem)] sm:p-4">
+                <div 
+                    onClick={handleBackdropClick}
+                    className="fixed inset-0 z-[2000] flex items-center justify-center px-4 py-2 sm:px-6 sm:py-4 pt-[max(env(safe-area-inset-top),0.75rem)] pb-2 sm:pb-4"
+                >
                     <style>{`
                         /* (2026-07-13) Invert picker indicator to white for dark inputs. Prev: black */
                         .quick-task-input:focus {
@@ -14069,23 +14525,42 @@
                             background: rgba(255,255,255,0.05);
                             color: #f97316;
                         }
+                        /* (2026-07-13) Custom scrollbar for modal card. Prev: default native */
+                        .custom-scrollbar::-webkit-scrollbar {
+                            width: 5px;
+                        }
+                        .custom-scrollbar::-webkit-scrollbar-track {
+                            background: #0f172a;
+                        }
+                        .custom-scrollbar::-webkit-scrollbar-thumb {
+                            background: rgba(249, 115, 22, 0.4);
+                            border-radius: 9999px;
+                        }
+                        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                            background: rgba(249, 115, 22, 0.7);
+                        }
+                        .custom-scrollbar {
+                            scrollbar-width: thin;
+                            scrollbar-color: rgba(249, 115, 22, 0.4) #0f172a;
+                        }
                     `}</style>
-                    {/* (2026-07-13) Darkened 85% blurred backdrop. Prev: bg-black/70 */}
+                    {/* (2026-07-13) Auto-save on backdrop click. Prev: handleClose */}
                     <div 
                         className={`fixed inset-0 bg-black/85 backdrop-blur-md ${isClosing ? 'qt-modal-backdrop-out' : 'qt-modal-backdrop-in'}`} 
-                        onClick={handleClose}
+                        onClick={handleBackdropClick}
                     ></div>
-                    {/* (2026-07-13) Reduce modal height to clear status bar. Prev: 92vh */}
+                    {/* (2026-07-13) Increase max height to 96vh to prevent scroll. Prev: 82vh */}
                     <div 
-                        className={`bg-[#0f172a] w-full max-w-md max-h-[82vh] sm:max-h-[85vh] overflow-y-auto rounded-3xl p-5 sm:p-6 pb-8 sm:pb-8 relative z-10 shadow-2xl border border-white/5 custom-scrollbar ${isClosing ? 'qt-modal-card-out' : 'qt-modal-card-in'}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`bg-[#0f172a] w-full max-w-md max-h-[96vh] sm:max-h-[96vh] overflow-y-auto rounded-3xl p-4 sm:p-6 pb-3.5 sm:pb-4 relative z-10 shadow-2xl border border-white/5 custom-scrollbar ${isClosing ? 'qt-modal-card-out' : 'qt-modal-card-in'}`}
                     >
-                        <div className="flex justify-between items-center mb-2.5">
+                        <div className="flex justify-between items-center mb-2">
                             <h3 className="text-base font-bold text-cream-light font-montserrat tracking-wide">{initialData ? 'Edit Task' : 'New Quick Task'}</h3>
                             <button onClick={handleClose} className="text-white/20 hover:text-primary transition-colors">
                                 <span className="material-symbols-outlined text-lg">close</span>
                             </button>
                         </div>
-                        <form onSubmit={handleSubmit} className="space-y-2.5">
+                        <form onSubmit={handleSubmit} className="space-y-2">
                             {/* (2026-07-13) Renamed to Task Name with validation error. Prev: Description */}
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between px-1">
@@ -14158,7 +14633,8 @@
                                         {/* (2026-07-13) Rename Tomorrow preset label to Tomm. Prev: Tmrw */}
                                         {[
                                             { id: 'prio', label: 'Prio', getTarget: getPrioTarget },
-                                            { id: 'later', label: 'Later', getTarget: () => ({ date: initialLater.date, time: initialLater.time }) },
+                                            // (2026-07-13) Use dynamic getLaterTiming for Later. Prev: initialLater
+                                            { id: 'later', label: 'Later', getTarget: getLaterTiming },
                                             { id: 'tomorrow', label: 'Tomm', getTarget: () => ({ date: getTomorrow(), time: '10:00' }) },
                                             { id: 'monday', label: 'Mon', getTarget: () => ({ date: getNextMonday(), time: '08:00' }) }
                                         ].map(preset => (
@@ -14278,9 +14754,21 @@
                                     >
                                         In Progress
                                     </button>
+                                    {/* (2026-07-13) Set 100% & auto-add log. Prev: setProgress(100) */}
                                     <button
                                         type="button"
-                                        onClick={() => setProgress(100)}
+                                        onClick={() => {
+                                            setProgress(100);
+                                            setProgressHistory(prev => {
+                                                if (prev.some(h => Number(h.percentage) === 100)) return prev;
+                                                return [{
+                                                    id: 'log_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                                                    percentage: 100,
+                                                    note: 'Completed',
+                                                    timestamp: Date.now()
+                                                }, ...prev];
+                                            });
+                                        }}
                                         className={`h-7 rounded-xl text-[9.5px] font-bold font-montserrat uppercase tracking-wider transition-all duration-200 flex items-center justify-center ${progress === 100 ? 'bg-green-500/20 text-green-400 border border-green-500/40 shadow-[0_0_10px_rgba(34,197,94,0.2)]' : 'bg-white/[0.03] text-white/40 hover:text-white/70 border border-white/5'}`}
                                     >
                                         Completed
@@ -14353,10 +14841,12 @@
                                     <span className="text-[9px] font-black text-primary px-1.5 font-montserrat shrink-0">
                                         {progress}%
                                     </span>
+                                    {/* (2026-07-13) Capitalize words in note input. Prev: plain lowercase */}
                                     <input 
                                         type="text" 
                                         value={newLogNote} 
-                                        onChange={(e) => setNewLogNote(e.target.value)}
+                                        onChange={(e) => setNewLogNote(e.target.value.replace(/\b[a-zA-Z]/g, m => m.toUpperCase()))}
+                                        style={{ textTransform: 'capitalize' }}
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' && newLogNote.trim()) {
                                                 e.preventDefault();
@@ -14406,8 +14896,9 @@
                                                         <span className="material-symbols-outlined text-xs">close</span>
                                                     </button>
                                                 </div>
+                                                {/* (2026-07-13) Capitalize rendered log note. Prev: item.note */}
                                                 <p className="text-[11px] text-cream-light/85 font-montserrat break-words pl-0.5 leading-snug">
-                                                    {item.note}
+                                                    {formatTaskText(item.note)}
                                                 </p>
                                             </div>
                                         ))}
@@ -14428,9 +14919,9 @@
                                         </button>
                                     )}
                                 </div>
-                                {/* (2026-07-13) 2-row category scroll with fade gradient. Prev: max-h-20 */}
+                                {/* (2026-07-13) 3-row categories max-h-[88px]. Prev: max-h-[58px] */}
                                 <div className="relative">
-                                    <div className="flex flex-wrap items-center gap-1.5 max-h-[58px] overflow-y-auto progress-logs-scroll pr-0.5 pb-1">
+                                    <div className="flex flex-wrap items-center gap-1.5 max-h-[88px] overflow-y-auto progress-logs-scroll pr-0.5 pb-1">
                                         {availableCategories.map(cat => {
                                             const isSelected = categories.includes(cat);
                                             return (
@@ -14479,8 +14970,8 @@
                                     <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[#0f172a] via-[#0f172a]/80 to-transparent"></div>
                                 </div>
                             </div>
-                            {/* (2026-07-13) Add bottom padding for task modal. Prev: cut off button */}
-                            <div className="flex items-center gap-2 mt-2 pb-3">
+                            {/* (2026-07-13) Reduce submit button bottom pad to pb-1. Prev: pb-3 */}
+                            <div className="flex items-center gap-2 mt-2 pb-1">
                                 {initialData && onDelete && (
                                     <button
                                         type="button"
@@ -17392,8 +17883,15 @@
                 showToast("Profile saved");
             }, [user, activeCollection, profileData, showToast]);
 
+            // (2026-07-13) Save settings to Firestore and local storage. Prev: cloud only
             const handleSaveSettings = useCallback((nextSettings) => {
-                setSettingsData(prev => ({ ...prev, ...nextSettings }));
+                setSettingsData(prev => {
+                    const merged = { ...prev, ...nextSettings };
+                    if (user?.uid) {
+                        try { localStorage.setItem('faiora_settings_' + user.uid, JSON.stringify(merged)); } catch {}
+                    }
+                    return merged;
+                });
                 if (user && activeCollection) {
                     db.collection(activeCollection).doc(user.uid).set({ settings: { ...settingsData, ...nextSettings } }, { merge: true }).catch(() => {});
                 }
@@ -17661,20 +18159,32 @@
                     const nextCompleted = !original.completed;
                     let nextProgress;
                     let nextLastProgress = original.lastProgress;
+                    let nextProgressHistory = Array.isArray(original.progressHistory) ? [...original.progressHistory] : [];
                     if (nextCompleted) {
                         if (original.progress > 0 && original.progress < 100) {
                             nextLastProgress = original.progress;
                         }
                         nextProgress = 100;
+                        // (2026-07-13) Record 100% log on task completion toggle. Prev: none
+                        if (!nextProgressHistory.some(h => Number(h.percentage) === 100)) {
+                            nextProgressHistory.unshift({
+                                id: 'log_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                                percentage: 100,
+                                note: 'Completed',
+                                timestamp: Date.now()
+                            });
+                        }
                     } else {
                         nextProgress = (original.lastProgress !== undefined && original.lastProgress > 0 && original.lastProgress < 100)
                             ? original.lastProgress
                             : ((original.progress > 0 && original.progress < 100) ? original.progress : 0);
+                        nextProgressHistory = nextProgressHistory.filter(h => !(Number(h.percentage) === 100 && h.note === 'Completed'));
                     }
                     const updatedTask = {
                         ...original,
                         completed: nextCompleted,
                         progress: nextProgress ?? (nextCompleted ? 100 : 0),
+                        progressHistory: nextProgressHistory,
                         lastProgress: nextLastProgress ?? null,
                         completedAt: nextCompleted ? Date.now() : null
                     };
@@ -18636,6 +19146,7 @@
                          />
                      )}
                     {/* (2026-08-24) Pass prefillCategory to auto-set category from filter. Prev: none */}
+                    {/* (2026-07-13) Pass settingsData for custom categorization & presets. Prev: none */}
                     {isQuickTaskModalOpen && (
                         <QuickTaskModal 
                             prefillDate={prefillDate}
@@ -18644,6 +19155,7 @@
                             onAdd={handleAddQuickTask} 
                             showToast={showToast} 
                             quickTasks={quickTasks}
+                            settingsData={settingsData}
                         />
                     )}
                     {/* (2026-07-13) Forward progressHistory and quickTasks. Prev: no history/quickTasks */}
@@ -18654,6 +19166,7 @@
                             onDelete={handleDeleteQuickTask}
                             showToast={showToast}
                             quickTasks={quickTasks}
+                            settingsData={settingsData}
                             // (2026-07-13) Forward reminders in update call. Prev: history only
                             onAdd={(text, date, time, categories, progress, progressHistory, reminders) => {
                                 handleUpdateQuickTask(editingQuickTask.id, text, date, time, categories, progress, progressHistory, reminders);
@@ -18683,14 +19196,14 @@
                         />,
                         document.body
                     )}
-                    {/* (2026-07-13) 2 visible toasts via createPortal. Prev: invalid JSX comment */}
-                    {!isTransitioning && typeof document !== 'undefined' && ReactDOM.createPortal(
-                        <div style={{
+                    {/* (2026-07-13) Hide toasts when modal open; zIndex 1500. Prev: 99999 */}
+                    {!(isCreatorOpen || isSetLockModalOpen || !!unlockingNote || isQuickTaskModalOpen || !!editingQuickTask || !!activeAlarmAlert || showPermissionModal) && !isTransitioning && typeof document !== 'undefined' && ReactDOM.createPortal(
+                        <div className="toast-container" style={{
                             position: 'fixed',
                             bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
                             left: '50%',
                             transform: 'translateX(-50%)',
-                            zIndex: 99999,
+                            zIndex: 1500,
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
@@ -18713,8 +19226,9 @@
                     )}
 
                     {/* Task Snackbars */}
-                    {/* (2026-08-24) Responsive max-width 480px centered. Prev: 384px */}
-                    <div style={{ position:'fixed', bottom:'calc(96px + env(safe-area-inset-bottom,0px))', left:'50%', transform:'translateX(-50%)', zIndex:99998, display:'flex', flexDirection:'column-reverse', gap:'12px', pointerEvents:'none', width:'calc(100% - 32px)', maxWidth:'480px', boxSizing:'border-box' }}>
+                    {/* (2026-07-13) Hide snackbars on modal; zIndex 1400. Prev: 99998 */}
+                    {!(isCreatorOpen || isSetLockModalOpen || !!unlockingNote || isQuickTaskModalOpen || !!editingQuickTask || !!activeAlarmAlert || showPermissionModal) && (
+                    <div style={{ position:'fixed', bottom:'calc(96px + env(safe-area-inset-bottom,0px))', left:'50%', transform:'translateX(-50%)', zIndex:1400, display:'flex', flexDirection:'column-reverse', gap:'12px', pointerEvents:'none', width:'calc(100% - 32px)', maxWidth:'480px', boxSizing:'border-box' }}>
                         <style>{`
                             .task-snackbar {
                                 background: rgba(15, 23, 42, 0.9);
@@ -18723,7 +19237,7 @@
                                 border-radius: 1.25rem;
                                 padding: 0.85rem 1.25rem;
                                 display: flex;
-                                align-items: center;
+                                alignItems: center;
                                 justify-content: space-between;
                                 color: #f8fafc;
                                 box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
@@ -18793,6 +19307,7 @@
                             />
                         ))}
                     </div>
+                    )}
                     </FaioraErrorBoundary>
                 </HashRouter>
             );

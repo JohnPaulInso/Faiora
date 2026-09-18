@@ -740,7 +740,8 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     transform: translateX(-50%);
     /* Fix 2026-04-22: Lifted snackbars higher (8.5rem) to ensure they show above the mobile FABs (100px/6.25rem) */
     bottom: calc(env(safe-area-inset-bottom, 0px) + 8.5rem);
-    z-index: 20050;
+    /* (2026-07-13) Set snackbar z-index 1500 below modals. Prev: 20050 */
+    z-index: 1500;
     pointer-events: none;
     width: auto;
     max-width: calc(100vw - 24px);
@@ -748,6 +749,17 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     flex-direction: column;
     align-items: center;
     gap: 10px;
+}
+
+/* (2026-07-13) Hide snackbars when any modal is open. Prev: visible */
+body:has(.z-\[2000\]) .toast-container,
+body:has(.z-\[2000\]) .task-snackbar,
+body:has(.z-\[2000\]) [style*="task-snackbar"],
+body.has-modal-open .toast-container,
+body.has-modal-open .task-snackbar {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
 }
 
 /* (2026-07-13) 18px padding & progress bar for toast-pill. Prev: 20px / 14px */
@@ -1051,6 +1063,26 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     border-radius: 9999px;
 }
 .progress-logs-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(249, 115, 22, 0.7);
+}
+
+/* (2026-07-13) Dark custom scrollbar for PC/tablet view. Prev: none */
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(249, 115, 22, 0.4) rgba(15, 23, 42, 0.6);
+}
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #0f172a;
+    border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(249, 115, 22, 0.4);
+    border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(249, 115, 22, 0.7);
 }
 
