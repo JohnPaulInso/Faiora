@@ -6317,8 +6317,7 @@
                             <span className="material-symbols-outlined text-xs font-bold">check</span>
                         </div>
                         <div className="flex flex-col justify-center flex-1 min-w-0">
-                            {/* (2026-07-13) Bold font weight for past due tasks. Prev: regular semibold */}
-                            <h4 className={`${hideDateSubtitle ? 'text-[10.5px] md:text-[11.5px]' : 'text-xs md:text-[13px]'} text-cream-light font-montserrat font-semibold tracking-wide leading-snug transition-all duration-300 line-clamp-2 overflow-hidden ${(isCompletedState || isCompleting) ? 'line-through decoration-primary/50 opacity-60' : isPressed || isLongPressing ? 'text-primary' : 'group-hover:text-primary'} ${isOverdue && !(isCompletedState || isCompleting) ? 'font-bold text-red-400' : ''}`}>
+                            <h4 className={`${hideDateSubtitle ? 'text-[10.5px] md:text-[11.5px]' : 'text-xs md:text-[13px]'} text-cream-light font-montserrat font-semibold tracking-wide leading-snug transition-all duration-300 line-clamp-2 overflow-hidden ${(isCompletedState || isCompleting) ? 'line-through decoration-primary/50 opacity-60' : isPressed || isLongPressing ? 'text-primary' : 'group-hover:text-primary'} ${isOverdue && !(isCompletedState || isCompleting) ? 'text-red-400' : ''}`}>
                                 {formatTaskText(task.text)}
                             </h4>
                             {hideDateSubtitle ? (
@@ -6602,8 +6601,8 @@
                             )}
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                    {/* (2026-07-13) Bold font weight for past due tasks. Prev: normal */}
-                                    <span className={`qt-notepad-item-text text-xs md:text-sm font-montserrat leading-5 transition-all duration-150 ${((task.text || '').length <= ((taskProgress > 0 && !task.completed) ? (task.dueTime ? 18 : 22) : (task.dueTime ? 30 : 38))) ? 'clamp-1' : 'clamp-2'} ${isLongPressing || longPressingId === task.id ? (task.completed ? 'text-primary/40 line-through' : 'text-primary font-semibold') : isPressed ? 'text-primary font-semibold' : task.completed ? 'line-through text-white/50 group-hover:text-white/70' : isPastDue ? 'font-bold text-red-300/80 group-hover:text-red-200' : 'text-cream-light group-hover:text-primary'}`}>
+                                    {/* (2026-07-13) Subtle light red color for past due. Prev: text-cream-light */}
+                                    <span className={`qt-notepad-item-text text-xs md:text-sm font-montserrat leading-5 transition-all duration-150 ${((task.text || '').length <= ((taskProgress > 0 && !task.completed) ? (task.dueTime ? 18 : 22) : (task.dueTime ? 30 : 38))) ? 'clamp-1' : 'clamp-2'} ${isLongPressing || longPressingId === task.id ? (task.completed ? 'text-primary/40 line-through' : 'text-primary font-semibold') : isPressed ? 'text-primary font-semibold' : task.completed ? 'line-through text-white/50 group-hover:text-white/70' : isPastDue ? 'text-red-300/80 group-hover:text-red-200' : 'text-cream-light group-hover:text-primary'}`}>
                                         {formatTaskText(task.text)}
                                         {/* (2026-07-13) Baseline align time to fix spacing. Prev: align-middle */}
                                         {task.dueTime && (secKey === 'today' || secKey === 'tomorrow' || secKey === 'yesterday') && !task.completed && (
