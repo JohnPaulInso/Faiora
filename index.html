@@ -6098,6 +6098,28 @@
             );
         });
 
+        // (2026-07-13) Helper to calculate priority due time. Prev: none
+        const getTaskPrioTarget = (targetTask) => {
+            const todayStr = formatDateLocal(new Date());
+            let allToday = [];
+            try {
+                const cachedUser = JSON.parse(localStorage.getItem('faiora_cached_user') || 'null');
+                const uid = cachedUser?.uid || localStorage.getItem('faiora_last_uid') || '';
+                const saved = localStorage.getItem(uid ? 'faiora_quick_tasks_' + uid : 'faiora_quick_tasks');
+                const list = saved ? JSON.parse(saved) : [];
+                allToday = list.filter(t => t && t.dueDate === todayStr && t.dueTime && t.id !== targetTask.id && !t.completed);
+            } catch(e) {}
+            if (allToday.length > 0) {
+                allToday.sort((a, b) => a.dueTime.localeCompare(b.dueTime));
+                const [h, m] = allToday[0].dueTime.split(':').map(Number);
+                let totalMins = Math.max(0, Math.round((h * 60 + m - 10) / 10) * 10);
+                return { date: todayStr, time: `${String(Math.floor(totalMins / 60)).padStart(2, '0')}:${String(totalMins % 60).padStart(2, '0')}` };
+            }
+            const now = new Date();
+            const nowMins = Math.max(0, Math.round((now.getHours() * 60 + now.getMinutes() - 10) / 10) * 10);
+            return { date: todayStr, time: `${String(Math.floor(nowMins / 60)).padStart(2, '0')}:${String(nowMins % 60).padStart(2, '0')}` };
+        };
+
         // (2026-07-13) 1s pause and fade-out on complete, transparent swipe. Prev: instant toggle
         const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQuickTask, showToast, hideDateSubtitle = false, isSelectionMode = false, isSelected = false, onSelectToggle = null }) => {
             const { label: dueDateStr, isOverdue, isNearDeadline, isDueTomorrow, isDueToday } = formatDueDate(task.dueDate, task.dueTime);
@@ -6179,25 +6201,45 @@
                     const raw = (task.text || 'Task').trim();
                     const displayName = raw.length > 8 ? raw.slice(0, 4) + '…' + raw.slice(-3) : raw;
                     
+                    // (2026-07-13) 4s swipe prio or later chaining. Prev: static tomorrow/later
                     if (swipeOffset >= 75 && onUpdateQuickTask) {
                         const now = new Date();
                         const todayStr = formatDateLocal(now);
-                        const isPastDueToday = isOverdue && (!task.dueDate || task.dueDate <= todayStr);
+                        window._faioraLastSwipe = window._faioraLastSwipe || new Map();
+                        const lastSwipe = window._faioraLastSwipe.get(task.id);
+                        const nowMs = Date.now();
+                        const isWithin4s = lastSwipe && lastSwipe.action === 'later' && (nowMs - lastSwipe.timestamp <= 4000);
                         let targetDate = getTomorrow();
                         let targetTime = '10:00';
                         let toastLabel = `Moved "${displayName}" to Tomorrow`;
-                        // (2026-07-13) 8pm-12am +1h, daytime +4h, round 10m. Prev: 4h fixed / cutoff
-                        if (isPastDueToday) {
+
+                        if (isWithin4s) {
+                            const prioTarget = getTaskPrioTarget(task);
+                            targetDate = prioTarget.date;
+                            targetTime = prioTarget.time;
+                            toastLabel = `Prioritized "${displayName}" (${formatTime(targetTime)})`;
+                            window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: 'prio' });
+                        } else {
                             const hour = now.getHours();
                             const isNight = hour >= 20;
-                            const laterDate = new Date(now.getTime() + (isNight ? 1 : 4) * 60 * 60 * 1000);
+                            let baseTimeMs = now.getTime();
+                            if (task.dueDate === todayStr && task.dueTime) {
+                                const [th, tm] = task.dueTime.split(':').map(Number);
+                                const tDate = new Date(now);
+                                tDate.setHours(th, tm, 0, 0);
+                                if (tDate.getTime() > baseTimeMs) baseTimeMs = tDate.getTime();
+                            }
+                            const laterDate = new Date(baseTimeMs + (isNight ? 1 : 4) * 60 * 60 * 1000);
                             laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
-                            if (formatDateLocal(laterDate) === todayStr || isNight) {
+                            if (formatDateLocal(laterDate) === todayStr) {
                                 const h = String(laterDate.getHours()).padStart(2, '0');
                                 const m = String(laterDate.getMinutes()).padStart(2, '0');
                                 targetDate = formatDateLocal(laterDate);
                                 targetTime = `${h}:${m}`;
                                 toastLabel = `Moved "${displayName}" to Later (${formatTime(targetTime)})`;
+                                window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: 'later' });
+                            } else {
+                                window._faioraLastSwipe.delete(task.id);
                             }
                         }
                         const prevDueDate = task.dueDate;
@@ -6240,19 +6282,27 @@
                 onToggle(task.id);
             };
 
-            // (2026-07-13) 8pm-12am LATER icon badge logic. Prev: cutoff at 8pm
+            // (2026-07-13) Dynamic PRIO, LATER or TOMORROW badge. Prev: static badge
             const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
+                const lastSwipe = window._faioraLastSwipe?.get(task.id);
+                if (lastSwipe && lastSwipe.action === 'later' && (Date.now() - lastSwipe.timestamp <= 4000)) {
+                    return { label: 'PRIO', icon: 'priority_high' };
+                }
                 const now = new Date();
                 const todayStr = formatDateLocal(now);
-                const isPastDueToday = isOverdue && (!task.dueDate || task.dueDate <= todayStr);
-                if (isPastDueToday) {
-                    const hour = now.getHours();
-                    const isNight = hour >= 20;
-                    const laterDate = new Date(now.getTime() + (isNight ? 1 : 4) * 60 * 60 * 1000);
-                    laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
-                    if (formatDateLocal(laterDate) === todayStr || isNight) {
-                        return { label: 'LATER', icon: 'schedule' };
-                    }
+                const hour = now.getHours();
+                const isNight = hour >= 20;
+                let baseTimeMs = now.getTime();
+                if (task.dueDate === todayStr && task.dueTime) {
+                    const [th, tm] = task.dueTime.split(':').map(Number);
+                    const tDate = new Date(now);
+                    tDate.setHours(th, tm, 0, 0);
+                    if (tDate.getTime() > baseTimeMs) baseTimeMs = tDate.getTime();
+                }
+                const laterDate = new Date(baseTimeMs + (isNight ? 1 : 4) * 60 * 60 * 1000);
+                laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
+                if (formatDateLocal(laterDate) === todayStr) {
+                    return { label: 'LATER', icon: 'schedule' };
                 }
                 return { label: 'TOMORROW', icon: 'event_upcoming' };
             })() : null;
@@ -6461,25 +6511,45 @@
                     const raw = (task.text || 'Task').trim();
                     const displayName = raw.length > 8 ? raw.slice(0, 4) + '…' + raw.slice(-3) : raw;
 
+                    // (2026-07-13) 4s swipe prio or later chaining. Prev: static tomorrow/later
                     if (swipeOffset >= 75 && onUpdateQuickTask) {
                         const now = new Date();
                         const todayStr = formatDateLocal(now);
-                        const isPastDueToday = isOverdue && (!task.dueDate || task.dueDate <= todayStr);
+                        window._faioraLastSwipe = window._faioraLastSwipe || new Map();
+                        const lastSwipe = window._faioraLastSwipe.get(task.id);
+                        const nowMs = Date.now();
+                        const isWithin4s = lastSwipe && lastSwipe.action === 'later' && (nowMs - lastSwipe.timestamp <= 4000);
                         let targetDate = getTomorrow();
                         let targetTime = '10:00';
                         let toastLabel = `Moved "${displayName}" to Tomorrow`;
-                        // (2026-07-13) 8pm-12am +1h, daytime +4h, round 10m. Prev: 4h fixed / cutoff
-                        if (isPastDueToday) {
+
+                        if (isWithin4s) {
+                            const prioTarget = getTaskPrioTarget(task);
+                            targetDate = prioTarget.date;
+                            targetTime = prioTarget.time;
+                            toastLabel = `Prioritized "${displayName}" (${formatTime(targetTime)})`;
+                            window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: 'prio' });
+                        } else {
                             const hour = now.getHours();
                             const isNight = hour >= 20;
-                            const laterDate = new Date(now.getTime() + (isNight ? 1 : 4) * 60 * 60 * 1000);
+                            let baseTimeMs = now.getTime();
+                            if (task.dueDate === todayStr && task.dueTime) {
+                                const [th, tm] = task.dueTime.split(':').map(Number);
+                                const tDate = new Date(now);
+                                tDate.setHours(th, tm, 0, 0);
+                                if (tDate.getTime() > baseTimeMs) baseTimeMs = tDate.getTime();
+                            }
+                            const laterDate = new Date(baseTimeMs + (isNight ? 1 : 4) * 60 * 60 * 1000);
                             laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
-                            if (formatDateLocal(laterDate) === todayStr || isNight) {
+                            if (formatDateLocal(laterDate) === todayStr) {
                                 const h = String(laterDate.getHours()).padStart(2, '0');
                                 const m = String(laterDate.getMinutes()).padStart(2, '0');
                                 targetDate = formatDateLocal(laterDate);
                                 targetTime = `${h}:${m}`;
                                 toastLabel = `Moved "${displayName}" to Later (${formatTime(targetTime)})`;
+                                window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: 'later' });
+                            } else {
+                                window._faioraLastSwipe.delete(task.id);
                             }
                         }
                         const prevDueDate = task.dueDate;
@@ -6518,19 +6588,27 @@
                 if (onToggle) onToggle(task.id);
             };
 
-            // (2026-07-13) 8pm-12am LATER icon badge logic. Prev: cutoff at 8pm
+            // (2026-07-13) Dynamic PRIO, LATER or TOMORROW badge. Prev: static badge
             const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
+                const lastSwipe = window._faioraLastSwipe?.get(task.id);
+                if (lastSwipe && lastSwipe.action === 'later' && (Date.now() - lastSwipe.timestamp <= 4000)) {
+                    return { label: 'PRIO', icon: 'priority_high' };
+                }
                 const now = new Date();
                 const todayStr = formatDateLocal(now);
-                const isPastDueToday = isOverdue && (!task.dueDate || task.dueDate <= todayStr);
-                if (isPastDueToday) {
-                    const hour = now.getHours();
-                    const isNight = hour >= 20;
-                    const laterDate = new Date(now.getTime() + (isNight ? 1 : 4) * 60 * 60 * 1000);
-                    laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
-                    if (formatDateLocal(laterDate) === todayStr || isNight) {
-                        return { label: 'LATER', icon: 'schedule' };
-                    }
+                const hour = now.getHours();
+                const isNight = hour >= 20;
+                let baseTimeMs = now.getTime();
+                if (task.dueDate === todayStr && task.dueTime) {
+                    const [th, tm] = task.dueTime.split(':').map(Number);
+                    const tDate = new Date(now);
+                    tDate.setHours(th, tm, 0, 0);
+                    if (tDate.getTime() > baseTimeMs) baseTimeMs = tDate.getTime();
+                }
+                const laterDate = new Date(baseTimeMs + (isNight ? 1 : 4) * 60 * 60 * 1000);
+                laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
+                if (formatDateLocal(laterDate) === todayStr) {
+                    return { label: 'LATER', icon: 'schedule' };
                 }
                 return { label: 'TOMORROW', icon: 'event_upcoming' };
             })() : null;
@@ -14022,11 +14100,16 @@
                 return Array.from(set);
             }, [customCategories, initialData, categories]);
 
+            // (2026-07-13) Track manual category interaction. Prev: none
+            const isManualCategoryRef = useRef(false);
+
             const handleToggleCategory = (cat) => {
+                isManualCategoryRef.current = true;
                 setCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
             };
 
             const handleCreateNewCat = () => {
+                isManualCategoryRef.current = true;
                 const clean = newCatText.trim();
                 if (!clean) return;
                 if (!availableCategories.some(c => c.toLowerCase() === clean.toLowerCase())) {
@@ -14053,8 +14136,9 @@
                 }));
             }, [settingsData]);
 
-            // (2026-07-13) Auto-categorize by rules & default setting. Prev: hardcoded
+            // (2026-07-13) No stuck Errands when name undetected. Prev: force Errands
             const autoCategorizeFromText = useCallback((str) => {
+                if (isManualCategoryRef.current) return;
                 if (!str || !str.trim()) return;
                 if (settingsData?.autoCategorizeEnabled === false) return;
                 const lower = str.toLowerCase();
@@ -14079,15 +14163,6 @@
                         matched.push(target);
                     }
                 });
-                const defaultCatName = settingsData?.defaultCategory || 'Errands';
-                if (matched.length === 0) {
-                    if (prefillCategory) {
-                        matched.push(prefillCategory);
-                    } else {
-                        const fallbackCat = (availableCategories || []).find(c => c.toLowerCase() === defaultCatName.toLowerCase()) || defaultCatName;
-                        matched.push(fallbackCat);
-                    }
-                }
                 if (matched.length > 0) {
                     setCategories(prev => {
                         const next = [];
@@ -14099,7 +14174,7 @@
                         return next;
                     });
                 }
-            }, [availableCategories, categoryKeywordMap, prefillCategory, settingsData]);
+            }, [availableCategories, categoryKeywordMap, settingsData]);
 
             // (2026-07-13) Turn off 24h reminder by default for new tasks. Prev: all true
             const [reminders, setReminders] = useState(() => {
@@ -14208,6 +14283,33 @@
                 }
             }, [isClosing]);
 
+            // (2026-07-13) Viewport tracking for keyboard height adjustment. Prev: none
+            const [viewportHeight, setViewportHeight] = useState(() => (typeof window !== 'undefined' && window.visualViewport) ? window.visualViewport.height : (typeof window !== 'undefined' ? window.innerHeight : 800));
+            const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+            useEffect(() => {
+                const updateViewport = () => {
+                    if (typeof window === 'undefined') return;
+                    const curHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                    setViewportHeight(curHeight);
+                    const isKb = (window.screen?.height && (window.screen.height - curHeight > 180)) ||
+                                 (window.innerHeight - curHeight > 140) ||
+                                 (curHeight < 560);
+                    setIsKeyboardOpen(Boolean(isKb));
+                };
+                if (window.visualViewport) {
+                    window.visualViewport.addEventListener('resize', updateViewport);
+                    window.visualViewport.addEventListener('scroll', updateViewport);
+                }
+                window.addEventListener('resize', updateViewport);
+                return () => {
+                    if (window.visualViewport) {
+                        window.visualViewport.removeEventListener('resize', updateViewport);
+                        window.visualViewport.removeEventListener('scroll', updateViewport);
+                    }
+                    window.removeEventListener('resize', updateViewport);
+                };
+            }, []);
 
             useEffect(() => {
                 const handler = (e) => {
@@ -14255,9 +14357,7 @@
                 }
             }, [pendingExtraction, dueDate, dueTime, autoCategorizeFromText]);
 
-            useEffect(() => {
-                if (text) autoCategorizeFromText(text);
-            }, [availableCategories, autoCategorizeFromText]);
+            // (2026-07-13) Omit category loop on category update. Prev: ran on categories
 
             const handleClose = () => {
                 setIsClosing(true);
@@ -14493,9 +14593,11 @@
 
             // (2026-07-13) Add horizontal margin outside modal. Prev: p-2
             return (
+                {/* (2026-07-13) Fit visible area when keyboard open. Prev: fixed inset-0 */}
                 <div 
                     onClick={handleBackdropClick}
-                    className="fixed inset-0 z-[2000] flex items-center justify-center px-4 py-2 sm:px-6 sm:py-4 pt-[max(env(safe-area-inset-top),0.75rem)] pb-2 sm:pb-4"
+                    style={isKeyboardOpen ? { height: `${viewportHeight}px`, top: `${window.visualViewport?.offsetTop || 0}px` } : undefined}
+                    className={`fixed inset-0 z-[2000] flex items-center justify-center px-4 py-2 sm:px-6 sm:py-4 pt-[max(env(safe-area-inset-top),0.75rem)] pb-2 sm:pb-4 ${isKeyboardOpen ? '!py-1' : ''}`}
                 >
                     <style>{`
                         /* (2026-07-13) Invert picker indicator to white for dark inputs. Prev: black */
@@ -14551,9 +14653,10 @@
                         className={`fixed inset-0 bg-black/85 backdrop-blur-md ${isClosing ? 'qt-modal-backdrop-out' : 'qt-modal-backdrop-in'}`} 
                         onClick={handleBackdropClick}
                     ></div>
-                    {/* (2026-07-13) Increase max height to 96vh to prevent scroll. Prev: 82vh */}
+                    {/* (2026-07-13) Shorten height when keyboard open. Prev: 96vh fixed */}
                     <div 
                         onClick={(e) => e.stopPropagation()}
+                        style={isKeyboardOpen ? { maxHeight: `${Math.max(220, viewportHeight - 24)}px` } : undefined}
                         className={`bg-[#0f172a] w-full max-w-md max-h-[96vh] sm:max-h-[96vh] overflow-y-auto rounded-3xl p-4 sm:p-6 pb-3.5 sm:pb-4 relative z-10 shadow-2xl border border-white/5 custom-scrollbar ${isClosing ? 'qt-modal-card-out' : 'qt-modal-card-in'}`}
                     >
                         <div className="flex justify-between items-center mb-2">
@@ -14912,9 +15015,10 @@
                                 <div className="flex items-center justify-between px-1">
                                     <label className="text-[9px] font-bold text-cream-light/40 uppercase tracking-[0.2em] font-montserrat">Categories</label>
                                     {categories.length > 0 && (
+                                        /* (2026-07-13) Set manual category flag on clear. Prev: setCategories([]) */
                                         <button 
                                             type="button" 
-                                            onClick={() => setCategories([])} 
+                                            onClick={() => { isManualCategoryRef.current = true; setCategories([]); }} 
                                             className="text-[9px] text-white/40 hover:text-red-400 font-montserrat font-bold"
                                         >
                                             Clear ({categories.length})
