@@ -694,7 +694,10 @@
                 // (2026-07-13) Only uncompleted past due in top section. Prev: includeCompleted
                 if (due.getTime() < today.getTime()) {
                     if (due.getTime() === yesterday.getTime()) {
-                        yesterdayTasks.push(task);
+                        // (2026-09-22) Filter yesterday completed tasks based on includeCompleted. Prev: always added
+                        if (!task.completed || includeCompleted) {
+                            yesterdayTasks.push(task);
+                        }
                     } else if (!task.completed) {
                         const dateKey = task.dueDate;
                         if (!pastDueMap.has(dateKey)) pastDueMap.set(dateKey, []);
@@ -720,18 +723,6 @@
             });
 
             const sections = [];
-
-            // (2026-09-22) PINNED section first - recurring daily tasks. Prev: none
-            if (pinnedTasks.length > 0) {
-                sections.push({
-                    key: 'pinned',
-                    label: '📌 PINNED (RECURRING)',
-                    shortLabel: '📌 PINNED',
-                    items: pinnedTasks,
-                    totalCount: pinnedTasks.length,
-                    isPinned: true
-                });
-            }
 
             // (2026-08-24) Reordered: Active tasks first, finished tasks at bottom
             
@@ -763,6 +754,18 @@
                     items: yesterdayTasks,
                     totalCount: yesterdayTasks.length,
                     isYesterday: true
+                });
+            }
+
+            // (2026-09-22) PINNED section before TODAY - recurring daily tasks. Prev: at top
+            if (pinnedTasks.length > 0) {
+                sections.push({
+                    key: 'pinned',
+                    label: 'PINNED (RECURRING)',
+                    shortLabel: 'PINNED',
+                    items: pinnedTasks,
+                    totalCount: pinnedTasks.length,
+                    isPinned: true
                 });
             }
 
@@ -7129,9 +7132,12 @@
                                     : sec.items;
 
                                 return (
-                                <div key={sec.key} className={`qt-notepad-section space-y-1.5 ${sec.isPinned ? 'bg-primary/5 rounded-2xl p-3 -mx-1 border-l-4 border-primary/40' : ''}`}>
+                                <div key={sec.key} className="qt-notepad-section space-y-1.5">
                                     <div className="flex items-center gap-2">
-                                        <h4 className={`qt-notepad-section-title text-[11px] font-bold uppercase tracking-wider font-montserrat ${sec.isPastDue ? 'text-red-400' : (sec.isPinned ? 'text-primary' : 'text-primary')}`}>
+                                        {sec.isPinned && (
+                                            <span className="material-symbols-outlined text-primary text-[13px]">push_pin</span>
+                                        )}
+                                        <h4 className={`qt-notepad-section-title text-[11px] font-bold uppercase tracking-wider font-montserrat ${sec.isPastDue ? 'text-red-400' : 'text-primary'}`}>
                                             {sec.shortLabel || sec.label}
                                         </h4>
                                         <div className="h-px flex-1 bg-white/5"></div>
@@ -7139,13 +7145,18 @@
                                     </div>
                                     <div className="qt-notepad-section-list space-y-1 pl-0.5">
                                         {/* (2026-07-13) Swipeable notepad task item. Prev: static inline row */}
-                                        {displayItems.map(task => {
+                                        {/* (2026-09-22) Add fade-in animation for task items. Prev: no animation */}
+                                        {displayItems.map((task, idx) => {
                                             const cleanTaskText = (task.text || '').trim().toLowerCase();
                                             const isDuplicate = cleanTaskText && (duplicateTextCounts.get(cleanTaskText) || 0) > 1;
                                             const isSelected = isSelectionMode && selectedTasks.includes(task.id);
                                             return (
-                                                <QuickTaskNotepadItem
+                                                <div 
                                                     key={task.id}
+                                                    className="animate-in fade-in slide-in-from-top-2 duration-200"
+                                                    style={{ animationDelay: `${idx * 30}ms`, animationFillMode: 'backwards' }}
+                                                >
+                                                <QuickTaskNotepadItem
                                                     task={task}
                                                     secKey={sec.key}
                                                     onToggle={onToggle}
@@ -7162,6 +7173,7 @@
                                                     handleItemTouchMove={handleItemTouchMove}
                                                     longPressingId={longPressingId}
                                                 />
+                                                </div>
                                             );
                                         })}
                                     </div>
@@ -14319,7 +14331,7 @@
 
             const [text, setText] = useState((initialData && initialData.text) || '');
             // (2026-09-22) Add pinned state for recurring daily tasks. Prev: none
-            const [pinned, setPinned] = useState((initialData && initialData.pinned) || false);
+            const [pinned, setPinned] = useState(() => !!(initialData && initialData.pinned));
             // (2026-07-13) Default new quick task deadline to Later. Prev: empty string
             // (2026-09-22) Don't set default date/time for pinned tasks. Prev: always set
             const [dueDate, setDueDate] = useState((initialData && initialData.dueDate !== undefined) ? initialData.dueDate : (prefillDate || (pinned ? '' : initialLater.date)));
@@ -14847,10 +14859,30 @@
                         className={`bg-[#0f172a] w-full max-w-md max-h-[96vh] sm:max-h-[96vh] overflow-y-auto rounded-3xl p-4 sm:p-6 pb-3.5 sm:pb-4 relative z-10 shadow-2xl border border-white/5 custom-scrollbar ${isClosing ? 'qt-modal-card-out' : 'qt-modal-card-in'}`}
                     >
                         <div className="flex justify-between items-center mb-2">
-                            <h3 className="text-base font-bold text-cream-light font-montserrat tracking-wide">{initialData ? 'Edit Task' : 'New Quick Task'}</h3>
-                            <button onClick={handleClose} className="text-white/20 hover:text-primary transition-colors">
-                                <span className="material-symbols-outlined text-lg">close</span>
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary text-lg">edit_note</span>
+                                <h3 className="text-base font-bold text-cream-light font-montserrat tracking-wide">{initialData ? 'Edit Task' : 'New Quick Task'}</h3>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                {/* (2026-09-22) Pin button in header. Prev: separate section */}
+                                <button 
+                                    type="button"
+                                    onClick={() => setPinned(prev => !prev)}
+                                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all active:scale-95 ${
+                                        pinned 
+                                            ? 'bg-primary/25 text-primary border border-primary/50' 
+                                            : 'text-white/30 hover:text-white/60 hover:bg-white/5'
+                                    }`}
+                                    title={pinned ? "Pinned as recurring task" : "Pin as recurring task"}
+                                >
+                                    <span className="material-symbols-outlined text-[17px]">
+                                        {pinned ? 'push_pin' : 'keep_off'}
+                                    </span>
+                                </button>
+                                <button onClick={handleClose} className="text-white/20 hover:text-primary transition-colors">
+                                    <span className="material-symbols-outlined text-lg">close</span>
+                                </button>
+                            </div>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-2">
                             {/* (2026-07-13) Renamed to Task Name with validation error. Prev: Description */}
@@ -14907,39 +14939,7 @@
                                     </button>
                                 </div>
                             </div>
-                            {/* (2026-09-22) Pinned/Recurring task toggle. Prev: none */}
-                            <div className="space-y-1.5">
-                                <label className="text-[9px] font-bold text-cream-light/40 uppercase tracking-[0.2em] px-1 font-montserrat">Recurring Daily Task</label>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const newPinned = !pinned;
-                                        setPinned(newPinned);
-                                        // Clear schedule when pinning (optional for recurring tasks)
-                                        if (newPinned && !dueDate && !dueTime) {
-                                            setDueDate('');
-                                            setDueTime('');
-                                        }
-                                    }}
-                                    className={`w-full h-10 rounded-xl text-xs font-bold font-montserrat uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 active:scale-95 ${
-                                        pinned 
-                                            ? 'bg-primary/20 text-primary border-2 border-primary/50 shadow-sm shadow-primary/20' 
-                                            : 'bg-white/[0.03] text-white/40 hover:text-white/70 border-2 border-white/10 hover:border-white/20'
-                                    }`}
-                                >
-                                    <span className="material-symbols-outlined text-lg">
-                                        {pinned ? 'push_pin' : 'keep_off'}
-                                    </span>
-                                    <span>{pinned ? '📌 Pinned (Shows Daily)' : 'Pin as Recurring Task'}</span>
-                                </button>
-                                {pinned && (
-                                    <p className="text-[9px] text-primary/70 px-1 font-montserrat italic leading-relaxed animate-in fade-in slide-in-from-top-1 duration-200">
-                                        💡 This task will appear in the Pinned section every day. Great for tracking progress on ongoing projects or daily habits!
-                                    </p>
-                                )}
-                            </div>
                             {/* (2026-07-13) Unified date-time picker & quick presets. Prev: redundant row */}
-                            {/* (2026-09-22) Schedule is optional for pinned tasks. Prev: always visible */}
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between px-1">
                                     <div className="flex items-center gap-1.5">
@@ -19502,8 +19502,9 @@
                             quickTasks={quickTasks}
                             settingsData={settingsData}
                             // (2026-07-13) Forward reminders in update call. Prev: history only
-                            onAdd={(text, date, time, categories, progress, progressHistory, reminders) => {
-                                handleUpdateQuickTask(editingQuickTask.id, text, date, time, categories, progress, progressHistory, reminders);
+                            // (2026-09-22) Forward pinned parameter. Prev: missing
+                            onAdd={(text, date, time, categories, progress, progressHistory, reminders, pinned) => {
+                                handleUpdateQuickTask(editingQuickTask.id, text, date, time, categories, progress, progressHistory, reminders, pinned);
                             }}
                         />
                     )}
