@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sync Reliability Test - Faiora</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #333; }
+        .pass { background: #0f3; color: #000; }
+        .fail { background: #f03; color: #fff; }
+        .info { color: #ff0; }
+        button { padding: 10px; margin: 5px; background: #333; color: #0f0; border: 1px solid #0f0; cursor: pointer; }
+        button:hover { background: #0f0; color: #000; }
+        pre { background: #000; padding: 10px; overflow: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔥 Faiora Sync Reliability Test Suite</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test ${type}`;
+            div.textContent = message;
+            results.appendChild(div);
+        }
+        
+        function assertEqual(actual, expected, testName) {
+            const pass = JSON.stringify(actual) === JSON.stringify(expected);
+            log(`${testName}: ${pass ? '✅ PASS' : '❌ FAIL'} - Expected: ${JSON.stringify(expected)}, Got: ${JSON.stringify(actual)}`, pass ? 'pass' : 'fail');
+            return pass;
+        }
+        
+        // Simulate the smart merge function
+        function smartMergeById(local, server, baseline) {
+            const map = {};
+            const conflicts = [];
+            const baselineMap = {};
+            baseline.forEach(t => { baselineMap[t.id] = t; });
+            
+            server.forEach(t => { map[t.id] = { ...t, _source: 'server' }; });
+            
+            local.forEach(localItem => {
+                const servItem = map[localItem.id];
+                const baseItem = baselineMap[localItem.id];
+                
+                // Case 1: New local item
+                if (!servItem && !baseItem) {
+                    map[localItem.id] = { ...localItem, _source: 'local-new' };
+                    return;
+                }
+                
+                // Case 2: Deleted on server
+                if (!servItem && baseItem) {
+                    delete map[localItem.id];
+                    return;
+                }
+                
+                // Case 3: Check for changes
+                const localChanged = !baseItem || JSON.stringify(localItem) !== JSON.stringify(baseItem);
+                const serverChanged = !baseItem || JSON.stringify(servItem) !== JSON.stringify(baseItem);
+                
+                if (localChanged && !serverChanged) {
+                    map[localItem.id] = { ...localItem, _source: 'local-modified' };
+                    return;
+                }
+                
+                if (!localChanged && serverChanged) {
+                    map[localItem.id] = { ...servItem, _source: 'server-modified' };
+                    return;
+                }
+                
+                // Case 3c: Both changed - CONFLICT
+                if (localChanged && serverChanged) {
+                    const merged = { ...servItem };
+                    const localTS = localItem.updatedAt || localItem.createdAt || 0;
+                    const serverTS = servItem.updatedAt || servItem.createdAt || 0;
+                    
+                    if (localTS > serverTS && localItem.text !== servItem.text) {
+                        merged.text = localItem.text;
+                    }
+                    
+                    if (localItem.completed || servItem.completed) {
+                        merged.completed = true;
+                        merged.completedAt = Math.max(localItem.completedAt || 0, servItem.completedAt || 0);
+                    }
+                    
+                    merged.progress = Math.max(localItem.progress || 0, servItem.progress || 0);
+                    merged.updatedAt = Date.now();
+                    merged._source = 'conflict-merged';
+                    
+                    conflicts.push({ id: localItem.id, local: localItem, server: servItem, merged });
+                    map[localItem.id] = merged;
+                    return;
+                }
+                
+                map[localItem.id] = { ...servItem, _source: 'unchanged' };
+            });
+            
+            const result = Object.values(map).map(item => {
+                const clean = { ...item };
+                delete clean._source;
+                return clean;
+            });
+            
+            return { merged: result, conflicts };
+        }
+        
+        // Test Suite
+        log('Starting Sync Reliability Tests...', 'info');
+        
+        // Test 1: New local task (offline add)
+        {
+            const baseline = [];
+            const server = [];
+            const local = [{ id: '1', text: 'New task', createdAt: 1000 }];
+            const result = smartMergeById(local, server, baseline);
+            assertEqual(result.merged.length, 1, 'Test 1: New local task survives');
+            assertEqual(result.merged[0].text, 'New task', 'Test 1: Task text preserved');
+        }
+        
+        // Test 2: New server task (another device added)
+        {
+            const baseline = [];
+            const server = [{ id: '2', text: 'Server task', createdAt: 2000 }];
+            const local = [];
+            const result = smartMergeById(local, server, baseline);
+            assertEqual(result.merged.length, 1, 'Test 2: New server task appears');
+            assertEqual(result.merged[0].text, 'Server task', 'Test 2: Server text preserved');
+        }
+        
+        // Test 3: Both devices add different tasks
+        {
+            const baseline = [];
+            const server = [{ id: '2', text: 'Server task', createdAt: 2000 }];
+            const local = [{ id: '1', text: 'Local task', createdAt: 1000 }];
+            const result = smartMergeById(local, server, baseline);
+            assertEqual(result.merged.length, 2, 'Test 3: Both tasks survive');
+        }
+        
+        // Test 4: Conflict - same task edited on both sides
+        {
+            const baseline = [{ id: '1', text: 'Original', completed: false, progress: 0, createdAt: 1000 }];
+            const server = [{ id: '1', text: 'Server edit', completed: false, progress: 0, updatedAt: 2000, createdAt: 1000 }];
+            const local = [{ id: '1', text: 'Local edit', completed: false, progress: 0, updatedAt: 1500, createdAt: 1000 }];
+            const result = smartMergeById(local, server, baseline);
+            assertEqual(result.merged.length, 1, 'Test 4: Conflict produces 1 merged task');
+            assertEqual(result.merged[0].text, 'Server edit', 'Test 4: Newer timestamp wins (server: 2000 > local: 1500)');
+            assertEqual(result.conflicts.length, 1, 'Test 4: Conflict detected');
+        }
+        
+        // Test 5: Completion status - OR logic
+        {
+            const baseline = [{ id: '1', text: 'Task', completed: false, progress: 0, createdAt: 1000 }];
+            const server = [{ id: '1', text: 'Task', completed: true, completedAt: 2000, progress: 0, updatedAt: 2000, createdAt: 1000 }];
+            const local = [{ id: '1', text: 'Task', completed: false, progress: 0, updatedAt: 1500, createdAt: 1000 }];
+            const result = smartMergeById(local, server, baseline);
+            assertEqual(result.merged[0].completed, true, 'Test 5: Completion status preserved (OR logic)');
+        }
+        
+        // Test 6: Progress - take maximum
+        {
+            const baseline = [{ id: '1', text: 'Task', progress: 0, createdAt: 1000 }];
+            const server = [{ id: '1', text: 'Task', progress: 30, updatedAt: 2000, createdAt: 1000 }];
+            const local = [{ id: '1', text: 'Task', progress: 50, updatedAt: 1500, createdAt: 1000 }];
+            const result = smartMergeById(local, server, baseline);
+            assertEqual(result.merged[0].progress, 50, 'Test 6: Maximum progress preserved');
+        }
+        
+        // Test 7: Server deletion
+        {
+            const baseline = [{ id: '1', text: 'Task', createdAt: 1000 }];
+            const server = []; // Deleted on server
+            const local = [{ id: '1', text: 'Task edited locally', updatedAt: 1500, createdAt: 1000 }];
+            const result = smartMergeById(local, server, baseline);
+            assertEqual(result.merged.length, 0, 'Test 7: Server deletion respected');
+        }
+        
+        // Test 8: Only local modified (no conflict)
+        {
+            const baseline = [{ id: '1', text: 'Original', createdAt: 1000 }];
+            const server = [{ id: '1', text: 'Original', createdAt: 1000 }]; // Unchanged
+            const local = [{ id: '1', text: 'Local edit', updatedAt: 1500, createdAt: 1000 }];
+            const result = smartMergeById(local, server, baseline);
+            assertEqual(result.merged[0].text, 'Local edit', 'Test 8: Local edit wins when server unchanged');
+            assertEqual(result.conflicts.length, 0, 'Test 8: No conflict detected');
+        }
+        
+        // Test 9: Only server modified (no conflict)
+        {
+            const baseline = [{ id: '1', text: 'Original', createdAt: 1000 }];
+            const server = [{ id: '1', text: 'Server edit', updatedAt: 2000, createdAt: 1000 }];
+            const local = [{ id: '1', text: 'Original', createdAt: 1000 }]; // Unchanged
+            const result = smartMergeById(local, server, baseline);
+            assertEqual(result.merged[0].text, 'Server edit', 'Test 9: Server edit wins when local unchanged');
+            assertEqual(result.conflicts.length, 0, 'Test 9: No conflict detected');
+        }
+        
+        // Test 10: Complex multi-task scenario
+        {
+            const baseline = [
+                { id: '1', text: 'Task 1', createdAt: 1000 },
+                { id: '2', text: 'Task 2', createdAt: 2000 }
+            ];
+            const server = [
+                { id: '1', text: 'Task 1', createdAt: 1000 }, // Unchanged
+                { id: '3', text: 'Task 3', createdAt: 3000 }  // New on server (Task 2 deleted)
+            ];
+            const local = [
+                { id: '1', text: 'Task 1 edited', updatedAt: 1500, createdAt: 1000 }, // Modified
+                { id: '2', text: 'Task 2', createdAt: 2000 }, // Still has deleted task
+                { id: '4', text: 'Task 4', createdAt: 4000 }  // New local
+            ];
+            const result = smartMergeById(local, server, baseline);
+            assertEqual(result.merged.length, 3, 'Test 10: Complex merge has 3 tasks (1 edited, 3 new, 4 new, 2 deleted)');
+            const task1 = result.merged.find(t => t.id === '1');
+            assertEqual(task1.text, 'Task 1 edited', 'Test 10: Task 1 has local edit');
+            const hasTask2 = result.merged.some(t => t.id === '2');
+            assertEqual(hasTask2, false, 'Test 10: Task 2 deleted by server');
+        }
+        
+        log('\n✅ All tests completed! Check results above.', 'info');
+    </script>
+</body>
+</html>
