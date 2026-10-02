@@ -52,6 +52,24 @@ if (Test-Path "$root\assets") {
 # (2026-07-13) Compile React JSX AOT to www/app.bundle.js. Prev: raw index.html
 node "$root\scratch\compile_app.js"
 
+# (2026-07-13) Exclude redundant assets from APK bundle. Prev: 8MB dead weight
+$redundantWwwFiles = @(
+    "$root\www\assets\vendor\babel.min.js",
+    "$root\www\assets\fonts\material-symbols-outlined.ttf",
+    "$root\www\assets\new_logo.png",
+    "$root\www\assets\apk_new_logo.png"
+)
+foreach ($rf in $redundantWwwFiles) {
+    if (Test-Path $rf) {
+        Remove-Item -Path $rf -Force -ErrorAction SilentlyContinue
+    }
+}
+
+$unusedOgg = "$root\android\app\src\main\res\raw\alarm_ringtone.ogg"
+if (Test-Path $unusedOgg) {
+    Remove-Item -Path $unusedOgg -Force -ErrorAction SilentlyContinue
+}
+
 # (2026-07-13) Patch TimedNotificationPublisher deduplication. Prev: old patch
 $tnpPath = "$root\node_modules\@capacitor\local-notifications\android\src\main\java\com\capacitorjs\plugins\localnotifications\TimedNotificationPublisher.java"
 if (Test-Path $tnpPath) {
