@@ -189,6 +189,40 @@ html, body {
     animation: mobile-header-pulse 8s ease-in-out infinite !important;
 }
 
+/* (2026-07-13) Hardware-accelerated 60fps glow pulse for auth. Prev: 120px blur */
+@keyframes auth-glow-breathe {
+    0%, 100% {
+        opacity: 0.55;
+        transform: scale(0.95) translateZ(0);
+    }
+    50% {
+        opacity: 0.95;
+        transform: scale(1.08) translateZ(0);
+    }
+}
+@keyframes auth-glow-swirl {
+    0% {
+        transform: rotate(0deg) scale(1) translateZ(0);
+        opacity: 0.6;
+    }
+    50% {
+        transform: rotate(180deg) scale(1.12) translateZ(0);
+        opacity: 0.9;
+    }
+    100% {
+        transform: rotate(360deg) scale(1) translateZ(0);
+        opacity: 0.6;
+    }
+}
+.auth-glow-primary {
+    will-change: transform, opacity;
+    animation: auth-glow-breathe 4s ease-in-out infinite alternate !important;
+}
+.auth-glow-secondary {
+    will-change: transform, opacity;
+    animation: auth-glow-swirl 10s linear infinite !important;
+}
+
 /* (2026-07-13) Reduce header height for compact top nav. Prev: 68px */
 .faiora-mobile-header {
     position: fixed !important;

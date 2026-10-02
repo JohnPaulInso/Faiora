@@ -28,11 +28,9 @@
             android:exported="false"
             android:screenOrientation="portrait"
             android:launchMode="singleTask"
-            android:theme="@style/AppTheme.NoActionBarLaunch" />
-        <receiver
-            android:name=".TaskActionReceiver"
-            android:enabled="true"
-            android:exported="false">
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+        />
+        <receiver android:name=".TaskActionReceiver" android:enabled="true" android:exported="false">
             <intent-filter>
                 <action android:name="com.faiora.app.ACTION_TASK_NOTIFICATION" />
             </intent-filter>
@@ -41,15 +39,10 @@
             android:name=".AlarmOverlayService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
-        <receiver
-            android:name=".AlarmReceiver"
-            android:enabled="true"
-            android:exported="false" />
-        <receiver
-            android:name=".BootReceiver"
-            android:enabled="true"
-            android:exported="true">
+            android:foregroundServiceType="mediaPlayback"
+        />
+        <receiver android:name=".AlarmReceiver" android:enabled="true" android:exported="false" />
+        <receiver android:name=".BootReceiver" android:enabled="true" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
@@ -66,10 +59,9 @@
         <!-- (2026-08-24) Point FCM icon to actual Faiora logo PNG. Prev: ic_stat_faiora generic flame -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/ic_notification_logo" />
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_color"
-            android:value="#f97316" />
+            android:resource="@drawable/ic_notification_logo"
+        />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:value="#f97316" />
     </application>
 
     <!-- Permissions -->

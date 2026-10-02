@@ -1387,7 +1387,10 @@
                     {/* Desktop Left Sidebar */}
                     <nav id="faiora_desktop_sidebar" className="faiora-desktop-sidebar hidden md:flex fixed left-0 top-0 bottom-0 w-24 bg-black/40 backdrop-blur-2xl border-r border-white/5 flex-col items-center py-12 gap-8 z-50">
                         <div id="faiora_sidebar_logo_container" className="mb-4">
-                            <div className="text-primary mb-6"><span className="material-symbols-outlined text-4xl font-light glow-orange" style={{fontVariationSettings: '"FILL" 1'}}>local_fire_department</span></div>
+                            {/* (2026-07-13) Use transparent icon-only logo. Prev: local_fire_department */}
+                            <div className="mb-6 flex items-center justify-center">
+                                <img src="assets/icon-only.png" alt="Faiora Logo" className="w-10 h-10 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.7)]" />
+                            </div>
                         </div>
                         <NavLink to="/" icon="home" label="Home" />
                         <NavLink to="/notes" icon="grid_view" label="Notes" />
