@@ -19,7 +19,6 @@ Write-Host "Syncing active web assets from root to www..." -ForegroundColor Cyan
 
 # List of active files to copy directly
 $files = @(
-    "index.html",
     "style.css",
     "manifest.json",
     "logo.png",
@@ -49,6 +48,9 @@ foreach ($f in $files) {
 if (Test-Path "$root\assets") {
     Copy-Item -Path "$root\assets" -Destination "$root\www\assets" -Recurse -Force
 }
+
+# (2026-07-13) Compile React JSX AOT to www/app.bundle.js. Prev: raw index.html
+node "$root\scratch\compile_app.js"
 
 # (2026-07-13) Patch TimedNotificationPublisher deduplication. Prev: old patch
 $tnpPath = "$root\node_modules\@capacitor\local-notifications\android\src\main\java\com\capacitorjs\plugins\localnotifications\TimedNotificationPublisher.java"
