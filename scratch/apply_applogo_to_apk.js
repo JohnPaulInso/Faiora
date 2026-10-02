@@ -41,11 +41,17 @@ async function run() {
         const mipmapDir = path.join(rootDir, 'android', 'app', 'src', 'main', 'res', `mipmap-${d.name}`);
         if (!fs.existsSync(mipmapDir)) continue;
 
-        // ic_launcher.png (exact applogo.png resized)
-        const launcherBuf = await sharp(srcAppLogo)
-            .resize(d.launcher, d.launcher, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-            .png({ compressionLevel: 9 })
+        // Legacy ic_launcher.png: logo at 78% of canvas to leave rounded-corner margin
+        const legacyLogoSize = Math.round(d.launcher * 0.78);
+        const legacyLogo = await sharp(srcAppLogo)
+            .resize(legacyLogoSize, legacyLogoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
             .toBuffer();
+        const launcherBuf = await sharp({
+            create: { width: d.launcher, height: d.launcher, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
+        })
+        .composite([{ input: legacyLogo, gravity: 'center' }])
+        .png({ compressionLevel: 9 })
+        .toBuffer();
         fs.writeFileSync(path.join(mipmapDir, 'ic_launcher.png'), launcherBuf);
 
         // ic_launcher_round.png (circular mask)
@@ -60,9 +66,16 @@ async function run() {
             .toBuffer();
         fs.writeFileSync(path.join(mipmapDir, 'ic_launcher_round.png'), roundBuf);
 
-        // ic_launcher_foreground.png (applogo.png filling adaptive safe area)
-        const fgBuf = await sharp(srcAppLogo)
-            .resize(d.fg, d.fg, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        // ic_launcher_foreground.png: logo constrained to 66% safe zone (Android clips outer ~33%)
+        // (2026-07-13) Fit within safe zone. Prev: logo filled full fg canvas and got clipped
+        const safeSize = Math.round(d.fg * 0.66);
+        const safeLogo = await sharp(srcAppLogo)
+            .resize(safeSize, safeSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+            .toBuffer();
+        const fgBuf = await sharp({
+            create: { width: d.fg, height: d.fg, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
+        })
+        .composite([{ input: safeLogo, gravity: 'center' }])
             .png({ compressionLevel: 9 })
             .toBuffer();
         fs.writeFileSync(path.join(mipmapDir, 'ic_launcher_foreground.png'), fgBuf);
