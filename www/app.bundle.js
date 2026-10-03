@@ -1616,39 +1616,38 @@ const FaioraNotifications = (() => {
 })();
 const Sidebar = () => null;
 const MobileNav = () => null;
-const createFireSparks = (x, y, isWide = false) => {
-  const sparkCount = isWide ? 15 + Math.floor(Math.random() * 10) : 12 + Math.floor(Math.random() * 8);
-  const maxDistance = isWide ? 120 : 80;
+const createFireSparks = (x, y, width = 200, isWide = false) => {
+  const sparkCount = 8 + Math.floor(Math.random() * 5);
   for (let i = 0; i < sparkCount; i++) {
     const spark = document.createElement("div");
     spark.className = "fire-spark-particle";
-    const angle = Math.PI * 2 / sparkCount * i + (Math.random() - 0.5) * 0.8;
-    const distance = 50 + Math.random() * maxDistance;
+    const angle = Math.PI * 2 / sparkCount * i + (Math.random() - 0.5) * 0.6;
+    const distance = 30 + Math.random() * 50;
     const sparkX = Math.cos(angle) * distance;
-    const sparkY = Math.sin(angle) * distance - Math.random() * 30;
+    const sparkY = Math.sin(angle) * distance;
     spark.style.setProperty("--spark-x", `${sparkX}px`);
     spark.style.setProperty("--spark-y", `${sparkY}px`);
     spark.style.left = `${x}px`;
     spark.style.top = `${y}px`;
-    spark.style.animationDelay = `${Math.random() * 100}ms`;
-    spark.style.animationDuration = `${400 + Math.random() * 200}ms`;
+    spark.style.animationDelay = `${i * 15}ms`;
+    spark.style.animationDuration = `${250 + Math.random() * 150}ms`;
     document.body.appendChild(spark);
-    setTimeout(() => spark.remove(), 650);
+    setTimeout(() => spark.remove(), 450);
   }
 };
 window.createFireSparks = createFireSparks;
 const createEmberParticles = (x, y) => {
-  const emberCount = 12 + Math.floor(Math.random() * 8);
+  const emberCount = 8 + Math.floor(Math.random() * 5);
   for (let i = 0; i < emberCount; i++) {
     const ember = document.createElement("div");
     ember.className = "ember-particle";
-    const spreadX = (Math.random() - 0.5) * 80;
+    const spreadX = (Math.random() - 0.5) * 60;
     ember.style.left = `${x + spreadX}px`;
     ember.style.top = `${y}px`;
-    ember.style.animationDelay = `${Math.random() * 150}ms`;
-    ember.style.animationDuration = `${700 + Math.random() * 300}ms`;
+    ember.style.animationDelay = `${i * 20}ms`;
+    ember.style.animationDuration = `${400 + Math.random() * 200}ms`;
     document.body.appendChild(ember);
-    setTimeout(() => ember.remove(), 1100);
+    setTimeout(() => ember.remove(), 650);
   }
 };
 window.createEmberParticles = createEmberParticles;
@@ -5316,47 +5315,43 @@ const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQu
       const taskElement = e.currentTarget;
       if (viewMode === "notepad") {
         const rect = taskElement.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        console.log("[QUICKTASK] Notepad mode - triggering fire sparks at", { centerX, centerY });
+        const checkmarkX = rect.left + 20;
+        const checkmarkY = rect.top + rect.height / 2;
+        console.log("[QUICKTASK] Notepad mode - sparks at checkmark", { checkmarkX, checkmarkY });
         if (window.createFireSparks) {
-          window.createFireSparks(centerX, centerY, true);
+          window.createFireSparks(checkmarkX, checkmarkY, rect.width, true);
         }
         taskElement.classList.add("task-spark-celebration");
         setTimeout(() => taskElement.classList.remove("task-spark-celebration"), 500);
         onToggle(task.id);
       } else if (viewMode === "categories") {
         const rect = taskElement.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        console.log("[QUICKTASK] Category mode - triggering ember particles at", { centerX, centerY });
+        const checkmarkX = rect.left + 20;
+        const checkmarkY = rect.top + rect.height / 2;
+        console.log("[QUICKTASK] Category mode - embers at checkmark", { checkmarkX, checkmarkY });
         if (window.createEmberParticles) {
-          window.createEmberParticles(centerX, centerY);
+          window.createEmberParticles(checkmarkX, checkmarkY);
         }
         taskElement.classList.add("task-spark-celebration");
         setTimeout(() => taskElement.classList.remove("task-spark-celebration"), 500);
         onToggle(task.id);
       } else {
         const rect = taskElement.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        console.log("[QUICKTASK] Standard/Daily mode - triggering fire sparks at", { centerX, centerY });
+        const checkmarkX = rect.left + 20;
+        const checkmarkY = rect.top + rect.height / 2;
+        console.log("[QUICKTASK] Standard/Daily - sparks at checkmark", { checkmarkX, checkmarkY });
         if (window.playWhooshSound) {
           window.playWhooshSound();
         }
         if (window.createFireSparks) {
-          window.createFireSparks(centerX, centerY, false);
+          window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
         }
         taskElement.classList.add("task-spark-celebration");
         const outerContainer = taskElement.closest(".quick-task-card");
         if (outerContainer) {
-          console.log("[QUICKTASK] Adding task-completing class to outer container");
           outerContainer.classList.add("task-completing");
-        } else {
-          console.warn("[QUICKTASK] Could not find outer container .quick-task-card");
         }
         setTimeout(() => {
-          console.log("[QUICKTASK] Delayed toggle executing");
           taskElement.classList.remove("task-spark-celebration");
           onToggle(task.id);
         }, 300);
@@ -5654,13 +5649,15 @@ const QuickTaskNotepadItem = React.memo(({
       const viewMode = groupBy === "category" ? "categories" : "notepad";
       console.log("[NOTEPAD] Determined viewMode:", viewMode);
       if (viewMode === "categories" && window.createEmberParticles) {
-        console.log("[NOTEPAD] Triggering ember particles");
-        window.createEmberParticles(centerX, centerY);
+        console.log("[NOTEPAD] Embers at checkmark");
+        const checkmarkX = rect.left + 15;
+        window.createEmberParticles(checkmarkX, centerY);
         taskElement.classList.add("task-spark-celebration");
         setTimeout(() => taskElement.classList.remove("task-spark-celebration"), 500);
       } else if (window.createFireSparks) {
-        console.log("[NOTEPAD] Triggering fire sparks (wide)");
-        window.createFireSparks(centerX, centerY, true);
+        console.log("[NOTEPAD] Fire sparks at checkmark");
+        const checkmarkX = rect.left + 15;
+        window.createFireSparks(checkmarkX, centerY, rect.width, true);
         taskElement.classList.add("task-spark-celebration");
         setTimeout(() => taskElement.classList.remove("task-spark-celebration"), 500);
       } else {
@@ -8486,10 +8483,10 @@ const CalendarPage = ({ user, notes: notes2, quickTasks: quickTasks2 = [], onOpe
                       const taskElement = e.currentTarget.closest(".quick-task-card");
                       if (taskElement) {
                         const rect = taskElement.getBoundingClientRect();
-                        const centerX = rect.left + rect.width / 2;
-                        const centerY = rect.top + rect.height / 2;
+                        const checkmarkX = rect.left + 20;
+                        const checkmarkY = rect.top + rect.height / 2;
                         if (window.createFireSparks) {
-                          window.createFireSparks(centerX, centerY, false);
+                          window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
                         }
                         if (window.playWhooshSound) {
                           window.playWhooshSound();
