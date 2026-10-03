@@ -32,3 +32,6 @@ echo ============================================
 echo  Done! Changes pushed to GitHub.
 echo ============================================
 echo.
+
+rem (2026-07-13) Auto-run APK build after push. Prev: ended after push
+call "%~dp0a.bat"

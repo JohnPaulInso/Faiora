@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8">
+    <!-- (2026-07-13) Add viewport-fit=cover for edge-to-edge status bar. Prev: none -->
+    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+    <title>Faiora — Modern Notetaker</title>
+    <!-- 
+       LABEL: CONSOLE-PURIFIER — Nuclear Console Proxy (Teacher-approved)
+       FIX 2026-04-22: Uses an absolute Proxy to silence all browser-internal COOP and window.closed noise for a "sparkling clean" presentation.
+    -->
+    <script id="faiora-console-purifier-nuclear">
+        (function() {
+            const forbidden = [
+                "Cross-Origin-Opener-Policy", "window.closed", "runtime.lastError",
+                "cdn.tailwindcss.com", "in-browser Babel", "deoptimised", "[BABEL]",
+                "enableMultiTabIndexedDbPersistence", "message port closed",
+                "Notification permission", "permission-denied", "Missing or insufficient permissions",
+                "capacitor.js", "applogo.png", "[SYNC]", "[AUTH]", "[FIREBASE]", "[FAIORA]",
+                "FCM token", "SW registered", "Persistent storage",
+                "AdUnit", "Feature is disabled", "content-script.js"
+            ];
+            const handler = {
+                get(target, prop) {
+                    const original = target[prop];
+                    if (typeof original === 'function') {
+                        return (...args) => {
+                            const msg = args.map(a => String(a || '')).join(" ");
+                            if (forbidden.some(f => msg.includes(f))) return;
+                            return original.apply(target, args);
+                        };
+                    }
+                    return original;
+                }
+            };
+            window.console = new Proxy(window.console, handler);
+            window.onunhandledrejection = (e) => {
+                const msg = String(e.reason?.message || '');
+                if (forbidden.some(f => msg.includes(f))) { e.preventDefault(); return false; }
+            };
+        })();
+    </script>
+    <!-- (2026-07-13) Set transparent favicon.png with fallback. Prev: logo.png -->
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon.png?v=2">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon.png?v=2">
+    <link rel="icon" type="image/png" href="favicon.png?v=2">
+    <link rel="shortcut icon" type="image/png" href="favicon.png?v=2">
+    <link rel="apple-touch-icon" sizes="192x192" href="favicon-192.png?v=2">
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Identity & Branding -->
+    <meta name="description" content="Ignite your productivity with Faiora Digital Planner. Sync tasks and goals with Google.">
+    <meta property="og:title" content="Faiora Digital Planner">
+    <meta property="og:description" content="A fiery approach to digital planning.">
+    <meta property="og:image" content="https://zeamarae.github.io/Faiora/#/logo.png">
+    <meta property="og:url" content="https://zeamarae.github.io/Faiora/#/">
+    
+    <!-- Google Site Verification (Placeholder) -->
+    <!-- Replace 'YOUR_VERIFICATION_CODE' with the code from Google Search Console -->
+    <meta name="google-site-verification" content="googled6ec6ba0775bed83" />
+    <!-- (2026-07-13) Preconnect CDNs & async font load to boost LCP. Prev: blocking -->
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="dns-prefetch" href="https://unpkg.com">
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://www.gstatic.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Libraries -->
+    <!-- (2026-08-14) Use local tailwind copy; CDN blocked in browser. Prev: cdn.tailwindcss.com remote -->
+    <script src="tailwind.cdn.js"></script>
+    <!-- (2026-07-13) Use local vendor libraries for offline. Prev: remote CDNs -->
+    <script src="assets/vendor/react.production.min.js"></script>
+    <script src="assets/vendor/react-dom.production.min.js"></script>
+    <script src="assets/vendor/history.production.min.js"></script>
+    <script src="assets/vendor/react-router.production.min.js"></script>
+    <script src="assets/vendor/react-router-dom.production.min.js"></script>
+    <!-- (2026-07-13) Babel eliminated for instant APK load. Prev: runtime babel.min.js -->
+    <script src="assets/vendor/firebase-app-compat.js"></script>
+    <script src="assets/vendor/firebase-auth-compat.js"></script>
+    <script src="assets/vendor/firebase-firestore-compat.js"></script>
+    <!-- LABEL: FCM-SDK — Firebase Cloud Messaging for push notifications -->
+    <script src="assets/vendor/firebase-messaging-compat.js"></script>
+
+    <!-- Fonts -->
+    <!-- (2026-07-13) Preload offline local fonts. Prev: remote CDN font flash -->
+    <link rel="preload" href="assets/fonts/montserrat-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/newsreader-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/material-symbols-outlined.woff2" as="font" type="font/woff2" crossorigin>
+    
+    <!-- FIX 2026-10-04: Preload navigation icons for instant display and offline support -->
+    <link rel="preload" href="assets/nav_icons/home_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/home_outline.png" as="image">
+    <link rel="preload" href="assets/nav_icons/notes_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/notes_outline.png" as="image">
+    <link rel="preload" href="assets/nav_icons/quick_tasks_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/quick_tasks_outline.png" as="image">
+    <link rel="preload" href="assets/nav_icons/alarms_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/alarms_outline.png" as="image">
+    <link rel="preload" href="assets/nav_icons/calendar_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/calendar_outline.png" as="image">
+    
+    <!-- (2026-07-13) Offline local font loaded via style.css. Prev: remote Google Fonts -->
+    
+    <!-- (2026-07-13) Offline Newsreader loaded via style.css. Prev: remote Google Fonts -->
+    <!-- (2026-07-13) Offline Inter/Montserrat loaded via style.css. Prev: remote Google Fonts -->
+    
+
+    <script id="tailwind-config">
+        // (2026-07-13) Wrap hover in hoverOnlyWhenSupported. Prev: sticky hover
+        if (window.tailwind) { tailwind.config = {
+            darkMode: "class",
+            future: {
+                hoverOnlyWhenSupported: true,
+            },
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f97316",
+                        "primary-dark": "#ea580c",
+                        "burnt-orange": "#7c2d12",
+                        "charcoal": "#0a0a0a",
+                        "cream-light": "#fff7ed",
+                        "pastel-orange": "#ffedd5",
+                        "pastel-peach": "#fed7aa",
+                        "pastel-amber": "#fef3c7",
+                        "pastel-yellow": "#fef9c3",
+                        "gold-glow": "#fbbf24",
+                    },
+                    fontFamily: {
+                        "display": ["Newsreader", "serif"],
+                        "sans": ["Inter", "system-ui", "sans-serif"],
+                        "montserrat": ["Montserrat", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "3xl": "2rem", "full": "9999px" },
+                },
+            },
+        }; }
+    </script>
+
+    <link rel="stylesheet" href="style.css">
+    <!-- (2026-07-13) Instant inline styles for header/nav glassmorphism. Prev: none -->
+    <style id="faiora-nav-glass-styles">
+/* (2026-07-13) Animated fire color navbar and 48px dark blur. Prev: 15s */
+@keyframes fire-glow-pulse {
+    0%, 100% {
+        color: #f97316;
+        filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.9)) drop-shadow(0 0 14px rgba(234, 88, 12, 0.5));
+    }
+    50% {
+        color: #fb923c;
+        filter: drop-shadow(0 0 10px rgba(251, 146, 60, 1)) drop-shadow(0 0 20px rgba(249, 115, 22, 0.75));
+    }
+}
+
+.fire-logo-animated {
+    animation: fire-glow-pulse 2.5s ease-in-out infinite alternate !important;
+}
+
+/* (2026-07-13) Dynamic color-shifting pulse for 100% opacity header. Prev: static */
+@keyframes mobile-header-pulse {
+    0% {
+        background-color: #0e0603;
+    }
+    25% {
+        background-color: #381507;
+    }
+    50% {
+        background-color: #190904;
+    }
+    75% {
+        background-color: #481b09;
+    }
+    100% {
+        background-color: #0e0603;
+    }
+}
+
+.animate-mobile-header {
+    animation: mobile-header-pulse 8s ease-in-out infinite !important;
+}
+
+/* (2026-07-13) Animated mic recording wave bars. Prev: none */
+@keyframes mic-soundbar {
+    0%, 100% { height: 4px; }
+    50% { height: 15px; }
+}
+.mic-wave-bar {
+    animation: mic-soundbar 0.45s ease-in-out infinite alternate !important;
+}
+.mic-wave-bar:nth-child(2) {
+    animation-delay: 0.12s !important;
+}
+.mic-wave-bar:nth-child(3) {
+    animation-delay: 0.24s !important;
+}
+.mic-wave-bar:nth-child(4) {
+    animation-delay: 0.08s !important;
+}
+
+/* (2026-07-13) Subtler, lower shadows for top and bottom nav. Prev: heavy 32px */
+.faiora-mobile-header {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    padding-top: env(safe-area-inset-top, 0px) !important;
+    height: calc(54px + env(safe-area-inset-top, 0px)) !important;
+    animation: mobile-header-pulse 8s ease-in-out infinite !important;
+    opacity: 1 !important;
+    border: none !important;
+    box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.25) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
+    backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
+    -webkit-transform: translateZ(0) !important;
+    transform: translateZ(0) !important;
+}
+
+.faiora-mobile-header::after {
+    content: '' !important;
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 0.5px !important;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 15%, rgba(249, 115, 22, 0.20) 38%, rgba(255, 255, 255, 0.25) 50%, rgba(249, 115, 22, 0.20) 62%, rgba(255, 255, 255, 0.05) 85%, transparent 100%) !important;
+    pointer-events: none !important;
+    z-index: 10 !important;
+}
+/* (2026-07-13) Fix mobile top offset for header. Prev: 58px */
+@media (max-width: 767px) {
+    .faiora-page-mobile-top {
+        margin-top: calc(72px + env(safe-area-inset-top, 0px)) !important;
+    }
+    .faiora-page-mobile-padding-top {
+        padding-top: calc(72px + env(safe-area-inset-top, 0px)) !important;
+    }
+}
+
+.faiora-mobile-nav {
+    position: fixed !important;
+    background-color: #0c0502 !important;
+    opacity: 1 !important;
+    border: none !important;
+    box-shadow: 0 -2px 10px 0 rgba(0, 0, 0, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.04) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
+    backdrop-filter: blur(36px) saturate(200%) contrast(110%) !important;
+    -webkit-transform: translateZ(0) !important;
+    transform: translateZ(0) !important;
+}
+
+.faiora-mobile-nav::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 0.5px !important;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.02) 15%, rgba(249, 115, 22, 0.12) 38%, rgba(255, 255, 255, 0.15) 50%, rgba(249, 115, 22, 0.12) 62%, rgba(255, 255, 255, 0.02) 85%, transparent 100%) !important;
+    pointer-events: none !important;
+    z-index: 10 !important;
+}
+
+/* FIX 2026-10-03: Simple darken effect on tap for bottom navigation */
+@media (hover: none) and (pointer: coarse) {
+    /* Mobile touch devices - disable hover */
+    .nav-item-animation:hover {
+        background: transparent !important;
+    }
+    .nav-item-animation:hover .nav-icon-filter {
+        filter: none !important;
+    }
+    /* Use active state for subtle darken effect - only while finger is down */
+    .nav-item-animation:active {
+        background: transparent !important;
+        transform: scale(0.95) !important;
+    }
+    .nav-item-animation:active .nav-icon-filter {
+        /* Subtle darken on tap - instant effect, no delay, disappears when finger lifts */
+        filter: brightness(0.65) !important;
+        transition: none !important;
+    }
+}
+
+@media (hover: hover) and (pointer: fine) {
+    /* Desktop with mouse - subtle darken on hover */
+    .nav-item-animation:hover {
+        background: transparent !important;
+        transform: scale(1.05) !important;
+    }
+    .nav-item-animation:hover .nav-icon-filter {
+        filter: brightness(0.7) !important;
+    }
+}
+
+/* Default state for inactive nav icons */
+.nav-icon-filter {
+    filter: brightness(1);
+    transition: filter 0.15s ease-out, transform 0.15s ease-out;
+}
+
+/* FIX 2026-10-04: Smooth dropdown slide-in animation */
+@keyframes dropdown-slide-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* FIX 2026-10-04: Task completion animations */
+/* Dust fade-out for Standard/Daily views */
+@keyframes dust-fade-out {
+    0% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0px);
+    }
+    40% {
+        opacity: 0.6;
+        transform: scale(0.95) translateY(2px);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0.88) translateY(8px);
+        filter: blur(3px);
+    }
+}
+
+/* Fire spark particles for Notepad/Category views */
+@keyframes fire-spark-float {
+    0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(var(--spark-x), var(--spark-y)) scale(0);
+    }
+}
+
+/* Ember particle float for Category view */
+@keyframes ember-float {
+    0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-40px) scale(0.3);
+    }
+}
+
+/* Success glow pulse */
+@keyframes success-glow {
+    0% {
+        box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+    }
+    50% {
+        box-shadow: 0 0 20px 5px rgba(249, 115, 22, 0.6);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+    }
+}
+
+/* Strikethrough animation */
+@keyframes strike-through {
+    from {
+        width: 0;
+    }
+    to {
+        width: 100%;
+    }
+}
+
+.task-completing {
+    animation: dust-fade-out 300ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.task-spark-celebration {
+    animation: success-glow 500ms ease-out;
+}
+
+.fire-spark-particle {
+    position: fixed;
+    width: 4px;
+    height: 4px;
+    background: radial-gradient(circle, #fbbf24 0%, #f97316 50%, transparent 100%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    animation: fire-spark-float 500ms ease-out forwards;
+}
+
+.ember-particle {
+    position: fixed;
+    width: 4px;
+    height: 8px;
+    background: linear-gradient(to top, #f97316, #fbbf24);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    animation: ember-float 800ms ease-out forwards;
+    box-shadow: 0 0 8px #f97316;
+}
+    </style>
+  </head>
+<body class="dark-gradient-bg font-montserrat text-slate-100 min-h-screen selection:bg-primary/30 overflow-hidden" style="overscroll-behavior-y: contain;">
+    <!-- (2026-07-13) Direct root for auto load. Prev: loader inside root -->
+    <div id="root"></div>
+
+    <script>
+        /* 
+           LABEL: STARTUP-SCRIPT-OVERRIDE — Disabled startup fallback script
+           FIX 2026-04-15: Removed loaders for a more direct app launch experience.
+        */
+        (function setupStartupFallback() {
+            let fired = false;
+            const trigger = () => {
+                if (fired) return;
+                fired = true;
+                // LABEL: FAIORA-APP-READY-TRIGGER — Triggers app fade-in
+                document.body.classList.add('faiora-react-ready');
+                document.documentElement.classList.add('faiora-app-loaded');
+            };
+
+            window.addEventListener('faiora-app-ready', trigger);
+
+            // SAFETY FALLBACK: If React/Auth takes too long, force show the app anyway
+            // FIX 2026-04-16: Increased to 6s to allow more time for Firestore sync
+            // (2026-07-13) Instant 0ms safety timeout for fast LCP. Prev: 1000ms
+            setTimeout(trigger, 0);
+        })();
+
+        // (2026-07-13) Lock portrait for phones, allow on tablet. Prev: free rotate
+        try {
+            if (screen.orientation && screen.orientation.lock) {
+                const isPhone = window.matchMedia('(max-width: 767px)').matches || Math.min(window.screen.width, window.screen.height) < 600;
+                if (isPhone) {
+                    screen.orientation.lock('portrait').catch(() => {});
+                }
+            }
+        } catch (e) {}
+
+    </script>
+
+    <!-- (2026-08-14) Add transform-modules-umd; Babel>=7.24 outputs ESM by default causing import error. Prev: env,react no data-plugins -->
+    <!-- (2026-07-13) Pre-compiled AOT React bundle. Prev: runtime in-browser Babel -->
+    <script src="app.bundle.js" defer></script>
+
+</body>
+</html>

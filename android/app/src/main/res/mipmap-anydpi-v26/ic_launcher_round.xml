@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- (2026-07-13) Match ic_launcher full-bleed art. Prev: white bg + small logo -->
+<!-- (2026-07-13) Gradient bg + padded logo fg, no crop. Prev: full-bleed zoomed PNG -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@mipmap/ic_launcher_background" />
-    <foreground android:drawable="@android:color/transparent" />
+    <background android:drawable="@drawable/ic_launcher_gradient_bg" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
 </adaptive-icon>
