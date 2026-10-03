@@ -1,10 +1,9 @@
-// (2026-07-13) Generate full-bleed orange adaptive icon background and foreground
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
 const rootDir = path.resolve(__dirname, '..');
-const srcFlame = path.join(rootDir, 'assets', 'new_logo.png');
+const srcAppLogo = path.join(rootDir, 'android', 'app', 'src', 'main', 'res', 'drawable', 'applogo.png');
 
 const densities = [
     { name: 'ldpi', launcher: 36, fg: 81 },
@@ -15,37 +14,45 @@ const densities = [
     { name: 'xxxhdpi', launcher: 192, fg: 432 }
 ];
 
-async function run() {
-    console.log('Generating full-bleed fiery orange background and foreground layers...');
+async function generateAll() {
+    console.log('Generating adaptive icons from real applogo.png with insets...');
+
+    // 1. Create the master extended canvas (720x720 from 512x512 applogo)
+    // 512/720 = 71.1% safe scale with 104px extended edge copy for seamless background
+    const masterExtended = await sharp(srcAppLogo)
+        .extend({ top: 104, bottom: 104, left: 104, right: 104, extendWith: 'copy' })
+        .png()
+        .toBuffer();
+
+    // 2. Prepare squircle and circle masks for legacy icons
+    const squircleMaskSvg = Buffer.from(
+        '<svg width="720" height="720"><rect x="115" y="115" width="490" height="490" rx="110" ry="110" fill="#fff" /></svg>'
+    );
+    const squircleMaster = await sharp(masterExtended)
+        .composite([{ input: squircleMaskSvg, blend: 'dest-in' }])
+        .png()
+        .toBuffer();
+
+    const circleMaskSvg = Buffer.from(
+        '<svg width="720" height="720"><circle cx="360" cy="360" r="240" fill="#fff" /></svg>'
+    );
+    const circleMaster = await sharp(masterExtended)
+        .composite([{ input: circleMaskSvg, blend: 'dest-in' }])
+        .png()
+        .toBuffer();
 
     for (const d of densities) {
         const mipmapDir = path.join(rootDir, 'android', 'app', 'src', 'main', 'res', `mipmap-${d.name}`);
         if (!fs.existsSync(mipmapDir)) continue;
 
-        // 1. Full-bleed fiery gradient background (108dp equivalent for adaptive icons)
-        // Edge-to-edge, NO transparent corners, rich warm orange gradient
-        const bgSvg = Buffer.from(`
-            <svg width="${d.fg}" height="${d.fg}">
-                <defs>
-                    <radialGradient id="fireBg" cx="50%" cy="38%" r="65%">
-                        <stop offset="0%" stop-color="#ff7a1a"/>
-                        <stop offset="45%" stop-color="#e04e06"/>
-                        <stop offset="85%" stop-color="#992d00"/>
-                        <stop offset="100%" stop-color="#6e1f00"/>
-                    </radialGradient>
-                </defs>
-                <rect width="${d.fg}" height="${d.fg}" fill="url(#fireBg)"/>
-            </svg>
-        `);
-        const bgBuf = await sharp(bgSvg).png().toBuffer();
+        // A. Adaptive icon background (full 108dp size: d.fg x d.fg)
+        const bgBuf = await sharp(masterExtended)
+            .resize(d.fg, d.fg)
+            .png()
+            .toBuffer();
         fs.writeFileSync(path.join(mipmapDir, 'ic_launcher_background.png'), bgBuf);
 
-        // 2. Adaptive Foreground: Flame logo centered within the 72dp safe zone
-        const safeSize = Math.round(d.fg * 0.72);
-        const flameBuf = await sharp(srcFlame)
-            .resize(safeSize, safeSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-            .toBuffer();
-
+        // B. Transparent foreground
         const fgBuf = await sharp({
             create: {
                 width: d.fg,
@@ -53,100 +60,27 @@ async function run() {
                 channels: 4,
                 background: { r: 0, g: 0, b: 0, alpha: 0 }
             }
-        })
-        .composite([{ input: flameBuf, gravity: 'center' }])
-        .png()
-        .toBuffer();
+        }).png().toBuffer();
         fs.writeFileSync(path.join(mipmapDir, 'ic_launcher_foreground.png'), fgBuf);
 
-        // 3. Legacy Launcher Icon (full composite with fiery orange background)
-        const legacyBgSvg = Buffer.from(`
-            <svg width="${d.launcher}" height="${d.launcher}">
-                <defs>
-                    <radialGradient id="legBg" cx="50%" cy="38%" r="65%">
-                        <stop offset="0%" stop-color="#ff7a1a"/>
-                        <stop offset="45%" stop-color="#e04e06"/>
-                        <stop offset="85%" stop-color="#992d00"/>
-                        <stop offset="100%" stop-color="#6e1f00"/>
-                    </radialGradient>
-                </defs>
-                <rect width="${d.launcher}" height="${d.launcher}" rx="${d.launcher * 0.22}" fill="url(#legBg)"/>
-            </svg>
-        `);
-        const legacyBg = await sharp(legacyBgSvg).png().toBuffer();
-        const legacyFlame = await sharp(srcFlame)
-            .resize(Math.round(d.launcher * 0.72), Math.round(d.launcher * 0.72), { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-            .toBuffer();
-
-        const launcherIcon = await sharp(legacyBg)
-            .composite([{ input: legacyFlame, gravity: 'center' }])
+        // C. Legacy squircle launcher icon (d.launcher x d.launcher)
+        const launcherBuf = await sharp(squircleMaster)
+            .resize(d.launcher, d.launcher)
             .png()
             .toBuffer();
-        fs.writeFileSync(path.join(mipmapDir, 'ic_launcher.png'), launcherIcon);
+        fs.writeFileSync(path.join(mipmapDir, 'ic_launcher.png'), launcherBuf);
 
-        // 4. Round legacy icon
-        const roundRadius = d.launcher / 2;
-        const roundMask = Buffer.from(
-            `<svg width="${d.launcher}" height="${d.launcher}"><circle cx="${roundRadius}" cy="${roundRadius}" r="${roundRadius}" fill="#fff"/></svg>`
-        );
-        const roundIcon = await sharp(launcherIcon)
-            .composite([{ input: roundMask, blend: 'dest-in' }])
+        // D. Legacy round launcher icon (d.launcher x d.launcher)
+        const roundBuf = await sharp(circleMaster)
+            .resize(d.launcher, d.launcher)
             .png()
             .toBuffer();
-        fs.writeFileSync(path.join(mipmapDir, 'ic_launcher_round.png'), roundIcon);
+        fs.writeFileSync(path.join(mipmapDir, 'ic_launcher_round.png'), roundBuf);
 
-        console.log(`Generated full-bleed orange adaptive icon for mipmap-${d.name}`);
+        console.log(`Generated icons for mipmap-${d.name}`);
     }
 
-    // 5. Update adaptive icon XML definitions: remove inset from background
-    const anyDpiDir = path.join(rootDir, 'android', 'app', 'src', 'main', 'res', 'mipmap-anydpi-v26');
-    const xmlContent = `<?xml version="1.0" encoding="utf-8"?>
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@mipmap/ic_launcher_background" />
-    <foreground>
-        <inset android:drawable="@mipmap/ic_launcher_foreground" android:inset="16.7%" />
-    </foreground>
-</adaptive-icon>
-`;
-    fs.writeFileSync(path.join(anyDpiDir, 'ic_launcher.xml'), xmlContent, 'utf8');
-    fs.writeFileSync(path.join(anyDpiDir, 'ic_launcher_round.xml'), xmlContent, 'utf8');
-    console.log('Updated ic_launcher.xml and ic_launcher_round.xml without background inset.');
-
-    // 6. Update applogo.png in root and www with the full composite
-    const appLogo512Svg = Buffer.from(`
-        <svg width="512" height="512">
-            <defs>
-                <radialGradient id="appBg" cx="50%" cy="38%" r="65%">
-                    <stop offset="0%" stop-color="#ff7a1a"/>
-                    <stop offset="45%" stop-color="#e04e06"/>
-                    <stop offset="85%" stop-color="#992d00"/>
-                    <stop offset="100%" stop-color="#6e1f00"/>
-                </radialGradient>
-            </defs>
-            <rect width="512" height="512" rx="112" fill="url(#appBg)"/>
-        </svg>
-    `);
-    const appLogo512Bg = await sharp(appLogo512Svg).png().toBuffer();
-    const appLogo512Flame = await sharp(srcFlame)
-        .resize(368, 368, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-        .toBuffer();
-    const fullAppLogo = await sharp(appLogo512Bg)
-        .composite([{ input: appLogo512Flame, gravity: 'center' }])
-        .png({ compressionLevel: 9, effort: 10 })
-        .toBuffer();
-
-    fs.writeFileSync(path.join(rootDir, 'applogo.png'), fullAppLogo);
-    fs.writeFileSync(path.join(rootDir, 'assets', 'icon.png'), fullAppLogo);
-    fs.writeFileSync(path.join(rootDir, 'www', 'applogo.png'), fullAppLogo);
-    fs.writeFileSync(path.join(rootDir, 'www', 'assets', 'icon.png'), fullAppLogo);
-    const pubDir = path.join(rootDir, 'android', 'app', 'src', 'main', 'assets', 'public');
-    if (fs.existsSync(pubDir)) {
-        fs.writeFileSync(path.join(pubDir, 'applogo.png'), fullAppLogo);
-    }
-    console.log('Updated applogo.png and assets/icon.png.');
+    console.log('All adaptive and legacy icons generated successfully.');
 }
 
-run().catch(e => {
-    console.error(e);
-    process.exit(1);
-});
+generateAll();
