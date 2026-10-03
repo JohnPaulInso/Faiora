@@ -88,6 +88,19 @@
     <link rel="preload" href="assets/fonts/newsreader-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="assets/fonts/material-symbols-outlined.woff2" as="font" type="font/woff2" crossorigin>
+    
+    <!-- FIX 2026-10-04: Preload navigation icons for instant display and offline support -->
+    <link rel="preload" href="assets/nav_icons/home_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/home_outline.png" as="image">
+    <link rel="preload" href="assets/nav_icons/notes_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/notes_outline.png" as="image">
+    <link rel="preload" href="assets/nav_icons/quick_tasks_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/quick_tasks_outline.png" as="image">
+    <link rel="preload" href="assets/nav_icons/alarms_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/alarms_outline.png" as="image">
+    <link rel="preload" href="assets/nav_icons/calendar_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/calendar_outline.png" as="image">
+    
     <!-- (2026-07-13) Offline local font loaded via style.css. Prev: remote Google Fonts -->
     
     <!-- (2026-07-13) Offline Newsreader loaded via style.css. Prev: remote Google Fonts -->
@@ -250,7 +263,6 @@
 }
 
 /* FIX 2026-10-03: Simple darken effect on tap for bottom navigation */
-/* FIX 2026-10-03: Improved active state persistence - stays dark while finger is pressed */
 @media (hover: none) and (pointer: coarse) {
     /* Mobile touch devices - disable hover */
     .nav-item-animation:hover {
@@ -259,23 +271,15 @@
     .nav-item-animation:hover .nav-icon-filter {
         filter: none !important;
     }
-    /* Use active state for subtle darken effect with better persistence */
+    /* Use active state for subtle darken effect - only while finger is down */
     .nav-item-animation:active {
         background: transparent !important;
         transform: scale(0.95) !important;
     }
     .nav-item-animation:active .nav-icon-filter {
-        /* Subtle darken on tap - stays dark while finger is pressed */
-        filter: brightness(0.6) !important;
+        /* Subtle darken on tap - instant effect, no delay, disappears when finger lifts */
+        filter: brightness(0.65) !important;
         transition: none !important;
-    }
-    /* Prevent text selection and touch callout on nav items */
-    .nav-item-animation {
-        -webkit-user-select: none !important;
-        user-select: none !important;
-        -webkit-touch-callout: none !important;
-        -webkit-tap-highlight-color: transparent !important;
-        touch-action: manipulation !important;
     }
 }
 
@@ -293,7 +297,116 @@
 /* Default state for inactive nav icons */
 .nav-icon-filter {
     filter: brightness(1);
-    transition: filter 0.2s ease-out, transform 0.15s ease-out;
+    transition: filter 0.15s ease-out, transform 0.15s ease-out;
+}
+
+/* FIX 2026-10-04: Smooth dropdown slide-in animation */
+@keyframes dropdown-slide-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* FIX 2026-10-04: Task completion animations */
+/* Dust fade-out for Standard/Daily views */
+@keyframes dust-fade-out {
+    0% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0px);
+    }
+    40% {
+        opacity: 0.6;
+        transform: scale(0.95) translateY(2px);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0.88) translateY(8px);
+        filter: blur(3px);
+    }
+}
+
+/* Fire spark particles for Notepad/Category views */
+@keyframes fire-spark-float {
+    0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(var(--spark-x), var(--spark-y)) scale(0);
+    }
+}
+
+/* Ember particle float for Category view */
+@keyframes ember-float {
+    0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-40px) scale(0.3);
+    }
+}
+
+/* Success glow pulse */
+@keyframes success-glow {
+    0% {
+        box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+    }
+    50% {
+        box-shadow: 0 0 20px 5px rgba(249, 115, 22, 0.6);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+    }
+}
+
+/* Strikethrough animation */
+@keyframes strike-through {
+    from {
+        width: 0;
+    }
+    to {
+        width: 100%;
+    }
+}
+
+.task-completing {
+    animation: dust-fade-out 300ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.task-spark-celebration {
+    animation: success-glow 500ms ease-out;
+}
+
+.fire-spark-particle {
+    position: fixed;
+    width: 6px;
+    height: 6px;
+    background: radial-gradient(circle, #fbbf24 0%, #f97316 50%, transparent 100%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    animation: fire-spark-float 500ms ease-out forwards;
+}
+
+.ember-particle {
+    position: fixed;
+    width: 4px;
+    height: 8px;
+    background: linear-gradient(to top, #f97316, #fbbf24);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    animation: ember-float 800ms ease-out forwards;
+    box-shadow: 0 0 8px #f97316;
 }
     </style>
   </head>

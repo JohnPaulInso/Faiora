@@ -388,8 +388,8 @@
 
 .fire-spark-particle {
     position: fixed;
-    width: 6px;
-    height: 6px;
+    width: 4px;
+    height: 4px;
     background: radial-gradient(circle, #fbbf24 0%, #f97316 50%, transparent 100%);
     border-radius: 50%;
     pointer-events: none;
@@ -2332,51 +2332,50 @@
         // Must be defined before any component that uses them
         // ------------------------------------------------------------------
         
-        // Fire spark particles for task completion in Notepad view
-        const createFireSparks = (x, y, isWide = false) => {
-            const sparkCount = isWide ? 15 + Math.floor(Math.random() * 10) : 12 + Math.floor(Math.random() * 8); // Wide: 15-25, Normal: 12-20
-            const maxDistance = isWide ? 120 : 80; // Wider spread for wide mode
+        // Minimal fire spark particles - positioned at checkmark
+        const createFireSparks = (x, y, width = 200, isWide = false) => {
+            const sparkCount = 8 + Math.floor(Math.random() * 5); // Always 8-12 particles
             
             for (let i = 0; i < sparkCount; i++) {
                 const spark = document.createElement('div');
                 spark.className = 'fire-spark-particle';
                 
-                // Random trajectory radiating outward
-                const angle = (Math.PI * 2 / sparkCount) * i + (Math.random() - 0.5) * 0.8;
-                const distance = 50 + Math.random() * maxDistance; // 50-130px for wide, 50-130px for normal
+                // Random burst in all directions from checkmark
+                const angle = (Math.PI * 2 / sparkCount) * i + (Math.random() - 0.5) * 0.6;
+                const distance = 30 + Math.random() * 50; // 30-80px
                 const sparkX = Math.cos(angle) * distance;
-                const sparkY = Math.sin(angle) * distance - Math.random() * 30; // slight upward bias
+                const sparkY = Math.sin(angle) * distance;
                 
                 spark.style.setProperty('--spark-x', `${sparkX}px`);
                 spark.style.setProperty('--spark-y', `${sparkY}px`);
                 spark.style.left = `${x}px`;
                 spark.style.top = `${y}px`;
-                spark.style.animationDelay = `${Math.random() * 100}ms`;
-                spark.style.animationDuration = `${400 + Math.random() * 200}ms`; // 400-600ms
+                spark.style.animationDelay = `${i * 15}ms`; // Staggered for smoothness
+                spark.style.animationDuration = `${250 + Math.random() * 150}ms`; // 250-400ms (fast)
                 
                 document.body.appendChild(spark);
-                setTimeout(() => spark.remove(), 650);
+                setTimeout(() => spark.remove(), 450);
             }
         };
         // Expose globally for task completion animations
         window.createFireSparks = createFireSparks;
 
-        // Ember particles for task completion in Category view
+        // Minimal ember particles
         const createEmberParticles = (x, y) => {
-            const emberCount = 12 + Math.floor(Math.random() * 8); // 12-20 embers (increased)
+            const emberCount = 8 + Math.floor(Math.random() * 5); // 8-12 embers
             for (let i = 0; i < emberCount; i++) {
                 const ember = document.createElement('div');
                 ember.className = 'ember-particle';
                 
-                // Wider horizontal spread, mainly float upward
-                const spreadX = (Math.random() - 0.5) * 80; // Increased from 30 to 80
+                // Float upward from checkmark
+                const spreadX = (Math.random() - 0.5) * 60; // ±30px
                 ember.style.left = `${x + spreadX}px`;
                 ember.style.top = `${y}px`;
-                ember.style.animationDelay = `${Math.random() * 150}ms`;
-                ember.style.animationDuration = `${700 + Math.random() * 300}ms`; // 700-1000ms
+                ember.style.animationDelay = `${i * 20}ms`;
+                ember.style.animationDuration = `${400 + Math.random() * 200}ms`; // 400-600ms
                 
                 document.body.appendChild(ember);
-                setTimeout(() => ember.remove(), 1100);
+                setTimeout(() => ember.remove(), 650);
             }
         };
         // Expose globally for task completion animations
@@ -6817,55 +6816,47 @@
                     const taskElement = e.currentTarget;
                     
                     if (viewMode === 'notepad') {
-                        // Fire sparks animation for notepad view
+                        // Fire sparks at checkmark position
                         const rect = taskElement.getBoundingClientRect();
-                        const centerX = rect.left + rect.width / 2;
-                        const centerY = rect.top + rect.height / 2;
-                        console.log('[QUICKTASK] Notepad mode - triggering fire sparks at', { centerX, centerY });
+                        const checkmarkX = rect.left + 20; // ~20px from left (checkmark position)
+                        const checkmarkY = rect.top + rect.height / 2;
+                        console.log('[QUICKTASK] Notepad mode - sparks at checkmark', { checkmarkX, checkmarkY });
                         if (window.createFireSparks) {
-                            window.createFireSparks(centerX, centerY, true); // Wide mode
+                            window.createFireSparks(checkmarkX, checkmarkY, rect.width, true);
                         }
                         taskElement.classList.add('task-spark-celebration');
                         setTimeout(() => taskElement.classList.remove('task-spark-celebration'), 500);
-                        // Immediate toggle for notepad view
                         onToggle(task.id);
                     } else if (viewMode === 'categories') {
-                        // Ember particles for category view
+                        // Ember particles at checkmark position
                         const rect = taskElement.getBoundingClientRect();
-                        const centerX = rect.left + rect.width / 2;
-                        const centerY = rect.top + rect.height / 2;
-                        console.log('[QUICKTASK] Category mode - triggering ember particles at', { centerX, centerY });
+                        const checkmarkX = rect.left + 20;
+                        const checkmarkY = rect.top + rect.height / 2;
+                        console.log('[QUICKTASK] Category mode - embers at checkmark', { checkmarkX, checkmarkY });
                         if (window.createEmberParticles) {
-                            window.createEmberParticles(centerX, centerY);
+                            window.createEmberParticles(checkmarkX, checkmarkY);
                         }
                         taskElement.classList.add('task-spark-celebration');
                         setTimeout(() => taskElement.classList.remove('task-spark-celebration'), 500);
-                        // Immediate toggle for category view
                         onToggle(task.id);
                     } else {
-                        // Fire sparks for standard/daily views (viewMode === 'standard' || viewMode === 'daily')
+                        // Fire sparks at checkmark for standard/daily
                         const rect = taskElement.getBoundingClientRect();
-                        const centerX = rect.left + rect.width / 2;
-                        const centerY = rect.top + rect.height / 2;
-                        console.log('[QUICKTASK] Standard/Daily mode - triggering fire sparks at', { centerX, centerY });
+                        const checkmarkX = rect.left + 20;
+                        const checkmarkY = rect.top + rect.height / 2;
+                        console.log('[QUICKTASK] Standard/Daily - sparks at checkmark', { checkmarkX, checkmarkY });
                         if (window.playWhooshSound) {
                             window.playWhooshSound();
                         }
                         if (window.createFireSparks) {
-                            window.createFireSparks(centerX, centerY, false); // Normal mode
+                            window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
                         }
                         taskElement.classList.add('task-spark-celebration');
-                        // Add dust animation class for fade-out
                         const outerContainer = taskElement.closest('.quick-task-card');
                         if (outerContainer) {
-                            console.log('[QUICKTASK] Adding task-completing class to outer container');
                             outerContainer.classList.add('task-completing');
-                        } else {
-                            console.warn('[QUICKTASK] Could not find outer container .quick-task-card');
                         }
-                        // Delay toggle to allow animation to play (300ms)
                         setTimeout(() => {
-                            console.log('[QUICKTASK] Delayed toggle executing');
                             taskElement.classList.remove('task-spark-celebration');
                             onToggle(task.id);
                         }, 300);
@@ -7217,15 +7208,17 @@
                     console.log('[NOTEPAD] Determined viewMode:', viewMode);
                     
                     if (viewMode === 'categories' && window.createEmberParticles) {
-                        console.log('[NOTEPAD] Triggering ember particles');
-                        // Category view: burning ember particles
-                        window.createEmberParticles(centerX, centerY);
+                        console.log('[NOTEPAD] Embers at checkmark');
+                        // Category view: burning ember particles from checkmark
+                        const checkmarkX = rect.left + 15; // Checkmark position
+                        window.createEmberParticles(checkmarkX, centerY);
                         taskElement.classList.add('task-spark-celebration');
                         setTimeout(() => taskElement.classList.remove('task-spark-celebration'), 500);
                     } else if (window.createFireSparks) {
-                        console.log('[NOTEPAD] Triggering fire sparks (wide)');
-                        // Notepad view: fire sparks with wide spread
-                        window.createFireSparks(centerX, centerY, true); // Wide mode
+                        console.log('[NOTEPAD] Fire sparks at checkmark');
+                        // Notepad view: fire sparks from checkmark
+                        const checkmarkX = rect.left + 15; // Checkmark position
+                        window.createFireSparks(checkmarkX, centerY, rect.width, true);
                         taskElement.classList.add('task-spark-celebration');
                         setTimeout(() => taskElement.classList.remove('task-spark-celebration'), 500);
                     } else {
@@ -11033,15 +11026,15 @@
                                                                 className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${item.completed ? 'bg-primary border-primary text-white scale-105' : 'border-white/30 text-transparent group-hover:border-white/60'}`}
                                                                 onClick={(e) => { 
                                                                     e.stopPropagation(); 
-                                                                    // FIX 2026-10-04: Calendar view uses fire sparks
+                                                                    // FIX 2026-10-04: Sparks at checkmark
                                                                     if (!item.completed) {
                                                                         const taskElement = e.currentTarget.closest('.quick-task-card');
                                                                         if (taskElement) {
                                                                             const rect = taskElement.getBoundingClientRect();
-                                                                            const centerX = rect.left + rect.width / 2;
-                                                                            const centerY = rect.top + rect.height / 2;
+                                                                            const checkmarkX = rect.left + 20;
+                                                                            const checkmarkY = rect.top + rect.height / 2;
                                                                             if (window.createFireSparks) {
-                                                                                window.createFireSparks(centerX, centerY, false);
+                                                                                window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
                                                                             }
                                                                             if (window.playWhooshSound) {
                                                                                 window.playWhooshSound();

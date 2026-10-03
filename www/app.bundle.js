@@ -694,6 +694,8 @@ const FaioraNotifications = (() => {
       if (window.caches) {
         caches.delete("faiora-offline-v1").catch(() => {
         });
+        caches.delete("faiora-offline-v2").catch(() => {
+        });
       }
       setTimeout(() => {
         navigator.serviceWorker.register("sw.js").then((reg) => {
@@ -1614,6 +1616,62 @@ const FaioraNotifications = (() => {
 })();
 const Sidebar = () => null;
 const MobileNav = () => null;
+const createFireSparks = (x, y, isWide = false) => {
+  const sparkCount = isWide ? 15 + Math.floor(Math.random() * 10) : 12 + Math.floor(Math.random() * 8);
+  const maxDistance = isWide ? 120 : 80;
+  for (let i = 0; i < sparkCount; i++) {
+    const spark = document.createElement("div");
+    spark.className = "fire-spark-particle";
+    const angle = Math.PI * 2 / sparkCount * i + (Math.random() - 0.5) * 0.8;
+    const distance = 50 + Math.random() * maxDistance;
+    const sparkX = Math.cos(angle) * distance;
+    const sparkY = Math.sin(angle) * distance - Math.random() * 30;
+    spark.style.setProperty("--spark-x", `${sparkX}px`);
+    spark.style.setProperty("--spark-y", `${sparkY}px`);
+    spark.style.left = `${x}px`;
+    spark.style.top = `${y}px`;
+    spark.style.animationDelay = `${Math.random() * 100}ms`;
+    spark.style.animationDuration = `${400 + Math.random() * 200}ms`;
+    document.body.appendChild(spark);
+    setTimeout(() => spark.remove(), 650);
+  }
+};
+window.createFireSparks = createFireSparks;
+const createEmberParticles = (x, y) => {
+  const emberCount = 12 + Math.floor(Math.random() * 8);
+  for (let i = 0; i < emberCount; i++) {
+    const ember = document.createElement("div");
+    ember.className = "ember-particle";
+    const spreadX = (Math.random() - 0.5) * 80;
+    ember.style.left = `${x + spreadX}px`;
+    ember.style.top = `${y}px`;
+    ember.style.animationDelay = `${Math.random() * 150}ms`;
+    ember.style.animationDuration = `${700 + Math.random() * 300}ms`;
+    document.body.appendChild(ember);
+    setTimeout(() => ember.remove(), 1100);
+  }
+};
+window.createEmberParticles = createEmberParticles;
+const playWhooshSound = () => {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.15);
+    gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 0.02);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+    oscillator.type = "sine";
+    oscillator.start(audioCtx.currentTime);
+    oscillator.stop(audioCtx.currentTime + 0.15);
+  } catch (err) {
+    console.warn("Could not play whoosh sound:", err);
+  }
+};
+window.playWhooshSound = playWhooshSound;
 const ResponsiveNav = () => {
   const location2 = useLocation();
   const isActive = (path) => location2.pathname === path;
@@ -2100,23 +2158,42 @@ const UserMenu = ({ user }) => {
         }
       }
     ) : /* @__PURE__ */ React.createElement("div", { id: "faiora_avatar_fallback", className: "faiora-avatar-fallback-initials w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/30 to-burnt-orange/30 text-primary font-black text-sm" }, (user.displayName || "U").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase())
-  ), isOpen && /* (2026-07-13) Compact user menu dropdown for mobile. Prev: w-64 p-2 p-4 */
-  /* @__PURE__ */ React.createElement("div", { id: "faiora_user_menu_dropdown", className: "faiora-user-menu-dropdown absolute right-0 mt-2 md:mt-4 w-48 sm:w-52 md:w-64 bg-slate-900/95 backdrop-blur-xl border border-white/15 rounded-2xl md:rounded-3xl p-1.5 md:p-2 shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-[250] animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden" }, /* @__PURE__ */ React.createElement("div", { id: "faiora_user_menu_info", className: "faiora-user-menu-header px-3 py-2 md:p-4 border-b border-white/5 mb-1 md:mb-2" }, /* @__PURE__ */ React.createElement("p", { id: "faiora_user_menu_name", className: "text-white font-bold text-xs md:text-sm truncate" }, user.displayName), /* @__PURE__ */ React.createElement("p", { id: "faiora_user_menu_email", className: "text-white/40 text-[10px] md:text-xs truncate" }, user.email)), /* @__PURE__ */ React.createElement("button", { id: "faiora_user_menu_profile_btn", onClick: () => {
-    setIsOpen(false);
-    navigate("/profile");
-  }, className: "faiora-user-menu-item flex items-center gap-2.5 md:gap-3 w-full px-2.5 py-1.5 md:p-3 hover:bg-white/10 rounded-xl md:rounded-2xl text-white/70 hover:text-primary transition-all text-xs md:text-sm group" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-base md:text-xl group-hover:scale-110 transition-transform" }, "person"), "Profile"), /* @__PURE__ */ React.createElement("button", { id: "faiora_user_menu_settings_btn", onClick: () => {
-    setIsOpen(false);
-    navigate("/settings");
-  }, className: "faiora-user-menu-item flex items-center gap-2.5 md:gap-3 w-full px-2.5 py-1.5 md:p-3 hover:bg-white/10 rounded-xl md:rounded-2xl text-white/70 hover:text-primary transition-all text-xs md:text-sm group" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-base md:text-xl group-hover:scale-110 transition-transform" }, "settings"), "Settings"), /* @__PURE__ */ React.createElement("div", { className: "h-px bg-white/5 my-1 md:my-2" }), /* @__PURE__ */ React.createElement(
-    "button",
+  ), isOpen && /* FIX 2026-10-04: User menu dropdown with animations and auto-close */
+  /* @__PURE__ */ React.createElement(
+    "div",
     {
-      id: "faiora_user_menu_logout_btn",
-      onClick: handleLogout,
-      className: "faiora-user-menu-item-danger flex items-center gap-2.5 md:gap-3 w-full px-2.5 py-1.5 md:p-3 hover:bg-red-500/20 rounded-xl md:rounded-2xl text-red-400 hover:text-red-300 transition-all text-xs md:text-sm group"
+      id: "faiora_user_menu_dropdown",
+      className: "faiora-user-menu-dropdown absolute right-0 mt-2 md:mt-4 w-48 sm:w-52 md:w-64 bg-slate-900 backdrop-blur-xl border border-white/15 rounded-2xl md:rounded-3xl p-1.5 md:p-2 shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-[250] overflow-hidden",
+      style: {
+        animation: "dropdown-slide-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+        transformOrigin: "top right"
+      }
     },
-    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-base md:text-xl group-hover:scale-110 transition-transform" }, "logout"),
-    "Logout"
-  )));
+    /* @__PURE__ */ React.createElement("div", { id: "faiora_user_menu_info", className: "faiora-user-menu-header px-3 py-2 md:p-4 border-b border-white/5 mb-1 md:mb-2" }, /* @__PURE__ */ React.createElement("p", { id: "faiora_user_menu_name", className: "text-white font-bold text-xs md:text-sm truncate" }, user.displayName), /* @__PURE__ */ React.createElement("p", { id: "faiora_user_menu_email", className: "text-white/40 text-[10px] md:text-xs truncate" }, user.email)),
+    /* @__PURE__ */ React.createElement("button", { id: "faiora_user_menu_profile_btn", onClick: () => {
+      setIsOpen(false);
+      navigate("/profile");
+    }, className: "faiora-user-menu-item flex items-center gap-2.5 md:gap-3 w-full px-2.5 py-1.5 md:p-3 hover:bg-white/10 rounded-xl md:rounded-2xl text-white/70 hover:text-primary transition-all text-xs md:text-sm group" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-base md:text-xl group-hover:scale-110 transition-transform" }, "person"), "Profile"),
+    /* @__PURE__ */ React.createElement("button", { id: "faiora_user_menu_settings_btn", onClick: () => {
+      setIsOpen(false);
+      navigate("/settings");
+    }, className: "faiora-user-menu-item flex items-center gap-2.5 md:gap-3 w-full px-2.5 py-1.5 md:p-3 hover:bg-white/10 rounded-xl md:rounded-2xl text-white/70 hover:text-primary transition-all text-xs md:text-sm group" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-base md:text-xl group-hover:scale-110 transition-transform" }, "settings"), "Settings"),
+    /* @__PURE__ */ React.createElement("button", { id: "faiora_user_menu_trash_btn", onClick: () => {
+      setIsOpen(false);
+      navigate("/trash");
+    }, className: "faiora-user-menu-item flex items-center gap-2.5 md:gap-3 w-full px-2.5 py-1.5 md:p-3 hover:bg-white/10 rounded-xl md:rounded-2xl text-white/70 hover:text-rose-400 transition-all text-xs md:text-sm group" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-base md:text-xl group-hover:scale-110 transition-transform" }, "delete"), "Trash"),
+    /* @__PURE__ */ React.createElement("div", { className: "h-px bg-white/5 my-1 md:my-2" }),
+    /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        id: "faiora_user_menu_logout_btn",
+        onClick: handleLogout,
+        className: "faiora-user-menu-item-danger flex items-center gap-2.5 md:gap-3 w-full px-2.5 py-1.5 md:p-3 hover:bg-red-500/20 rounded-xl md:rounded-2xl text-red-400 hover:text-red-300 transition-all text-xs md:text-sm group"
+      },
+      /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-base md:text-xl group-hover:scale-110 transition-transform" }, "logout"),
+      "Logout"
+    )
+  ));
 };
 const Header = ({
   title = "Faiora",
@@ -5040,7 +5117,7 @@ const getTaskPrioTarget = (targetTask) => {
   const nowMins = Math.max(0, Math.round((now.getHours() * 60 + now.getMinutes() - 10) / 10) * 10);
   return { date: todayStr, time: `${String(Math.floor(nowMins / 60)).padStart(2, "0")}:${String(nowMins % 60).padStart(2, "0")}` };
 };
-const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQuickTask, showToast: showToast2, hideDateSubtitle = false, isSelectionMode = false, isSelected = false, onSelectToggle = null }) => {
+const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQuickTask, showToast: showToast2, hideDateSubtitle = false, isSelectionMode = false, isSelected = false, onSelectToggle = null, viewMode = "standard" }) => {
   const { label: dueDateStr, isOverdue, isNearDeadline, isDueTomorrow, isDueToday } = formatDueDate(task.dueDate, task.dueTime);
   const timerRef = useRef(null);
   const isLongPressRef = useRef(false);
@@ -5211,12 +5288,14 @@ const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQu
     }
   };
   const handleClick = (e) => {
+    console.log("[QUICKTASK] handleClick called", { isSelectionMode, viewMode, isCompletedState, nextState: !isCompletedState });
     if (isSelectionMode) {
       if (onSelectToggle) onSelectToggle(task.id);
       return;
     }
     if (isLongPressRef.current || isSwipingRef.current || Math.abs(swipeOffset) > 10) {
       isLongPressRef.current = false;
+      console.log("[QUICKTASK] Click blocked by guard condition");
       return;
     }
     const nextState = !isCompletedState;
@@ -5228,8 +5307,64 @@ const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQu
         }
       } catch (err) {
       }
+      console.log("[QUICKTASK] Completing task, viewMode:", viewMode);
+      console.log("[QUICKTASK] Global functions available:", {
+        createFireSparks: !!window.createFireSparks,
+        createEmberParticles: !!window.createEmberParticles,
+        playWhooshSound: !!window.playWhooshSound
+      });
+      const taskElement = e.currentTarget;
+      if (viewMode === "notepad") {
+        const rect = taskElement.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        console.log("[QUICKTASK] Notepad mode - triggering fire sparks at", { centerX, centerY });
+        if (window.createFireSparks) {
+          window.createFireSparks(centerX, centerY, true);
+        }
+        taskElement.classList.add("task-spark-celebration");
+        setTimeout(() => taskElement.classList.remove("task-spark-celebration"), 500);
+        onToggle(task.id);
+      } else if (viewMode === "categories") {
+        const rect = taskElement.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        console.log("[QUICKTASK] Category mode - triggering ember particles at", { centerX, centerY });
+        if (window.createEmberParticles) {
+          window.createEmberParticles(centerX, centerY);
+        }
+        taskElement.classList.add("task-spark-celebration");
+        setTimeout(() => taskElement.classList.remove("task-spark-celebration"), 500);
+        onToggle(task.id);
+      } else {
+        const rect = taskElement.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        console.log("[QUICKTASK] Standard/Daily mode - triggering fire sparks at", { centerX, centerY });
+        if (window.playWhooshSound) {
+          window.playWhooshSound();
+        }
+        if (window.createFireSparks) {
+          window.createFireSparks(centerX, centerY, false);
+        }
+        taskElement.classList.add("task-spark-celebration");
+        const outerContainer = taskElement.closest(".quick-task-card");
+        if (outerContainer) {
+          console.log("[QUICKTASK] Adding task-completing class to outer container");
+          outerContainer.classList.add("task-completing");
+        } else {
+          console.warn("[QUICKTASK] Could not find outer container .quick-task-card");
+        }
+        setTimeout(() => {
+          console.log("[QUICKTASK] Delayed toggle executing");
+          taskElement.classList.remove("task-spark-celebration");
+          onToggle(task.id);
+        }, 300);
+      }
+    } else {
+      console.log("[QUICKTASK] Uncompleting task - immediate toggle");
+      onToggle(task.id);
     }
-    onToggle(task.id);
   };
   const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
     var _a;
@@ -5354,7 +5489,8 @@ const QuickTaskNotepadItem = React.memo(({
   handleItemTouchStart,
   handleItemTouchEnd,
   handleItemTouchMove,
-  longPressingId
+  longPressingId,
+  groupBy
 }) => {
   const [swipeOffset, setSwipeOffset] = useState(0);
   const isSwipingRef = useRef(false);
@@ -5476,21 +5612,75 @@ const QuickTaskNotepadItem = React.memo(({
     }
   };
   const handleClick = (e) => {
+    console.log("[NOTEPAD] handleClick called", {
+      isSelectionMode,
+      isLongPress: isLongPressRef.current,
+      isSwiping: isSwipingRef.current,
+      swipeOffset,
+      swipeOffsetAbs: Math.abs(swipeOffset),
+      completed: task.completed,
+      taskId: task.id
+    });
     if (isSelectionMode) {
+      console.log("[NOTEPAD] Selection mode - toggling selection");
       if (onSelectToggle) onSelectToggle(task.id);
       return;
     }
-    if (isLongPressRef.current || isSwipingRef.current || Math.abs(swipeOffset) > 10) {
+    if (isLongPressRef.current) {
+      console.log("[NOTEPAD] Blocked by long press guard");
       isLongPressRef.current = false;
       return;
+    }
+    if (isSwipingRef.current) {
+      console.log("[NOTEPAD] Blocked by swiping guard");
+      return;
+    }
+    if (Math.abs(swipeOffset) > 10) {
+      console.log("[NOTEPAD] Blocked by swipe offset guard:", swipeOffset);
+      return;
+    }
+    const isCompleting = !task.completed;
+    console.log("[NOTEPAD] isCompleting:", isCompleting, "groupBy:", groupBy);
+    if (isCompleting) {
+      const taskElement = e.currentTarget;
+      const rect = taskElement.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      console.log("[NOTEPAD] Animation trigger position:", { centerX, centerY });
+      console.log("[NOTEPAD] Window functions:", {
+        createFireSparks: !!window.createFireSparks,
+        createEmberParticles: !!window.createEmberParticles
+      });
+      const viewMode = groupBy === "category" ? "categories" : "notepad";
+      console.log("[NOTEPAD] Determined viewMode:", viewMode);
+      if (viewMode === "categories" && window.createEmberParticles) {
+        console.log("[NOTEPAD] Triggering ember particles");
+        window.createEmberParticles(centerX, centerY);
+        taskElement.classList.add("task-spark-celebration");
+        setTimeout(() => taskElement.classList.remove("task-spark-celebration"), 500);
+      } else if (window.createFireSparks) {
+        console.log("[NOTEPAD] Triggering fire sparks (wide)");
+        window.createFireSparks(centerX, centerY, true);
+        taskElement.classList.add("task-spark-celebration");
+        setTimeout(() => taskElement.classList.remove("task-spark-celebration"), 500);
+      } else {
+        console.warn("[NOTEPAD] No animation function available!");
+      }
     }
     try {
       if (typeof FaioraNotifications !== "undefined" && (FaioraNotifications == null ? void 0 : FaioraNotifications.playCheckSFX)) {
         FaioraNotifications.playCheckSFX();
       }
     } catch (err) {
+      console.warn("[NOTEPAD] Error playing SFX:", err);
     }
-    if (onToggle) onToggle(task.id);
+    console.log("[NOTEPAD] Calling onToggle with task.id:", task.id, "onToggle exists:", !!onToggle);
+    if (onToggle) {
+      onToggle(task.id);
+      console.log("[NOTEPAD] onToggle called successfully");
+    } else {
+      console.error("[NOTEPAD] onToggle is not defined!");
+    }
   };
   const swipeRescheduleInfo = swipeOffset > 0 ? { label: "TODAY", icon: "today" } : null;
   return /* @__PURE__ */ React.createElement("div", { className: "relative overflow-hidden rounded-lg select-none" }, swipeOffset > 0 && swipeRescheduleInfo && /* @__PURE__ */ React.createElement(
@@ -5826,7 +6016,8 @@ const QuickTasksNotepadView = ({ tasks = [], onToggle, onSaveToNotes, onEditQuic
             handleItemTouchStart,
             handleItemTouchEnd,
             handleItemTouchMove,
-            longPressingId
+            longPressingId,
+            groupBy
           }
         )
       );
@@ -7037,7 +7228,8 @@ const DashboardPage = ({ user, notes: notes2, quickTasks: quickTasks2, alarms: a
       hideDateSubtitle: true,
       isSelectionMode,
       isSelected: selectedTasks.includes(task.id),
-      onSelectToggle: handleToggleSelectTask
+      onSelectToggle: handleToggleSelectTask,
+      viewMode: "daily"
     }
   )))))) : /* @__PURE__ */ React.createElement("div", { className: "space-y-8" }, activeHomepageSections.map((section) => /* @__PURE__ */ React.createElement("div", { key: section.key, className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("h3", { className: `text-[10px] md:text-xs font-bold uppercase tracking-[0.25em] ${section.key === "pastDue" ? "text-red-400" : "text-primary/70"}` }, section.label), /* @__PURE__ */ React.createElement("div", { className: "h-px flex-1 bg-white/10" }), /* @__PURE__ */ React.createElement("span", { className: "text-[10px] text-white/30 font-bold font-montserrat" }, "(", section.items.length, ")")), /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, section.items.map((task) => /* @__PURE__ */ React.createElement(
     QuickTaskItem,
@@ -7051,7 +7243,8 @@ const DashboardPage = ({ user, notes: notes2, quickTasks: quickTasks2, alarms: a
       showToast: showToast2,
       isSelectionMode,
       isSelected: selectedTasks.includes(task.id),
-      onSelectToggle: handleToggleSelectTask
+      onSelectToggle: handleToggleSelectTask,
+      viewMode: "standard"
     }
   )))))))), /* @__PURE__ */ React.createElement("div", { className: "px-0 md:px-0 mt-8 md:mt-10" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-4 mb-6 md:mb-10" }, /* @__PURE__ */ React.createElement("h2", { className: "text-lg md:text-2xl font-bold text-cream-light/90 uppercase tracking-[0.2em] md:tracking-[0.3em] font-display" }, "ALARMS"), /* @__PURE__ */ React.createElement("div", { className: "h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent" }), /* @__PURE__ */ React.createElement(
     "button",
@@ -8289,6 +8482,20 @@ const CalendarPage = ({ user, notes: notes2, quickTasks: quickTasks2 = [], onOpe
                   className: `w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${item.completed ? "bg-primary border-primary text-white scale-105" : "border-white/30 text-transparent group-hover:border-white/60"}`,
                   onClick: (e) => {
                     e.stopPropagation();
+                    if (!item.completed) {
+                      const taskElement = e.currentTarget.closest(".quick-task-card");
+                      if (taskElement) {
+                        const rect = taskElement.getBoundingClientRect();
+                        const centerX = rect.left + rect.width / 2;
+                        const centerY = rect.top + rect.height / 2;
+                        if (window.createFireSparks) {
+                          window.createFireSparks(centerX, centerY, false);
+                        }
+                        if (window.playWhooshSound) {
+                          window.playWhooshSound();
+                        }
+                      }
+                    }
                     onToggleQuickTask && onToggleQuickTask(item.id);
                   },
                   style: { pointerEvents: "auto" }
@@ -8887,7 +9094,8 @@ const QuickTasksPage = ({ user, quickTasks: quickTasks2 = [], onOpenCreator, onT
       hideDateSubtitle: true,
       isSelectionMode,
       isSelected: selectedTasks.includes(task.id),
-      onSelectToggle: handleToggleSelectTask
+      onSelectToggle: handleToggleSelectTask,
+      viewMode: "daily"
     }
   ))))), dailyQuickTasks.completed.length > 0 && /* @__PURE__ */ React.createElement("section", { className: "space-y-4" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("h2", { className: "text-xs md:text-sm font-bold uppercase tracking-[0.28em] text-primary/75" }, "Finished"), /* @__PURE__ */ React.createElement("div", { className: "h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent" }), /* @__PURE__ */ React.createElement("span", { className: "rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/35" }, dailyQuickTasks.completed.length)), /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, dailyQuickTasks.completed.slice(0, finishedLimit).map((task) => /* @__PURE__ */ React.createElement(
     QuickTaskItem,
@@ -8902,7 +9110,8 @@ const QuickTasksPage = ({ user, quickTasks: quickTasks2 = [], onOpenCreator, onT
       hideDateSubtitle: true,
       isSelectionMode,
       isSelected: selectedTasks.includes(task.id),
-      onSelectToggle: handleToggleSelectTask
+      onSelectToggle: handleToggleSelectTask,
+      viewMode: "daily"
     }
   ))))) : /* @__PURE__ */ React.createElement("div", { className: "space-y-8" }, sections.map((section) => section.items.length > 0 && /* @__PURE__ */ React.createElement("section", { key: section.key, className: "space-y-4" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("h2", { className: `text-xs md:text-sm font-bold uppercase tracking-[0.28em] ${section.key === "pastDue" ? "text-red-400" : "text-primary/75"}` }, section.label), /* @__PURE__ */ React.createElement("div", { className: "h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent" }), /* @__PURE__ */ React.createElement("span", { className: "rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/35" }, section.totalCount || section.items.length)), /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, section.items.map((task) => /* @__PURE__ */ React.createElement(
     QuickTaskItem,
@@ -8916,7 +9125,8 @@ const QuickTasksPage = ({ user, quickTasks: quickTasks2 = [], onOpenCreator, onT
       showToast: showToast2,
       isSelectionMode,
       isSelected: selectedTasks.includes(task.id),
-      onSelectToggle: handleToggleSelectTask
+      onSelectToggle: handleToggleSelectTask,
+      viewMode: "standard"
     }
   )), section.key === "completed" && section.totalCount > section.items.length && /* @__PURE__ */ React.createElement("div", { ref: finishedSentinelRef, className: "flex flex-col items-center gap-2 py-6" }, /* @__PURE__ */ React.createElement("div", { className: "flex gap-1.5" }, [0, 1, 2].map((i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "w-2 h-2 rounded-full bg-primary/50 animate-pulse", style: { animationDelay: `${i * 0.15}s` } }))), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] font-bold uppercase tracking-widest text-white/30" }, "Loading more (", section.items.length, " of ", section.totalCount, ")..."))))))))), isSelectionMode && /* @__PURE__ */ React.createElement("div", { className: "fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-[300] w-[92%] max-w-lg bg-[#0e0603]/95 border border-primary/30 rounded-3xl p-3 md:p-4 shadow-2xl backdrop-blur-xl flex items-center justify-between animate-in slide-in-from-bottom-5 duration-300 font-montserrat" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3 pl-2" }, /* @__PURE__ */ React.createElement("span", { className: "text-xs md:text-sm font-bold text-cream-light" }, selectedTasks.length, " ", /* @__PURE__ */ React.createElement("span", { className: "text-white/40 font-normal" }, "selected")), /* @__PURE__ */ React.createElement(
     "button",
@@ -10675,12 +10885,12 @@ const SettingsPage = ({ user, onOpenCreator, settingsData: settingsData2, onSave
     "div",
     {
       onClick: () => onChange(!checked),
-      className: "flex items-center justify-between p-4 bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 rounded-2xl transition-all cursor-pointer group select-none"
+      className: "flex items-center justify-between p-3.5 bg-white/[0.04] hover:bg-white/[0.07] border border-white/8 hover:border-white/12 rounded-xl transition-all cursor-pointer group select-none"
     },
-    /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3.5 pr-4" }, icon && /* @__PURE__ */ React.createElement("div", { className: `w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${checked ? "bg-primary/20 text-primary" : "bg-white/5 text-cream-light/40 group-hover:text-cream-light/70"}` }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg" }, icon)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "text-sm font-medium text-cream-light group-hover:text-white transition-colors" }, label), description && /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-cream-light/40 mt-0.5" }, description))),
-    /* @__PURE__ */ React.createElement("div", { className: `w-12 h-7 flex items-center rounded-full p-1 transition-colors duration-200 ease-in-out shrink-0 ${checked ? "bg-primary shadow-[0_0_14px_rgba(249,115,22,0.45)]" : "bg-white/15"}` }, /* @__PURE__ */ React.createElement("div", { className: `bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${checked ? "translate-x-5" : "translate-x-0"}` }))
+    /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3 pr-3" }, icon && /* @__PURE__ */ React.createElement("div", { className: `w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${checked ? "bg-primary/25 text-primary" : "bg-white/8 text-cream-light/50 group-hover:text-cream-light/80"}` }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[18px]" }, icon)), /* @__PURE__ */ React.createElement("div", { className: "flex-1 min-w-0" }, /* @__PURE__ */ React.createElement("p", { className: "text-[13px] font-semibold text-cream-light group-hover:text-white transition-colors leading-tight" }, label), description && /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-cream-light/45 mt-0.5 leading-snug" }, description))),
+    /* @__PURE__ */ React.createElement("div", { className: `w-11 h-6 flex items-center rounded-full p-0.5 transition-all duration-200 shrink-0 ${checked ? "bg-primary shadow-[0_0_12px_rgba(249,115,22,0.4)]" : "bg-white/20"}` }, /* @__PURE__ */ React.createElement("div", { className: `bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200 ${checked ? "translate-x-5" : "translate-x-0"}` }))
   );
-  return /* @__PURE__ */ React.createElement(Layout, { onOpenCreator, pomodoroTime, isPomodoroActive }, /* @__PURE__ */ React.createElement("div", { className: "max-w-3xl mx-auto w-full px-4 md:px-8 pt-20 md:pt-12 pb-16" }, /* @__PURE__ */ React.createElement(Header, { user, subtitle: "Settings" }), /* @__PURE__ */ React.createElement("div", { className: "space-y-6" }, /* @__PURE__ */ React.createElement("div", { className: "glass-panel rounded-3xl p-6 md:p-8 space-y-4" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2.5 mb-2" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-primary text-xl" }, "tune"), /* @__PURE__ */ React.createElement("h3", { className: "text-xs font-bold text-primary uppercase tracking-widest" }, "Preferences & Display")), /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement(Layout, { onOpenCreator, pomodoroTime, isPomodoroActive }, /* @__PURE__ */ React.createElement("div", { className: "max-w-2xl mx-auto w-full px-3 md:px-6 pt-[88px] md:pt-16 pb-24" }, /* @__PURE__ */ React.createElement(Header, { user, subtitle: "Settings" }), /* @__PURE__ */ React.createElement("div", { className: "space-y-4" }, /* @__PURE__ */ React.createElement("div", { className: "glass-panel rounded-2xl p-4 md:p-5 space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 mb-1" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-primary text-base" }, "tune"), /* @__PURE__ */ React.createElement("h3", { className: "text-[10px] font-bold text-primary uppercase tracking-[0.1em]" }, "Preferences & Display")), /* @__PURE__ */ React.createElement("div", { className: "space-y-2.5" }, /* @__PURE__ */ React.createElement(
     ToggleSwitch,
     {
       checked: bgVideoEnabled,
@@ -10707,17 +10917,17 @@ const SettingsPage = ({ user, onOpenCreator, settingsData: settingsData2, onSave
       description: "Receive daily notifications and streak reminders",
       icon: "notifications_active"
     }
-  ))), /* @__PURE__ */ React.createElement("div", { className: "glass-panel rounded-3xl p-6 md:p-8 space-y-5" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2.5" }, /* @__PURE__ */ React.createElement("div", { className: "w-8 h-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg" }, "auto_awesome")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h3", { className: "text-xs font-bold text-primary uppercase tracking-widest" }, "Auto-Categorization Rules"), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-cream-light/40 mt-0.5" }, "Customize keywords, default categories, and deadline offsets"))), /* @__PURE__ */ React.createElement(
+  ))), /* @__PURE__ */ React.createElement("div", { className: "glass-panel rounded-2xl p-4 md:p-5 space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-1" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-primary text-base" }, "auto_awesome"), /* @__PURE__ */ React.createElement("h3", { className: "text-[10px] font-bold text-primary uppercase tracking-[0.1em]" }, "Auto-Categorization")), /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
       onClick: handleResetKeywords,
-      className: "text-[10px] font-bold text-white/40 hover:text-primary transition-colors flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10",
+      className: "text-[9px] font-bold text-white/40 hover:text-primary transition-colors flex items-center gap-0.5 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10",
       title: "Reset keywords to defaults"
     },
-    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-xs" }, "restart_alt"),
+    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[11px]" }, "restart_alt"),
     "Reset"
-  )), /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("div", { className: "space-y-2.5" }, /* @__PURE__ */ React.createElement(
     ToggleSwitch,
     {
       checked: autoCatEnabled,
@@ -10726,7 +10936,7 @@ const SettingsPage = ({ user, onOpenCreator, settingsData: settingsData2, onSave
       description: "Automatically tag categories while typing task titles",
       icon: "label"
     }
-  )), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1" }, /* @__PURE__ */ React.createElement("div", { className: "p-3.5 bg-white/[0.03] rounded-2xl border border-white/5 space-y-1.5" }, /* @__PURE__ */ React.createElement("label", { className: "text-[11px] font-bold text-cream-light/70 uppercase tracking-wider block" }, "Default Category"), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-cream-light/40" }, "Fallback when no keywords match"), /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1" }, /* @__PURE__ */ React.createElement("div", { className: "p-3 bg-white/[0.03] rounded-xl border border-white/5 space-y-1" }, /* @__PURE__ */ React.createElement("label", { className: "text-[10px] font-bold text-cream-light/70 uppercase tracking-wider block" }, "Default Category"), /* @__PURE__ */ React.createElement("p", { className: "text-[9px] text-cream-light/40 leading-snug" }, "Fallback when no keywords match"), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "text",
@@ -10734,15 +10944,15 @@ const SettingsPage = ({ user, onOpenCreator, settingsData: settingsData2, onSave
       onChange: (e) => setDefaultCategory(e.target.value),
       onBlur: () => saveCategorizationSettings({ defaultCategory }),
       placeholder: "e.g. Errands",
-      className: "w-full bg-[#0a0f1d] text-white text-xs px-3 py-2 rounded-xl border border-white/10 focus:border-primary/50 outline-none font-montserrat mt-1"
+      className: "w-full bg-[#0a0f1d] text-white text-[11px] px-2.5 py-1.5 rounded-lg border border-white/10 focus:border-primary/50 outline-none font-montserrat mt-1"
     }
-  )), /* @__PURE__ */ React.createElement("div", { className: "p-3.5 bg-white/[0.03] rounded-2xl border border-white/5 space-y-1.5" }, /* @__PURE__ */ React.createElement("label", { className: "text-[11px] font-bold text-cream-light/70 uppercase tracking-wider block" }, "Prio Deadline Offset"), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-cream-light/40" }, "Minutes before earliest task (rounded 10m)"), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1.5 mt-1" }, [5, 10, 15, 20, 30].map((mins) => /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("div", { className: "p-3 bg-white/[0.03] rounded-xl border border-white/5 space-y-1" }, /* @__PURE__ */ React.createElement("label", { className: "text-[10px] font-bold text-cream-light/70 uppercase tracking-wider block" }, "Priority Offset"), /* @__PURE__ */ React.createElement("p", { className: "text-[9px] text-cream-light/40 leading-snug" }, "Minutes before earliest task"), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1 mt-1" }, [5, 10, 15, 20, 30].map((mins) => /* @__PURE__ */ React.createElement(
     "button",
     {
       key: mins,
       type: "button",
       onClick: () => saveCategorizationSettings({ prioOffsetMinutes: mins }),
-      className: `flex-1 py-1.5 text-xs font-bold rounded-xl transition-all ${prioOffset === mins ? "bg-primary text-white shadow-[0_0_10px_rgba(249,115,22,0.4)]" : "bg-white/5 text-white/50 hover:text-white hover:bg-white/10"}`
+      className: `flex-1 py-1 text-[10px] font-bold rounded-lg transition-all ${prioOffset === mins ? "bg-primary text-white shadow-[0_0_8px_rgba(249,115,22,0.4)]" : "bg-white/5 text-white/50 hover:text-white hover:bg-white/10"}`
     },
     mins,
     "m"
@@ -10828,14 +11038,14 @@ const SettingsPage = ({ user, onOpenCreator, settingsData: settingsData2, onSave
       quickTasks: quickTasks2,
       showToast: showToast2
     }
-  ), /* @__PURE__ */ React.createElement("div", { className: "glass-panel rounded-3xl p-6 md:p-8 space-y-5" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2.5 mb-1" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-primary text-xl" }, "database"), /* @__PURE__ */ React.createElement("h3", { className: "text-xs font-bold text-primary uppercase tracking-widest" }, "Data Management")), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-cream-light/50" }, "Manage your deleted notes, diagnostic scans, and full data backups."), /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("div", { className: "glass-panel rounded-2xl p-4 md:p-5 space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 mb-1" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-primary text-base" }, "database"), /* @__PURE__ */ React.createElement("h3", { className: "text-[10px] font-bold text-primary uppercase tracking-[0.1em]" }, "Data Management")), /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => navigate("/trash"),
-      className: "flex items-center justify-between w-full p-4 bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-white/10 rounded-2xl transition-all group"
+      className: "flex items-center justify-between w-full p-3 bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 rounded-xl transition-all group"
     },
-    /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3.5" }, /* @__PURE__ */ React.createElement("div", { className: "w-9 h-9 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-400 group-hover:scale-105 transition-transform" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg" }, "delete")), /* @__PURE__ */ React.createElement("div", { className: "text-left" }, /* @__PURE__ */ React.createElement("span", { className: "text-sm font-medium text-cream-light group-hover:text-white transition-colors" }, "Trash Folder"), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-cream-light/40 mt-0.5" }, "View and restore deleted items"))),
-    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-slate-500 group-hover:translate-x-1 transition-transform" }, "chevron_right")
+    /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2.5" }, /* @__PURE__ */ React.createElement("div", { className: "w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-400 group-hover:scale-105 transition-transform" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[16px]" }, "delete")), /* @__PURE__ */ React.createElement("div", { className: "text-left" }, /* @__PURE__ */ React.createElement("span", { className: "text-[13px] font-semibold text-cream-light group-hover:text-white transition-colors" }, "Trash Folder"), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-cream-light/40 mt-0.5" }, "View and restore deleted items"))),
+    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-slate-500 text-[18px] group-hover:translate-x-1 transition-transform" }, "chevron_right")
   ), /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -10846,29 +11056,29 @@ const SettingsPage = ({ user, onOpenCreator, settingsData: settingsData2, onSave
           window.location.reload();
         }
       },
-      className: "flex items-center justify-between w-full p-4 bg-primary/5 hover:bg-primary/10 rounded-2xl transition-all group border border-primary/20",
+      className: "flex items-center justify-between w-full p-3 bg-primary/5 hover:bg-primary/10 rounded-xl transition-all group border border-primary/20",
       id: "settings-repair-sync-button"
     },
-    /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3.5" }, /* @__PURE__ */ React.createElement("div", { className: "w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center text-primary" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg animate-pulse" }, "terminal")), /* @__PURE__ */ React.createElement("div", { className: "text-left" }, /* @__PURE__ */ React.createElement("span", { className: "text-sm font-bold text-primary italic" }, "Repair Sync & Deep Scan"), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-primary/60 mt-0.5" }, "Recover missing notes from alternate collections"))),
-    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-primary group-hover:rotate-180 transition-transform duration-500" }, "sync")
-  )), /* @__PURE__ */ React.createElement("div", { className: "pt-4 border-t border-white/10 space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React.createElement("p", { className: "text-xs text-cream-light/50" }, "Full JSON Backup & Restore")), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-3" }, /* @__PURE__ */ React.createElement(
+    /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2.5" }, /* @__PURE__ */ React.createElement("div", { className: "w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center text-primary" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[16px] animate-pulse" }, "terminal")), /* @__PURE__ */ React.createElement("div", { className: "text-left" }, /* @__PURE__ */ React.createElement("span", { className: "text-[13px] font-bold text-primary" }, "Repair Sync & Deep Scan"), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-primary/60 mt-0.5" }, "Recover missing notes"))),
+    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-primary text-[18px] group-hover:rotate-180 transition-transform duration-500" }, "sync")
+  )), /* @__PURE__ */ React.createElement("div", { className: "pt-3 border-t border-white/10 space-y-2" }, /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-cream-light/50 font-semibold uppercase tracking-wider" }, "Backup & Restore"), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       id: "settings-export-btn",
       onClick: handleExport,
-      className: "flex items-center justify-center gap-2.5 p-3.5 bg-primary/15 hover:bg-primary/25 border border-primary/30 rounded-2xl transition-all group"
+      className: "flex items-center justify-center gap-1.5 p-2.5 bg-primary/15 hover:bg-primary/25 border border-primary/30 rounded-xl transition-all group"
     },
-    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-primary text-lg group-hover:-translate-y-0.5 transition-transform" }, "download"),
-    /* @__PURE__ */ React.createElement("span", { className: "text-sm font-bold text-primary" }, "Export Backup")
+    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-primary text-[16px] group-hover:-translate-y-0.5 transition-transform" }, "download"),
+    /* @__PURE__ */ React.createElement("span", { className: "text-[11px] font-bold text-primary" }, "Export")
   ), /* @__PURE__ */ React.createElement(
     "label",
     {
       id: "settings-import-label",
       htmlFor: "settings-import-input",
-      className: "flex items-center justify-center gap-2.5 p-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-all group cursor-pointer"
+      className: "flex items-center justify-center gap-1.5 p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all group cursor-pointer"
     },
-    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-cream-light/70 text-lg group-hover:-translate-y-0.5 transition-transform" }, "upload"),
-    /* @__PURE__ */ React.createElement("span", { className: "text-sm font-bold text-cream-light/90" }, "Import Backup"),
+    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-cream-light/70 text-[16px] group-hover:-translate-y-0.5 transition-transform" }, "upload"),
+    /* @__PURE__ */ React.createElement("span", { className: "text-[11px] font-bold text-cream-light/90" }, "Import"),
     /* @__PURE__ */ React.createElement("input", { id: "settings-import-input", type: "file", accept: ".json", className: "hidden", onChange: handleImport })
   )))))));
 };
@@ -14732,14 +14942,14 @@ const App = () => {
     quickTasksRef.current = updatedTasks;
     setTrashQuickTasks(updatedTrash);
     trashQuickTasksRef.current = updatedTrash;
+    if (typeof FaioraNotifications !== "undefined" && (FaioraNotifications == null ? void 0 : FaioraNotifications.rescheduleAll)) {
+      try {
+        FaioraNotifications.rescheduleAll(updatedTasks);
+      } catch (e) {
+      }
+    }
     setTimeout(() => {
       var _a;
-      if (typeof FaioraNotifications !== "undefined" && (FaioraNotifications == null ? void 0 : FaioraNotifications.rescheduleAll)) {
-        try {
-          FaioraNotifications.rescheduleAll(updatedTasks);
-        } catch (e) {
-        }
-      }
       const currentUid = ((_a = auth.currentUser) == null ? void 0 : _a.uid) || (user == null ? void 0 : user.uid);
       if (currentUid) {
         try {
@@ -15061,6 +15271,12 @@ const App = () => {
         updatedAt: Date.now()
       };
       updated[targetIndex] = updatedTask;
+      FaioraNotifications.cancelForTask(id);
+      if (!isDone && dueDate) {
+        setTimeout(() => {
+          FaioraNotifications.scheduleForTask(updatedTask);
+        }, 100);
+      }
       handleUpdateQuickTasks(updated);
     }
   };
