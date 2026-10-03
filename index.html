@@ -6805,59 +6805,15 @@
                         }
                     } catch(err) {}
                     
-                    console.log('[QUICKTASK] Completing task, viewMode:', viewMode);
-                    console.log('[QUICKTASK] Global functions available:', { 
-                        createFireSparks: !!window.createFireSparks, 
-                        createEmberParticles: !!window.createEmberParticles,
-                        playWhooshSound: !!window.playWhooshSound
-                    });
-                    
-                    // FIX 2026-10-04: Trigger completion animations based on view context
-                    const taskElement = e.currentTarget;
-                    
-                    if (viewMode === 'notepad') {
-                        // Fire sparks at checkmark position
-                        const rect = taskElement.getBoundingClientRect();
-                        const checkmarkX = rect.left + 20; // ~20px from left (checkmark position)
-                        const checkmarkY = rect.top + rect.height / 2;
-                        console.log('[QUICKTASK] Notepad mode - sparks at checkmark', { checkmarkX, checkmarkY });
-                        if (window.createFireSparks) {
-                            window.createFireSparks(checkmarkX, checkmarkY, rect.width, true);
-                        }
-                        taskElement.classList.add('task-spark-celebration');
-                        setTimeout(() => taskElement.classList.remove('task-spark-celebration'), 500);
-                        onToggle(task.id);
-                    } else if (viewMode === 'categories') {
-                        // Ember particles at checkmark position
-                        const rect = taskElement.getBoundingClientRect();
-                        const checkmarkX = rect.left + 20;
-                        const checkmarkY = rect.top + rect.height / 2;
-                        console.log('[QUICKTASK] Category mode - embers at checkmark', { checkmarkX, checkmarkY });
-                        if (window.createEmberParticles) {
-                            window.createEmberParticles(checkmarkX, checkmarkY);
-                        }
-                        taskElement.classList.add('task-spark-celebration');
-                        setTimeout(() => taskElement.classList.remove('task-spark-celebration'), 500);
+                    if (viewMode === 'notepad' || viewMode === 'categories') {
                         onToggle(task.id);
                     } else {
-                        // Fire sparks at checkmark for standard/daily
-                        const rect = taskElement.getBoundingClientRect();
-                        const checkmarkX = rect.left + 20;
-                        const checkmarkY = rect.top + rect.height / 2;
-                        console.log('[QUICKTASK] Standard/Daily - sparks at checkmark', { checkmarkX, checkmarkY });
-                        if (window.playWhooshSound) {
-                            window.playWhooshSound();
-                        }
-                        if (window.createFireSparks) {
-                            window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
-                        }
-                        taskElement.classList.add('task-spark-celebration');
+                        const taskElement = e.currentTarget;
                         const outerContainer = taskElement.closest('.quick-task-card');
                         if (outerContainer) {
                             outerContainer.classList.add('task-completing');
                         }
                         setTimeout(() => {
-                            taskElement.classList.remove('task-spark-celebration');
                             onToggle(task.id);
                         }, 300);
                     }
@@ -7197,41 +7153,14 @@
                     const centerX = rect.left + rect.width / 2;
                     const centerY = rect.top + rect.height / 2;
                     
-                    console.log('[NOTEPAD] Animation trigger position:', { centerX, centerY });
-                    console.log('[NOTEPAD] Window functions:', { 
-                        createFireSparks: !!window.createFireSparks,
-                        createEmberParticles: !!window.createEmberParticles
-                    });
-                    
-                    // Determine animation type based on groupBy prop
-                    const viewMode = groupBy === 'category' ? 'categories' : 'notepad';
-                    console.log('[NOTEPAD] Determined viewMode:', viewMode);
-                    
-                    if (viewMode === 'categories' && window.createEmberParticles) {
-                        console.log('[NOTEPAD] Embers at checkmark');
-                        // Category view: burning ember particles from checkmark
-                        const checkmarkX = rect.left + 15; // Checkmark position
-                        window.createEmberParticles(checkmarkX, centerY);
-                        taskElement.classList.add('task-spark-celebration');
-                        setTimeout(() => taskElement.classList.remove('task-spark-celebration'), 500);
-                    } else if (window.createFireSparks) {
-                        console.log('[NOTEPAD] Fire sparks at checkmark');
-                        // Notepad view: fire sparks from checkmark
-                        const checkmarkX = rect.left + 15; // Checkmark position
-                        window.createFireSparks(checkmarkX, centerY, rect.width, true);
-                        taskElement.classList.add('task-spark-celebration');
-                        setTimeout(() => taskElement.classList.remove('task-spark-celebration'), 500);
-                    } else {
-                        console.warn('[NOTEPAD] No animation function available!');
+                if (isCompleting) {
+                    try {
+                        if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications?.playCheckSFX) {
+                            FaioraNotifications.playCheckSFX();
+                        }
+                    } catch(err) {
+                        console.warn('[NOTEPAD] Error playing SFX:', err);
                     }
-                }
-                
-                try {
-                    if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications?.playCheckSFX) {
-                        FaioraNotifications.playCheckSFX();
-                    }
-                } catch(err) {
-                    console.warn('[NOTEPAD] Error playing SFX:', err);
                 }
                 
                 console.log('[NOTEPAD] Calling onToggle with task.id:', task.id, 'onToggle exists:', !!onToggle);
