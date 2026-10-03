@@ -1389,7 +1389,7 @@
                         <div id="faiora_sidebar_logo_container" className="mb-4">
                             {/* (2026-07-13) Use transparent icon-only logo. Prev: local_fire_department */}
                             <div className="mb-6 flex items-center justify-center">
-                                <img src="assets/icon-only.png" alt="Faiora Logo" className="w-10 h-10 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.7)]" />
+                                <img src="assets/icon-only.png" alt="Faiora Logo" className="w-11 h-11 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.7)]" />
                             </div>
                         </div>
                         <NavLink to="/" icon="home" label="Home" />
@@ -9580,7 +9580,8 @@
             const showToast = useCallback((message) => {
                 if (!message) return;
                 const id = Date.now() + Math.random();
-                setToasts(prev => [...prev.slice(-1), { id, message }]);
+                const createdAt = Date.now();
+                setToasts(prev => [...prev.slice(-1), { id, message, createdAt }]);
                 setTimeout(() => {
                     setToasts(prev => prev.filter(t => t.id !== id));
                 }, 3000);
@@ -12249,10 +12250,11 @@
                 return () => clearTimeout(timer);
             }, []);
 
+            // (2026-07-13) Run background video at normal 1.0x speed. Prev: 1.5x
             useEffect(() => {
                 const enforceSpeed = () => {
                     if (videoRef.current) {
-                        videoRef.current.playbackRate = 1.5;
+                        videoRef.current.playbackRate = 1.0;
                     }
                 };
                 enforceSpeed();

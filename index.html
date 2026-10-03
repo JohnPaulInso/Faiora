@@ -40,7 +40,12 @@
             };
         })();
     </script>
-    <link rel="icon" href="logo.png">
+    <!-- (2026-07-13) Set transparent favicon.png with fallback. Prev: logo.png -->
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon.png?v=2">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon.png?v=2">
+    <link rel="icon" type="image/png" href="favicon.png?v=2">
+    <link rel="shortcut icon" type="image/png" href="favicon.png?v=2">
+    <link rel="apple-touch-icon" sizes="192x192" href="favicon-192.png?v=2">
     <link rel="manifest" href="manifest.json">
     
     <!-- Identity & Branding -->
@@ -83,6 +88,19 @@
     <link rel="preload" href="assets/fonts/newsreader-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="assets/fonts/material-symbols-outlined.woff2" as="font" type="font/woff2" crossorigin>
+    
+    <!-- FIX 2026-10-04: Preload navigation icons for instant display and offline support -->
+    <link rel="preload" href="assets/nav_icons/home_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/home_outline.png" as="image">
+    <link rel="preload" href="assets/nav_icons/notes_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/notes_outline.png" as="image">
+    <link rel="preload" href="assets/nav_icons/quick_tasks_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/quick_tasks_outline.png" as="image">
+    <link rel="preload" href="assets/nav_icons/alarms_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/alarms_outline.png" as="image">
+    <link rel="preload" href="assets/nav_icons/calendar_filled.png" as="image">
+    <link rel="preload" href="assets/nav_icons/calendar_outline.png" as="image">
+    
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" media="print" onload="this.media='all'">
     </style>    </style>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600&display=swap" media="print" onload="this.media='all'">
@@ -242,6 +260,153 @@
     background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.02) 15%, rgba(249, 115, 22, 0.12) 38%, rgba(255, 255, 255, 0.15) 50%, rgba(249, 115, 22, 0.12) 62%, rgba(255, 255, 255, 0.02) 85%, transparent 100%) !important;
     pointer-events: none !important;
     z-index: 10 !important;
+}
+
+/* FIX 2026-10-03: Simple darken effect on tap for bottom navigation */
+@media (hover: none) and (pointer: coarse) {
+    /* Mobile touch devices - disable hover */
+    .nav-item-animation:hover {
+        background: transparent !important;
+    }
+    .nav-item-animation:hover .nav-icon-filter {
+        filter: none !important;
+    }
+    /* Use active state for subtle darken effect - only while finger is down */
+    .nav-item-animation:active {
+        background: transparent !important;
+        transform: scale(0.95) !important;
+    }
+    .nav-item-animation:active .nav-icon-filter {
+        /* Subtle darken on tap - instant effect, no delay, disappears when finger lifts */
+        filter: brightness(0.65) !important;
+        transition: none !important;
+    }
+}
+
+@media (hover: hover) and (pointer: fine) {
+    /* Desktop with mouse - subtle darken on hover */
+    .nav-item-animation:hover {
+        background: transparent !important;
+        transform: scale(1.05) !important;
+    }
+    .nav-item-animation:hover .nav-icon-filter {
+        filter: brightness(0.7) !important;
+    }
+}
+
+/* Default state for inactive nav icons */
+.nav-icon-filter {
+    filter: brightness(1);
+    transition: filter 0.15s ease-out, transform 0.15s ease-out;
+}
+
+/* FIX 2026-10-04: Smooth dropdown slide-in animation */
+@keyframes dropdown-slide-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* FIX 2026-10-04: Task completion animations */
+/* Dust fade-out for Standard/Daily views */
+@keyframes dust-fade-out {
+    0% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0px);
+    }
+    40% {
+        opacity: 0.6;
+        transform: scale(0.95) translateY(2px);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0.88) translateY(8px);
+        filter: blur(3px);
+    }
+}
+
+/* Fire spark particles for Notepad/Category views */
+@keyframes fire-spark-float {
+    0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(var(--spark-x), var(--spark-y)) scale(0);
+    }
+}
+
+/* Ember particle float for Category view */
+@keyframes ember-float {
+    0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-40px) scale(0.3);
+    }
+}
+
+/* Success glow pulse */
+@keyframes success-glow {
+    0% {
+        box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+    }
+    50% {
+        box-shadow: 0 0 20px 5px rgba(249, 115, 22, 0.6);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+    }
+}
+
+/* Strikethrough animation */
+@keyframes strike-through {
+    from {
+        width: 0;
+    }
+    to {
+        width: 100%;
+    }
+}
+
+.task-completing {
+    animation: dust-fade-out 300ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.task-spark-celebration {
+    animation: success-glow 500ms ease-out;
+}
+
+.fire-spark-particle {
+    position: fixed;
+    width: 6px;
+    height: 6px;
+    background: radial-gradient(circle, #fbbf24 0%, #f97316 50%, transparent 100%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    animation: fire-spark-float 500ms ease-out forwards;
+}
+
+.ember-particle {
+    position: fixed;
+    width: 4px;
+    height: 8px;
+    background: linear-gradient(to top, #f97316, #fbbf24);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    animation: ember-float 800ms ease-out forwards;
+    box-shadow: 0 0 8px #f97316;
 }
     </style>
   </head>
@@ -1155,8 +1320,10 @@
                     // FIX 2026-04-22: Deep 2000ms delay to satisfy Chrome Extensions (AdBlock, etc.)
                     // This prevents the "Unchecked runtime.lastError: message port closed" console spam.
                     // (2026-07-13) Purge stale offline cache and force SW update. Prev: delayed
+                    // FIX 2026-10-04: Updated to v3 cache with nav icons
                     if (window.caches) {
                         caches.delete('faiora-offline-v1').catch(() => {});
+                        caches.delete('faiora-offline-v2').catch(() => {});
                     }
                     setTimeout(() => {
                         navigator.serviceWorker.register('sw.js').then(reg => {
@@ -2161,6 +2328,90 @@
         const MobileNav = () => null;
 
         // ------------------------------------------------------------------
+        // FIX 2026-10-04: Global animation functions for task completion
+        // Must be defined before any component that uses them
+        // ------------------------------------------------------------------
+        
+        // Fire spark particles for task completion in Notepad view
+        const createFireSparks = (x, y, isWide = false) => {
+            const sparkCount = isWide ? 15 + Math.floor(Math.random() * 10) : 12 + Math.floor(Math.random() * 8); // Wide: 15-25, Normal: 12-20
+            const maxDistance = isWide ? 120 : 80; // Wider spread for wide mode
+            
+            for (let i = 0; i < sparkCount; i++) {
+                const spark = document.createElement('div');
+                spark.className = 'fire-spark-particle';
+                
+                // Random trajectory radiating outward
+                const angle = (Math.PI * 2 / sparkCount) * i + (Math.random() - 0.5) * 0.8;
+                const distance = 50 + Math.random() * maxDistance; // 50-130px for wide, 50-130px for normal
+                const sparkX = Math.cos(angle) * distance;
+                const sparkY = Math.sin(angle) * distance - Math.random() * 30; // slight upward bias
+                
+                spark.style.setProperty('--spark-x', `${sparkX}px`);
+                spark.style.setProperty('--spark-y', `${sparkY}px`);
+                spark.style.left = `${x}px`;
+                spark.style.top = `${y}px`;
+                spark.style.animationDelay = `${Math.random() * 100}ms`;
+                spark.style.animationDuration = `${400 + Math.random() * 200}ms`; // 400-600ms
+                
+                document.body.appendChild(spark);
+                setTimeout(() => spark.remove(), 650);
+            }
+        };
+        // Expose globally for task completion animations
+        window.createFireSparks = createFireSparks;
+
+        // Ember particles for task completion in Category view
+        const createEmberParticles = (x, y) => {
+            const emberCount = 12 + Math.floor(Math.random() * 8); // 12-20 embers (increased)
+            for (let i = 0; i < emberCount; i++) {
+                const ember = document.createElement('div');
+                ember.className = 'ember-particle';
+                
+                // Wider horizontal spread, mainly float upward
+                const spreadX = (Math.random() - 0.5) * 80; // Increased from 30 to 80
+                ember.style.left = `${x + spreadX}px`;
+                ember.style.top = `${y}px`;
+                ember.style.animationDelay = `${Math.random() * 150}ms`;
+                ember.style.animationDuration = `${700 + Math.random() * 300}ms`; // 700-1000ms
+                
+                document.body.appendChild(ember);
+                setTimeout(() => ember.remove(), 1100);
+            }
+        };
+        // Expose globally for task completion animations
+        window.createEmberParticles = createEmberParticles;
+
+        // Whoosh sound effect for dust animation
+        const playWhooshSound = () => {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                // Whoosh: sweep from 400Hz down to 100Hz
+                oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.15);
+                
+                // Volume envelope: quick attack, smooth decay
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 0.02);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                
+                oscillator.type = 'sine';
+                oscillator.start(audioCtx.currentTime);
+                oscillator.stop(audioCtx.currentTime + 0.15);
+            } catch (err) {
+                console.warn('Could not play whoosh sound:', err);
+            }
+        };
+        // Expose globally for task completion animations
+        window.playWhooshSound = playWhooshSound;
+
+        // ------------------------------------------------------------------
         // LABEL: NAVIGATION — Desktop Sidebar & Mobile Bottom Nav
         // ------------------------------------------------------------------
         const ResponsiveNav = () => {
@@ -2187,65 +2438,95 @@
             };
 
             // (2026-07-13) Adjusted bottom nav height to py-2.5. Prev: py-1.5
-            const NavLink = ({ to, icon, label, fillOnActive = false }) => (
-                <Link 
-                    to={to} 
-                    onClick={createSparks}
-                    onContextMenu={(e) => e.preventDefault()}
-                    onTouchStart={(e) => {
-                        // Disable long press by preventing context menu
-                        e.currentTarget.dataset.longPress = setTimeout(() => {
-                            e.currentTarget.dataset.preventClick = 'true';
-                        }, 500);
-                    }}
-                    onTouchEnd={(e) => {
-                        if (e.currentTarget.dataset.longPress) {
-                            clearTimeout(parseInt(e.currentTarget.dataset.longPress));
-                            delete e.currentTarget.dataset.longPress;
-                        }
-                        setTimeout(() => {
-                            delete e.currentTarget.dataset.preventClick;
-                        }, 50);
-                    }}
-                    onTouchCancel={(e) => {
-                        if (e.currentTarget.dataset.longPress) {
-                            clearTimeout(parseInt(e.currentTarget.dataset.longPress));
-                            delete e.currentTarget.dataset.longPress;
-                        }
-                    }}
-                    className={`nav-item-animation flex flex-col items-center justify-center group relative w-14 h-11 md:w-full md:aspect-square select-none ${isActive(to) ? 'text-primary' : 'text-slate-500 hover:text-primary/70 scale-95 hover:scale-100'}`}
-                    style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
-                >
-                    <span className="material-symbols-outlined text-2xl md:text-2xl pointer-events-none" style={fillOnActive && isActive(to) ? {fontVariationSettings: '"FILL" 1'} : {}}>{icon}</span>
-                    <span className="absolute left-full ml-4 px-3 py-1 bg-primary text-white text-[10px] font-bold uppercase tracking-widest rounded-lg opacity-0 -translate-x-4 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 hidden md:block whitespace-nowrap z-[100] shadow-xl">{label}</span>
-                </Link>
-            );
+            const navIconMap = {
+                '/': 'home',
+                '/notes': 'notes',
+                '/quick-tasks': 'quick_tasks',
+                '/alarms': 'alarms',
+                '/calendar': 'calendar'
+            };
+
+            // (2026-07-13) Use custom PNG nav icons. Prev: Material Symbols font
+            // FIX 2026-10-03: Added active state for touch feedback on mobile
+            const NavLink = ({ to, label, iconKey = null }) => {
+                const active = isActive(to);
+                const resolvedKey = iconKey || navIconMap[to] || 'home';
+                const iconSrc = `assets/nav_icons/${resolvedKey}_${active ? 'filled' : 'outline'}.png`;
+
+                return (
+                    <Link 
+                        to={to} 
+                        onClick={createSparks}
+                        onContextMenu={(e) => e.preventDefault()}
+                        // (2026-07-13) Safe target reference in long-press timers. Prev: null dataset
+                        onTouchStart={(e) => {
+                            const target = e.currentTarget;
+                            if (!target) return;
+                            target.dataset.longPress = String(setTimeout(() => {
+                                if (target?.dataset) target.dataset.preventClick = 'true';
+                            }, 500));
+                        }}
+                        onTouchEnd={(e) => {
+                            const target = e.currentTarget;
+                            if (target?.dataset?.longPress) {
+                                clearTimeout(parseInt(target.dataset.longPress));
+                                delete target.dataset.longPress;
+                            }
+                            setTimeout(() => {
+                                if (target?.dataset) delete target.dataset.preventClick;
+                            }, 50);
+                        }}
+                        onTouchCancel={(e) => {
+                            const target = e.currentTarget;
+                            if (target?.dataset?.longPress) {
+                                clearTimeout(parseInt(target.dataset.longPress));
+                                delete target.dataset.longPress;
+                            }
+                        }}
+                        // (2026-10-03) Keep all nav items same color, no graying out. Prev: text-slate-500 inactive
+                        // FIX 2026-10-03: Removed background, using filter for color shift instead
+                        className={`nav-item-animation flex flex-col items-center justify-center group relative w-14 h-11 md:w-full md:aspect-square select-none transition-all duration-150 active:scale-95 rounded-xl`}
+                        style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+                    >
+                        {/* (2026-10-03) Consistent icon size 24x24 (w-6 h-6) for all nav items, mobile and desktop. Prev: md:w-7 md:h-7 */}
+                        {/* FIX 2026-10-03: Added transition for smooth color shift on tap */}
+                        <img 
+                            src={iconSrc} 
+                            alt={label} 
+                            draggable={false} 
+                            onDragStart={(e) => e.preventDefault()} 
+                            className={`nav-icon-filter w-6 h-6 object-contain select-none pointer-events-none transition-all duration-200 ${active ? 'drop-shadow-[0_0_10px_rgba(249,115,22,0.85)]' : ''}`} 
+                        />
+                        <span className="absolute left-full ml-4 px-3 py-1 bg-primary text-white text-[10px] font-bold uppercase tracking-widest rounded-lg opacity-0 -translate-x-4 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 hidden md:block whitespace-nowrap z-[100] shadow-xl">{label}</span>
+                    </Link>
+                );
+            };
 
             return (
                 <React.Fragment>
                     {/* Mobile Bottom Nav */}
                     <nav className="faiora-mobile-nav fixed bottom-0 left-0 right-0 flex justify-around items-center py-2.5 z-[100] px-4 md:hidden transition-opacity duration-300">
-                        <NavLink to="/" icon="home" label="Home" />
-                        <NavLink to="/notes" icon="grid_view" label="Notes" />
-                        <NavLink to="/quick-tasks" icon="checklist" label="Quick Tasks" />
-                        <NavLink to="/alarms" icon="alarm" label="Alarms" />
-                        <NavLink to="/calendar" icon="calendar_month" label="Calendar" />
+                        <NavLink to="/" label="Home" iconKey="home" />
+                        <NavLink to="/notes" label="Notes" iconKey="notes" />
+                        <NavLink to="/quick-tasks" label="Quick Tasks" iconKey="quick_tasks" />
+                        <NavLink to="/alarms" label="Alarms" iconKey="alarms" />
+                        <NavLink to="/calendar" label="Calendar" iconKey="calendar" />
                     </nav>
 
                     {/* Desktop Left Sidebar */}
                     {/* (2026-07-13) Set nav z-index to 100 below modals. Prev: z-1000 */}
                     <nav id="faiora_desktop_sidebar" className="faiora-desktop-sidebar hidden md:flex fixed left-0 top-0 bottom-0 w-24 bg-black/40 backdrop-blur-2xl border-r border-white/5 flex-col items-center py-12 gap-8 z-[100]">
                         <div id="faiora_sidebar_logo_container" className="mb-4">
-                            {/* (2026-07-13) Use transparent icon-only logo. Prev: local_fire_department */}
+                            {/* (2026-07-13) Undraggable sidebar logo img. Prev: draggable */}
                             <div className="mb-6 flex items-center justify-center">
-                                <img src="assets/icon-only.png" alt="Faiora Logo" className="w-10 h-10 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.7)]" />
+                                <img src="assets/icon-only.png" alt="Faiora Logo" draggable={false} onDragStart={(e) => e.preventDefault()} className="w-11 h-11 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.7)] select-none pointer-events-none" />
                             </div>
                         </div>
-                        <NavLink to="/" icon="home" label="Home" />
-                        <NavLink to="/notes" icon="grid_view" label="Notes" />
-                        <NavLink to="/quick-tasks" icon="checklist" label="Quick Tasks" />
-                        <NavLink to="/alarms" icon="alarm" label="Alarms" />
-                        <NavLink to="/calendar" icon="calendar_month" label="Calendar" />
+                        <NavLink to="/" label="Home" iconKey="home" />
+                        <NavLink to="/notes" label="Notes" iconKey="notes" />
+                        <NavLink to="/quick-tasks" label="Quick Tasks" iconKey="quick_tasks" />
+                        <NavLink to="/alarms" label="Alarms" iconKey="alarms" />
+                        <NavLink to="/calendar" label="Calendar" iconKey="calendar" />
                     </nav>
                 </React.Fragment>
             );
@@ -2742,8 +3023,15 @@
                     </button>
 
                     {isOpen && (
-                        /* (2026-07-13) Compact user menu dropdown for mobile. Prev: w-64 p-2 p-4 */
-                        <div id="faiora_user_menu_dropdown" className="faiora-user-menu-dropdown absolute right-0 mt-2 md:mt-4 w-48 sm:w-52 md:w-64 bg-slate-900/95 backdrop-blur-xl border border-white/15 rounded-2xl md:rounded-3xl p-1.5 md:p-2 shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-[250] animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
+                        /* FIX 2026-10-04: User menu dropdown with animations and auto-close */
+                        <div 
+                            id="faiora_user_menu_dropdown" 
+                            className="faiora-user-menu-dropdown absolute right-0 mt-2 md:mt-4 w-48 sm:w-52 md:w-64 bg-slate-900 backdrop-blur-xl border border-white/15 rounded-2xl md:rounded-3xl p-1.5 md:p-2 shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-[250] overflow-hidden"
+                            style={{
+                                animation: 'dropdown-slide-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                                transformOrigin: 'top right'
+                            }}
+                        >
                             <div id="faiora_user_menu_info" className="faiora-user-menu-header px-3 py-2 md:p-4 border-b border-white/5 mb-1 md:mb-2">
                                 <p id="faiora_user_menu_name" className="text-white font-bold text-xs md:text-sm truncate">{user.displayName}</p>
                                 <p id="faiora_user_menu_email" className="text-white/40 text-[10px] md:text-xs truncate">{user.email}</p>
@@ -2756,6 +3044,10 @@
                             <button id="faiora_user_menu_settings_btn" onClick={() => { setIsOpen(false); navigate('/settings'); }} className="faiora-user-menu-item flex items-center gap-2.5 md:gap-3 w-full px-2.5 py-1.5 md:p-3 hover:bg-white/10 rounded-xl md:rounded-2xl text-white/70 hover:text-primary transition-all text-xs md:text-sm group">
                                 <span className="material-symbols-outlined text-base md:text-xl group-hover:scale-110 transition-transform">settings</span>
                                 Settings
+                            </button>
+                            <button id="faiora_user_menu_trash_btn" onClick={() => { setIsOpen(false); navigate('/trash'); }} className="faiora-user-menu-item flex items-center gap-2.5 md:gap-3 w-full px-2.5 py-1.5 md:p-3 hover:bg-white/10 rounded-xl md:rounded-2xl text-white/70 hover:text-rose-400 transition-all text-xs md:text-sm group">
+                                <span className="material-symbols-outlined text-base md:text-xl group-hover:scale-110 transition-transform">delete</span>
+                                Trash
                             </button>
                             <div className="h-px bg-white/5 my-1 md:my-2"></div>
                             <button 
@@ -2868,7 +3160,8 @@
                                 aria-label="Go to homepage"
                                 title="Go to homepage"
                             >
-                                <img src="assets/icon-only.png" alt="Faiora Logo" className="w-[30px] h-[30px] object-contain drop-shadow-[0_0_4px_rgba(249,115,22,0.35)]" />
+                                {/* (2026-07-13) Undraggable header logo img. Prev: draggable */}
+                                <img src="assets/icon-only.png" alt="Faiora Logo" draggable={false} onDragStart={(e) => e.preventDefault()} className="w-[40px] h-[40px] object-contain drop-shadow-[0_0_6px_rgba(249,115,22,0.45)] select-none pointer-events-none" />
                             </button>
                             
                             {/* (2026-07-13) Smaller search icon, refined gap, larger text. Prev: text-xs */}
@@ -5963,17 +6256,17 @@
             // (2026-07-13) GPU-optimized zero-lag auth modal. Prev: heavy 120px blurs
             return (
                 <div className="faiora-auth-screen fixed inset-0 z-[999] flex items-center justify-center p-4 overflow-hidden bg-[#0c0502]">
-                    {/* (2026-07-13) 60fps animated glowing aura for auth. Prev: static gradient */}
+                    {/* (2026-07-13) Subtle minimal soft glow gradient. Prev: bright heavy aura */}
                     <div 
-                        className="absolute inset-0 z-0 pointer-events-none auth-glow-primary" 
+                        className="pointer-events-none auth-glow-primary" 
                         style={{
-                            background: 'radial-gradient(circle at 50% 38%, rgba(249, 115, 22, 0.42) 0%, rgba(194, 65, 12, 0.28) 32%, rgba(124, 45, 18, 0.14) 55%, transparent 75%)'
+                            background: 'radial-gradient(circle at 50% 50%, rgba(249, 115, 22, 0.2) 0%, rgba(194, 65, 12, 0.09) 32%, rgba(124, 45, 18, 0.03) 52%, transparent 70%)'
                         }}
                     />
                     <div 
-                        className="absolute inset-0 z-0 pointer-events-none auth-glow-secondary" 
+                        className="pointer-events-none auth-glow-secondary" 
                         style={{
-                            background: 'radial-gradient(circle at 48% 46%, rgba(234, 88, 12, 0.32) 0%, rgba(154, 52, 18, 0.16) 42%, transparent 70%)'
+                            background: 'radial-gradient(circle at 50% 46%, rgba(234, 88, 12, 0.14) 0%, rgba(154, 52, 18, 0.05) 30%, transparent 62%)'
                         }}
                     />
                     
@@ -5981,10 +6274,13 @@
                         {/* Faiora Logo */}
                         <div className="mb-6 relative">
                             <div className="w-24 h-24 sm:w-28 sm:h-28 mx-auto mb-4 relative flex items-center justify-center">
+                                {/* (2026-07-13) Undraggable login logo img. Prev: draggable */}
                                 <img 
                                     src="assets/icon-only.png" 
                                     alt="Faiora Logo" 
-                                    className="w-full h-full object-contain drop-shadow-[0_0_18px_rgba(249,115,22,0.65)]" 
+                                    draggable={false}
+                                    onDragStart={(e) => e.preventDefault()}
+                                    className="w-full h-full object-contain drop-shadow-[0_0_18px_rgba(249,115,22,0.65)] select-none pointer-events-none" 
                                 />
                             </div>
                             <h2 className="faiora-auth-title text-5xl sm:text-6xl font-black text-cream-light italic tracking-tighter drop-shadow-[0_0_24px_rgba(249,115,22,0.4)]" style={{ fontFamily: 'inherit' }}>Faiora</h2>
@@ -6315,7 +6611,8 @@
         };
 
         // (2026-07-13) 1s pause and fade-out on complete, transparent swipe. Prev: instant toggle
-        const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQuickTask, showToast, hideDateSubtitle = false, isSelectionMode = false, isSelected = false, onSelectToggle = null }) => {
+        // FIX 2026-10-04: Added viewMode prop for completion animations
+        const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQuickTask, showToast, hideDateSubtitle = false, isSelectionMode = false, isSelected = false, onSelectToggle = null, viewMode = 'standard' }) => {
             const { label: dueDateStr, isOverdue, isNearDeadline, isDueTomorrow, isDueToday } = formatDueDate(task.dueDate, task.dueTime);
             const timerRef = useRef(null);
             const isLongPressRef = useRef(false);
@@ -6395,7 +6692,7 @@
                     const raw = (task.text || 'Task').trim();
                     const displayName = raw.length > 8 ? raw.slice(0, 4) + '…' + raw.slice(-3) : raw;
                     
-                    // (2026-07-13) 3s prio & updated swipe later logic. Prev: 4s / 8pm-12am
+                    // (2026-07-13) Move past due tasks to today +2h on swipe. Prev: tomorrow
                     if (swipeOffset >= 75 && onUpdateQuickTask) {
                         const now = new Date();
                         const todayStr = formatDateLocal(now);
@@ -6406,8 +6703,22 @@
                         let targetDate = getTomorrow();
                         let targetTime = '10:00';
                         let toastLabel = `Moved "${displayName}" to Tomorrow`;
+                        const isPastDueTask = Boolean(isOverdue || (task.dueDate && task.dueDate < todayStr));
 
-                        if (isWithin3s) {
+                        if (isPastDueTask) {
+                            let baseTimeMs = now.getTime();
+                            const laterDate = new Date(baseTimeMs + 2 * 60 * 60 * 1000);
+                            laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
+                            targetDate = todayStr;
+                            targetTime = '23:59';
+                            if (formatDateLocal(laterDate) === todayStr) {
+                                const h = String(laterDate.getHours()).padStart(2, '0');
+                                const m = String(laterDate.getMinutes()).padStart(2, '0');
+                                targetTime = `${h}:${m}`;
+                            }
+                            toastLabel = `Moved "${displayName}" to Today (${formatTime(targetTime)})`;
+                            window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: 'today' });
+                        } else if (isWithin3s) {
                             const prioTarget = getTaskPrioTarget(task);
                             targetDate = prioTarget.date;
                             targetTime = prioTarget.time;
@@ -6475,12 +6786,15 @@
             };
 
             const handleClick = (e) => {
+                console.log('[QUICKTASK] handleClick called', { isSelectionMode, viewMode, isCompletedState, nextState: !isCompletedState });
+                
                 if (isSelectionMode) {
                     if (onSelectToggle) onSelectToggle(task.id);
                     return;
                 }
                 if (isLongPressRef.current || isSwipingRef.current || Math.abs(swipeOffset) > 10) {
                     isLongPressRef.current = false;
+                    console.log('[QUICKTASK] Click blocked by guard condition');
                     return;
                 }
                 const nextState = !isCompletedState;
@@ -6491,12 +6805,85 @@
                             FaioraNotifications.playCheckSFX();
                         }
                     } catch(err) {}
+                    
+                    console.log('[QUICKTASK] Completing task, viewMode:', viewMode);
+                    console.log('[QUICKTASK] Global functions available:', { 
+                        createFireSparks: !!window.createFireSparks, 
+                        createEmberParticles: !!window.createEmberParticles,
+                        playWhooshSound: !!window.playWhooshSound
+                    });
+                    
+                    // FIX 2026-10-04: Trigger completion animations based on view context
+                    const taskElement = e.currentTarget;
+                    
+                    if (viewMode === 'notepad') {
+                        // Fire sparks animation for notepad view
+                        const rect = taskElement.getBoundingClientRect();
+                        const centerX = rect.left + rect.width / 2;
+                        const centerY = rect.top + rect.height / 2;
+                        console.log('[QUICKTASK] Notepad mode - triggering fire sparks at', { centerX, centerY });
+                        if (window.createFireSparks) {
+                            window.createFireSparks(centerX, centerY, true); // Wide mode
+                        }
+                        taskElement.classList.add('task-spark-celebration');
+                        setTimeout(() => taskElement.classList.remove('task-spark-celebration'), 500);
+                        // Immediate toggle for notepad view
+                        onToggle(task.id);
+                    } else if (viewMode === 'categories') {
+                        // Ember particles for category view
+                        const rect = taskElement.getBoundingClientRect();
+                        const centerX = rect.left + rect.width / 2;
+                        const centerY = rect.top + rect.height / 2;
+                        console.log('[QUICKTASK] Category mode - triggering ember particles at', { centerX, centerY });
+                        if (window.createEmberParticles) {
+                            window.createEmberParticles(centerX, centerY);
+                        }
+                        taskElement.classList.add('task-spark-celebration');
+                        setTimeout(() => taskElement.classList.remove('task-spark-celebration'), 500);
+                        // Immediate toggle for category view
+                        onToggle(task.id);
+                    } else {
+                        // Fire sparks for standard/daily views (viewMode === 'standard' || viewMode === 'daily')
+                        const rect = taskElement.getBoundingClientRect();
+                        const centerX = rect.left + rect.width / 2;
+                        const centerY = rect.top + rect.height / 2;
+                        console.log('[QUICKTASK] Standard/Daily mode - triggering fire sparks at', { centerX, centerY });
+                        if (window.playWhooshSound) {
+                            window.playWhooshSound();
+                        }
+                        if (window.createFireSparks) {
+                            window.createFireSparks(centerX, centerY, false); // Normal mode
+                        }
+                        taskElement.classList.add('task-spark-celebration');
+                        // Add dust animation class for fade-out
+                        const outerContainer = taskElement.closest('.quick-task-card');
+                        if (outerContainer) {
+                            console.log('[QUICKTASK] Adding task-completing class to outer container');
+                            outerContainer.classList.add('task-completing');
+                        } else {
+                            console.warn('[QUICKTASK] Could not find outer container .quick-task-card');
+                        }
+                        // Delay toggle to allow animation to play (300ms)
+                        setTimeout(() => {
+                            console.log('[QUICKTASK] Delayed toggle executing');
+                            taskElement.classList.remove('task-spark-celebration');
+                            onToggle(task.id);
+                        }, 300);
+                    }
+                } else {
+                    // Uncompleting - immediate, no animation
+                    console.log('[QUICKTASK] Uncompleting task - immediate toggle');
+                    onToggle(task.id);
                 }
-                onToggle(task.id);
             };
 
-            // (2026-07-13) 3s prio & updated badge info. Prev: 4s / static tomorrow/later
+            // (2026-07-13) Badge says TODAY for past due tasks. Prev: tomorrow
             const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
+                const now = new Date();
+                const todayStr = formatDateLocal(now);
+                if (isOverdue || (task.dueDate && task.dueDate < todayStr)) {
+                    return { label: 'TODAY', icon: 'today' };
+                }
                 const lastSwipe = window._faioraLastSwipe?.get(task.id);
                 if (lastSwipe && lastSwipe.action === 'later' && (Date.now() - lastSwipe.timestamp <= 3000)) {
                     return { label: 'PRIO', icon: 'priority_high' };
@@ -6505,8 +6892,6 @@
                 if (task.dueDate === getTomorrow()) {
                     return { label: 'TOMORROW', icon: 'event_upcoming' };
                 }
-                const now = new Date();
-                const todayStr = formatDateLocal(now);
                 const hour = now.getHours();
                 const minute = now.getMinutes();
                 if (hour >= 22 || (hour === 0 && minute > 30) || (hour > 0 && hour < 6)) {
@@ -6533,7 +6918,7 @@
                     // (2026-07-13) Unclip outer glow on quick task card. Prev: overflow-hidden
                     className="quick-task-card relative rounded-2xl select-none"
                     style={{
-                        minHeight: (hideDateSubtitle && !task.dueTime) ? '42px' : (window.innerWidth < 768 ? '52px' : 'auto'),
+                        minHeight: (hideDateSubtitle && !task.dueTime) ? '38px' : (window.innerWidth < 768 ? '46px' : 'auto'),
                         maxHeight: '300px',
                         opacity: 1,
                         transform: 'scale(1) translateY(0)',
@@ -6565,10 +6950,11 @@
                         </div>
                     )}
 
+                    {/* (2026-07-13) Reduced vertical padding in task card. Prev: py-2/py-2.5 */}
                     <div 
-                        className={`glass-panel rounded-2xl ${hideDateSubtitle ? 'py-2 px-3 md:py-2.5 md:px-3.5' : 'py-2.5 px-3 md:py-3 md:px-4'} flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${isSelectionMode && isSelected ? '!border-primary !bg-primary/15 shadow-md shadow-primary/20 scale-[0.99]' : ''} ${(isCompletedState || isCompleting) && !isSelectionMode ? 'opacity-40 grayscale-[0.5]' : ''} ${isLongPressing ? 'border-primary/80 shadow-[0_0_0_2px_rgba(249,115,22,0.4)] bg-primary/10 scale-[0.98]' : isPressed && !isSelectionMode ? 'border-primary/50 bg-white/[0.08] shadow-md shadow-primary/15 scale-[0.99]' : isOverdue && !(isCompletedState || isCompleting) && !isSelectionMode ? 'border-red-500/30' : isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? 'border-primary/60' : isDueToday && !(isCompletedState || isCompleting) && !isSelectionMode ? 'border-primary/40' : 'border-white/5'} ${isDueToday && !isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? 'today-task-glow' : ''} ${isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? 'near-deadline-glow' : ''} ${isDueTomorrow && !(isCompletedState || isCompleting) && !isSelectionMode ? 'tomorrow-glow' : ''}`}
+                        className={`glass-panel rounded-2xl ${hideDateSubtitle ? 'py-1.5 px-3 md:py-2 md:px-3.5' : 'py-2 px-3 md:py-2.5 md:px-4'} flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${isSelectionMode && isSelected ? '!border-primary !bg-primary/15 shadow-md shadow-primary/20 scale-[0.99]' : ''} ${(isCompletedState || isCompleting) && !isSelectionMode ? 'opacity-40 grayscale-[0.5]' : ''} ${isLongPressing ? 'border-primary/80 shadow-[0_0_0_2px_rgba(249,115,22,0.4)] bg-primary/10 scale-[0.98]' : isPressed && !isSelectionMode ? 'border-primary/50 bg-white/[0.08] shadow-md shadow-primary/15 scale-[0.99]' : isOverdue && !(isCompletedState || isCompleting) && !isSelectionMode ? 'border-red-500/30' : isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? 'border-primary/60' : isDueToday && !(isCompletedState || isCompleting) && !isSelectionMode ? 'border-primary/40' : 'border-white/5'} ${isDueToday && !isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? 'today-task-glow' : ''} ${isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? 'near-deadline-glow' : ''} ${isDueTomorrow && !(isCompletedState || isCompleting) && !isSelectionMode ? 'tomorrow-glow' : ''}`}
                         style={{ 
-                            minHeight: (hideDateSubtitle && !task.dueTime) ? '42px' : (window.innerWidth < 768 ? '52px' : 'auto'),
+                            minHeight: (hideDateSubtitle && !task.dueTime) ? '38px' : (window.innerWidth < 768 ? '46px' : 'auto'),
                             touchAction: 'pan-y',
                             transform: `translateX(${swipeOffset}px)`,
                             transition: isSwipingRef.current ? 'none' : 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
@@ -6653,7 +7039,8 @@
             handleItemTouchStart,
             handleItemTouchEnd,
             handleItemTouchMove,
-            longPressingId
+            longPressingId,
+            groupBy
         }) => {
             const [swipeOffset, setSwipeOffset] = useState(0);
             const isSwipingRef = useRef(false);
@@ -6732,66 +7119,30 @@
                     const raw = (task.text || 'Task').trim();
                     const displayName = raw.length > 8 ? raw.slice(0, 4) + '…' + raw.slice(-3) : raw;
 
-                    // (2026-07-13) 3s prio & updated swipe later logic. Prev: 4s / 8pm-12am
+                    // (2026-07-13) Move to today +2hrs later on swipe right. Prev: tomorrow
                     if (swipeOffset >= 75 && onUpdateQuickTask) {
                         const now = new Date();
                         const todayStr = formatDateLocal(now);
                         window._faioraLastSwipe = window._faioraLastSwipe || new Map();
-                        const lastSwipe = window._faioraLastSwipe.get(task.id);
                         const nowMs = Date.now();
-                        const isWithin3s = lastSwipe && lastSwipe.action === 'later' && (nowMs - lastSwipe.timestamp <= 3000);
-                        let targetDate = getTomorrow();
-                        let targetTime = '10:00';
-                        let toastLabel = `Moved "${displayName}" to Tomorrow`;
-
-                        if (isWithin3s) {
-                            const prioTarget = getTaskPrioTarget(task);
-                            targetDate = prioTarget.date;
-                            targetTime = prioTarget.time;
-                            toastLabel = `Prioritized "${displayName}" (${formatTime(targetTime)})`;
-                            window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: 'prio' });
-                        // (2026-07-13) Retain Tomorrow label for day after swipe. Prev: Day After
-                        } else if (task.dueDate === getTomorrow()) {
-                            targetDate = getDayAfterTomorrow();
-                            targetTime = '10:00';
-                            toastLabel = `Moved "${displayName}" to Tomorrow`;
-                            window._faioraLastSwipe.delete(task.id);
-                        } else {
-                            const hour = now.getHours();
-                            const minute = now.getMinutes();
-                            const isNight1h = (hour >= 20 && hour < 22) || (hour === 0 && minute <= 30);
-                            const isToTomorrow = hour >= 22 || (hour === 0 && minute > 30) || (hour > 0 && hour < 6);
-
-                            if (isToTomorrow) {
-                                targetDate = getTomorrow();
-                                targetTime = '10:00';
-                                toastLabel = `Moved "${displayName}" to Tomorrow`;
-                                window._faioraLastSwipe.delete(task.id);
-                            } else {
-                                let baseTimeMs = now.getTime();
-                                if (task.dueDate === todayStr && task.dueTime) {
-                                    const [th, tm] = task.dueTime.split(':').map(Number);
-                                    const tDate = new Date(now);
-                                    tDate.setHours(th, tm, 0, 0);
-                                    if (tDate.getTime() > baseTimeMs) baseTimeMs = tDate.getTime();
-                                }
-                                const laterDate = new Date(baseTimeMs + (isNight1h ? 1 : 4) * 60 * 60 * 1000);
-                                laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
-                                if (formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 22) {
-                                    const h = String(laterDate.getHours()).padStart(2, '0');
-                                    const m = String(laterDate.getMinutes()).padStart(2, '0');
-                                    targetDate = formatDateLocal(laterDate);
-                                    targetTime = `${h}:${m}`;
-                                    toastLabel = `Moved "${displayName}" to Later (${formatTime(targetTime)})`;
-                                    window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: 'later' });
-                                } else {
-                                    targetDate = getTomorrow();
-                                    targetTime = '10:00';
-                                    toastLabel = `Moved "${displayName}" to Tomorrow`;
-                                    window._faioraLastSwipe.delete(task.id);
-                                }
-                            }
+                        let baseTimeMs = now.getTime();
+                        if (task.dueDate === todayStr && task.dueTime) {
+                            const [th, tm] = task.dueTime.split(':').map(Number);
+                            const tDate = new Date(now);
+                            tDate.setHours(th, tm, 0, 0);
+                            if (tDate.getTime() > baseTimeMs) baseTimeMs = tDate.getTime();
                         }
+                        const laterDate = new Date(baseTimeMs + 2 * 60 * 60 * 1000);
+                        laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
+                        const targetDate = todayStr;
+                        let targetTime = '23:59';
+                        if (formatDateLocal(laterDate) === todayStr) {
+                            const h = String(laterDate.getHours()).padStart(2, '0');
+                            const m = String(laterDate.getMinutes()).padStart(2, '0');
+                            targetTime = `${h}:${m}`;
+                        }
+                        const toastLabel = `Moved "${displayName}" to Today (${formatTime(targetTime)})`;
+                        window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: 'today' });
                         const prevDueDate = task.dueDate;
                         const prevDueTime = task.dueTime;
                         onUpdateQuickTask(task.id, task.text, targetDate, targetTime, task.categories, task.progress);
@@ -6812,54 +7163,95 @@
             };
 
             const handleClick = (e) => {
+                console.log('[NOTEPAD] handleClick called', { 
+                    isSelectionMode, 
+                    isLongPress: isLongPressRef.current, 
+                    isSwiping: isSwipingRef.current, 
+                    swipeOffset, 
+                    swipeOffsetAbs: Math.abs(swipeOffset),
+                    completed: task.completed,
+                    taskId: task.id
+                });
+                
                 if (isSelectionMode) {
+                    console.log('[NOTEPAD] Selection mode - toggling selection');
                     if (onSelectToggle) onSelectToggle(task.id);
                     return;
                 }
-                if (isLongPressRef.current || isSwipingRef.current || Math.abs(swipeOffset) > 10) {
+                
+                // Check guards
+                if (isLongPressRef.current) {
+                    console.log('[NOTEPAD] Blocked by long press guard');
                     isLongPressRef.current = false;
                     return;
                 }
+                
+                if (isSwipingRef.current) {
+                    console.log('[NOTEPAD] Blocked by swiping guard');
+                    return;
+                }
+                
+                if (Math.abs(swipeOffset) > 10) {
+                    console.log('[NOTEPAD] Blocked by swipe offset guard:', swipeOffset);
+                    return;
+                }
+                
+                // FIX 2026-10-04: Trigger completion animations for notepad view
+                const isCompleting = !task.completed;
+                console.log('[NOTEPAD] isCompleting:', isCompleting, 'groupBy:', groupBy);
+                
+                if (isCompleting) {
+                    const taskElement = e.currentTarget;
+                    const rect = taskElement.getBoundingClientRect();
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+                    
+                    console.log('[NOTEPAD] Animation trigger position:', { centerX, centerY });
+                    console.log('[NOTEPAD] Window functions:', { 
+                        createFireSparks: !!window.createFireSparks,
+                        createEmberParticles: !!window.createEmberParticles
+                    });
+                    
+                    // Determine animation type based on groupBy prop
+                    const viewMode = groupBy === 'category' ? 'categories' : 'notepad';
+                    console.log('[NOTEPAD] Determined viewMode:', viewMode);
+                    
+                    if (viewMode === 'categories' && window.createEmberParticles) {
+                        console.log('[NOTEPAD] Triggering ember particles');
+                        // Category view: burning ember particles
+                        window.createEmberParticles(centerX, centerY);
+                        taskElement.classList.add('task-spark-celebration');
+                        setTimeout(() => taskElement.classList.remove('task-spark-celebration'), 500);
+                    } else if (window.createFireSparks) {
+                        console.log('[NOTEPAD] Triggering fire sparks (wide)');
+                        // Notepad view: fire sparks with wide spread
+                        window.createFireSparks(centerX, centerY, true); // Wide mode
+                        taskElement.classList.add('task-spark-celebration');
+                        setTimeout(() => taskElement.classList.remove('task-spark-celebration'), 500);
+                    } else {
+                        console.warn('[NOTEPAD] No animation function available!');
+                    }
+                }
+                
                 try {
                     if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications?.playCheckSFX) {
                         FaioraNotifications.playCheckSFX();
                     }
-                } catch(err) {}
-                if (onToggle) onToggle(task.id);
+                } catch(err) {
+                    console.warn('[NOTEPAD] Error playing SFX:', err);
+                }
+                
+                console.log('[NOTEPAD] Calling onToggle with task.id:', task.id, 'onToggle exists:', !!onToggle);
+                if (onToggle) {
+                    onToggle(task.id);
+                    console.log('[NOTEPAD] onToggle called successfully');
+                } else {
+                    console.error('[NOTEPAD] onToggle is not defined!');
+                }
             };
 
-            // (2026-07-13) 3s prio & updated badge info. Prev: 4s / static tomorrow/later
-            const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
-                const lastSwipe = window._faioraLastSwipe?.get(task.id);
-                if (lastSwipe && lastSwipe.action === 'later' && (Date.now() - lastSwipe.timestamp <= 3000)) {
-                    return { label: 'PRIO', icon: 'priority_high' };
-                }
-                // (2026-07-13) Badge says TOMORROW even if day after. Prev: DAY AFTER
-                if (task.dueDate === getTomorrow()) {
-                    return { label: 'TOMORROW', icon: 'event_upcoming' };
-                }
-                const now = new Date();
-                const todayStr = formatDateLocal(now);
-                const hour = now.getHours();
-                const minute = now.getMinutes();
-                if (hour >= 22 || (hour === 0 && minute > 30) || (hour > 0 && hour < 6)) {
-                    return { label: 'TOMORROW', icon: 'event_upcoming' };
-                }
-                const isNight1h = (hour >= 20 && hour < 22) || (hour === 0 && minute <= 30);
-                let baseTimeMs = now.getTime();
-                if (task.dueDate === todayStr && task.dueTime) {
-                    const [th, tm] = task.dueTime.split(':').map(Number);
-                    const tDate = new Date(now);
-                    tDate.setHours(th, tm, 0, 0);
-                    if (tDate.getTime() > baseTimeMs) baseTimeMs = tDate.getTime();
-                }
-                const laterDate = new Date(baseTimeMs + (isNight1h ? 1 : 4) * 60 * 60 * 1000);
-                laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
-                if (formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 22) {
-                    return { label: 'LATER', icon: 'schedule' };
-                }
-                return { label: 'TOMORROW', icon: 'event_upcoming' };
-            })() : null;
+            // (2026-07-13) Swipe right badge shows Today in notepad. Prev: tomorrow
+            const swipeRescheduleInfo = swipeOffset > 0 ? { label: 'TODAY', icon: 'today' } : null;
 
             return (
                 <div className="relative overflow-hidden rounded-lg select-none">
@@ -7316,6 +7708,7 @@
                                                     handleItemTouchEnd={handleItemTouchEnd}
                                                     handleItemTouchMove={handleItemTouchMove}
                                                     longPressingId={longPressingId}
+                                                    groupBy={groupBy}
                                                 />
                                                 </div>
                                             );
@@ -8659,13 +9052,21 @@
                                             <span className="material-symbols-outlined text-sm md:text-base leading-none">{isSelectionMode ? 'close' : 'checklist'}</span>
                                         </button>
                                     </div>
-                                    <Link 
-                                        to="/quick-tasks"
-                                        className="text-[8px] md:text-[9px] font-bold text-primary/70 uppercase tracking-widest hover:text-primary transition-colors inline-flex items-center gap-0.5 w-max active:scale-95 mt-1 leading-none"
-                                    >
-                                        <span>View All</span>
-                                        <span className="material-symbols-outlined text-[10px] leading-none">chevron_right</span>
-                                    </Link>
+                                    {/* (2026-07-13) Show active view mode title before View All. Prev: View All only */}
+                                    {/* Quick tasks mode title bar */}
+                                    <div id="quick_tasks_view_mode_bar" className="quick-tasks-view-mode-bar flex items-center gap-1.5 mt-1 leading-none">
+                                        <span className="text-[8px] md:text-[9px] font-bold text-cream-light/45 uppercase tracking-widest leading-none">
+                                            {viewMode === 'daily' ? 'Daily Breakdown View' : viewMode === 'notepad' ? 'Date Notepad View' : viewMode === 'categories' ? 'Category Notepad View' : 'Standard View'}
+                                        </span>
+                                        <span className="text-white/20 text-[8px] md:text-[9px] leading-none select-none">•</span>
+                                        <Link 
+                                            to="/quick-tasks"
+                                            className="text-[8px] md:text-[9px] font-bold text-primary/70 uppercase tracking-widest hover:text-primary transition-colors inline-flex items-center gap-0.5 w-max active:scale-95 leading-none"
+                                        >
+                                            <span>View All</span>
+                                            <span className="material-symbols-outlined text-[10px] leading-none">chevron_right</span>
+                                        </Link>
+                                    </div>
                                 </div>
                                 <div className="h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent min-w-[8px]"></div>
                                 <div className="flex items-center gap-2 md:gap-3 shrink-0">
@@ -8860,6 +9261,7 @@
                                                                     isSelectionMode={isSelectionMode}
                                                                     isSelected={selectedTasks.includes(task.id)}
                                                                     onSelectToggle={handleToggleSelectTask}
+                                                                    viewMode="daily"
                                                                 />
                                                             ))}
                                                         </div>
@@ -8890,6 +9292,7 @@
                                                                     isSelectionMode={isSelectionMode}
                                                                     isSelected={selectedTasks.includes(task.id)}
                                                                     onSelectToggle={handleToggleSelectTask}
+                                                                    viewMode="standard"
                                                                 />
                                                             ))}
                                                         </div>
@@ -10628,7 +11031,25 @@
                                                         <div className="flex items-center gap-2.5 md:gap-3 pointer-events-none flex-1 min-w-0 pr-2">
                                                             <div 
                                                                 className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${item.completed ? 'bg-primary border-primary text-white scale-105' : 'border-white/30 text-transparent group-hover:border-white/60'}`}
-                                                                onClick={(e) => { e.stopPropagation(); onToggleQuickTask && onToggleQuickTask(item.id); }}
+                                                                onClick={(e) => { 
+                                                                    e.stopPropagation(); 
+                                                                    // FIX 2026-10-04: Calendar view uses fire sparks
+                                                                    if (!item.completed) {
+                                                                        const taskElement = e.currentTarget.closest('.quick-task-card');
+                                                                        if (taskElement) {
+                                                                            const rect = taskElement.getBoundingClientRect();
+                                                                            const centerX = rect.left + rect.width / 2;
+                                                                            const centerY = rect.top + rect.height / 2;
+                                                                            if (window.createFireSparks) {
+                                                                                window.createFireSparks(centerX, centerY, false);
+                                                                            }
+                                                                            if (window.playWhooshSound) {
+                                                                                window.playWhooshSound();
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                    onToggleQuickTask && onToggleQuickTask(item.id); 
+                                                                }}
                                                                 style={{ pointerEvents: 'auto' }}
                                                             >
                                                                 <span className="material-symbols-outlined text-xs font-bold">check</span>
@@ -11380,6 +11801,7 @@
                                                                 isSelectionMode={isSelectionMode}
                                                                 isSelected={selectedTasks.includes(task.id)}
                                                                 onSelectToggle={handleToggleSelectTask}
+                                                                viewMode="daily"
                                                             />
                                                         ))}
                                                     </div>
@@ -11407,6 +11829,7 @@
                                                                 isSelectionMode={isSelectionMode}
                                                                 isSelected={selectedTasks.includes(task.id)}
                                                                 onSelectToggle={handleToggleSelectTask}
+                                                                viewMode="daily"
                                                             />
                                                         ))}
                                                     </div>
@@ -11437,6 +11860,7 @@
                                                                     isSelectionMode={isSelectionMode}
                                                                     isSelected={selectedTasks.includes(task.id)}
                                                                     onSelectToggle={handleToggleSelectTask}
+                                                                    viewMode="standard"
                                                                 />
                                                             ))}
                                                             {section.key === 'completed' && section.totalCount > section.items.length && (
@@ -13056,33 +13480,60 @@
             const [showPreview, setShowPreview] = useState(false);
             const [showConfirm, setShowConfirm] = useState(false);
             const [restoring, setRestoring] = useState(false);
+            const [lastDoc, setLastDoc] = useState(null);
+            const [hasMore, setHasMore] = useState(true);
+            const [loadingMore, setLoadingMore] = useState(false);
 
-            const fetchBackups = useCallback(async () => {
+            const fetchBackups = useCallback(async (isLoadMore = false) => {
                 if (!user) return;
                 
-                setLoading(true);
+                if (!isLoadMore) {
+                    setLoading(true);
+                } else {
+                    setLoadingMore(true);
+                }
+                
                 try {
                     const taskCollection = localStorage.getItem('faiora_quick_tasks_collection') || activeCollection || 'tasks';
-                    const snapshot = await db.collection(taskCollection)
+                    let query = db.collection(taskCollection)
                         .doc(user.uid)
                         .collection('quickTaskBackups')
                         .orderBy('timestamp', 'desc')
-                        .limit(30)
-                        .get();
+                        .limit(10);
+
+                    // Pagination: start after last document
+                    if (isLoadMore && lastDoc) {
+                        query = query.startAfter(lastDoc);
+                    }
+
+                    const snapshot = await query.get();
 
                     const backupList = snapshot.docs.map(doc => ({
                         id: doc.id,
                         ...doc.data()
                     }));
 
-                    setBackups(backupList);
+                    // Update last document for pagination
+                    if (snapshot.docs.length > 0) {
+                        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+                    }
+                    
+                    // Check if there are more backups to load
+                    setHasMore(snapshot.docs.length === 10);
+
+                    if (isLoadMore) {
+                        setBackups(prev => [...prev, ...backupList]);
+                    } else {
+                        setBackups(backupList);
+                    }
                 } catch (error) {
                     console.error('Failed to fetch backups:', error);
-                    showToast?.('Failed to load backups');
+                    showToast?.('Failed to load backups: ' + error.message);
                 } finally {
                     setLoading(false);
+                    setLoadingMore(false);
                 }
-            }, [user, activeCollection, showToast]);
+            }, [user, activeCollection, showToast, lastDoc]);
 
             useEffect(() => {
                 fetchBackups();
@@ -13157,15 +13608,67 @@
                                 <p className="text-[11px] text-cream-light/40 mt-0.5">Automated daily backups with 30-day retention</p>
                             </div>
                         </div>
-                        <button
-                            type="button"
-                            onClick={fetchBackups}
-                            className="text-[10px] font-bold text-white/40 hover:text-primary transition-colors flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10"
-                            title="Refresh backup list"
-                        >
-                            <span className="material-symbols-outlined text-xs">refresh</span>
-                            Refresh
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    try {
+                                        // Trigger manual backup
+                                        const currentUser = auth.currentUser;
+                                        if (!currentUser) {
+                                            showToast?.('Please sign in to create a backup');
+                                            return;
+                                        }
+                                        
+                                        const tasks = quickTasks || [];
+                                        const tasksJson = JSON.stringify(tasks);
+                                        
+                                        const backup = {
+                                            timestamp: Date.now(),
+                                            date: new Date().toISOString().split('T')[0],
+                                            tasks: tasks,
+                                            count: tasks.length,
+                                            size: tasksJson.length
+                                        };
+
+                                        const taskCollection = localStorage.getItem('faiora_quick_tasks_collection') || activeCollection || 'tasks';
+                                        const backupRef = db.collection(taskCollection)
+                                            .doc(currentUser.uid)
+                                            .collection('quickTaskBackups')
+                                            .doc(`backup_${backup.date}`);
+                                        
+                                        await backupRef.set(backup);
+                                        showToast?.(`Backup created: ${backup.count} tasks`);
+                                        
+                                        // Reset pagination and refresh the list
+                                        setLastDoc(null);
+                                        setHasMore(true);
+                                        fetchBackups(false);
+                                    } catch (error) {
+                                        console.error('Manual backup failed:', error);
+                                        showToast?.('Failed to create backup: ' + error.message);
+                                    }
+                                }}
+                                className="text-[10px] font-bold text-white hover:text-primary transition-colors flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30"
+                                title="Create backup now"
+                            >
+                                <span className="material-symbols-outlined text-xs">add</span>
+                                Backup Now
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setLastDoc(null);
+                                    setHasMore(true);
+                                    fetchBackups(false);
+                                }}
+                                className="text-[10px] font-bold text-white/40 hover:text-primary transition-colors flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10"
+                                title="Refresh backup list"
+                            >
+                                <span className="material-symbols-outlined text-xs">refresh</span>
+                                Refresh
+                            </button>
+                        </div>
                     </div>
 
                     {loading ? (
@@ -13213,6 +13716,29 @@
                                     </div>
                                 </div>
                             ))}
+                            
+                            {/* Load More Button */}
+                            {hasMore && (
+                                <div className="pt-2">
+                                    <button
+                                        onClick={() => fetchBackups(true)}
+                                        disabled={loadingMore}
+                                        className="w-full py-3 text-sm font-bold text-cream-light/80 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-white/20 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    >
+                                        {loadingMore ? (
+                                            <>
+                                                <span className="material-symbols-outlined text-base animate-spin">refresh</span>
+                                                Loading...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="material-symbols-outlined text-base">expand_more</span>
+                                                Load More Backups
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -13603,37 +14129,37 @@
             const ToggleSwitch = ({ checked, onChange, label, description, icon }) => (
                 <div 
                     onClick={() => onChange(!checked)}
-                    className="flex items-center justify-between p-4 bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 rounded-2xl transition-all cursor-pointer group select-none"
+                    className="flex items-center justify-between p-3.5 bg-white/[0.04] hover:bg-white/[0.07] border border-white/8 hover:border-white/12 rounded-xl transition-all cursor-pointer group select-none"
                 >
-                    <div className="flex items-center gap-3.5 pr-4">
+                    <div className="flex items-center gap-3 pr-3">
                         {icon && (
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${checked ? 'bg-primary/20 text-primary' : 'bg-white/5 text-cream-light/40 group-hover:text-cream-light/70'}`}>
-                                <span className="material-symbols-outlined text-lg">{icon}</span>
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${checked ? 'bg-primary/25 text-primary' : 'bg-white/8 text-cream-light/50 group-hover:text-cream-light/80'}`}>
+                                <span className="material-symbols-outlined text-[18px]">{icon}</span>
                             </div>
                         )}
-                        <div>
-                            <p className="text-sm font-medium text-cream-light group-hover:text-white transition-colors">{label}</p>
-                            {description && <p className="text-[11px] text-cream-light/40 mt-0.5">{description}</p>}
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-semibold text-cream-light group-hover:text-white transition-colors leading-tight">{label}</p>
+                            {description && <p className="text-[10px] text-cream-light/45 mt-0.5 leading-snug">{description}</p>}
                         </div>
                     </div>
-                    <div className={`w-12 h-7 flex items-center rounded-full p-1 transition-colors duration-200 ease-in-out shrink-0 ${checked ? 'bg-primary shadow-[0_0_14px_rgba(249,115,22,0.45)]' : 'bg-white/15'}`}>
-                        <div className={`bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
+                    <div className={`w-11 h-6 flex items-center rounded-full p-0.5 transition-all duration-200 shrink-0 ${checked ? 'bg-primary shadow-[0_0_12px_rgba(249,115,22,0.4)]' : 'bg-white/20'}`}>
+                        <div className={`bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200 ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
                     </div>
                 </div>
             );
 
             return (
                 <Layout onOpenCreator={onOpenCreator} pomodoroTime={pomodoroTime} isPomodoroActive={isPomodoroActive}>
-                    <div className="max-w-3xl mx-auto w-full px-4 md:px-8 pt-20 md:pt-12 pb-16">
+                    <div className="max-w-2xl mx-auto w-full px-3 md:px-6 pt-[88px] md:pt-16 pb-24">
                         <Header user={user} subtitle="Settings" />
-                        <div className="space-y-6">
+                        <div className="space-y-4">
                             {/* Preferences Section */}
-                            <div className="glass-panel rounded-3xl p-6 md:p-8 space-y-4">
-                                <div className="flex items-center gap-2.5 mb-2">
-                                    <span className="material-symbols-outlined text-primary text-xl">tune</span>
-                                    <h3 className="text-xs font-bold text-primary uppercase tracking-widest">Preferences & Display</h3>
+                            <div className="glass-panel rounded-2xl p-4 md:p-5 space-y-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="material-symbols-outlined text-primary text-base">tune</span>
+                                    <h3 className="text-[10px] font-bold text-primary uppercase tracking-[0.1em]">Preferences & Display</h3>
                                 </div>
-                                <div className="space-y-3">
+                                <div className="space-y-2.5">
                                     <ToggleSwitch
                                         checked={bgVideoEnabled}
                                         onChange={(val) => updateSetting('bgVideoEnabled', val)}
@@ -13659,29 +14185,24 @@
                             </div>
                             
                             {/* (2026-07-13) Auto-categorization & presets settings panel. Prev: none */}
-                            <div className="glass-panel rounded-3xl p-6 md:p-8 space-y-5">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
-                                            <span className="material-symbols-outlined text-lg">auto_awesome</span>
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xs font-bold text-primary uppercase tracking-widest">Auto-Categorization Rules</h3>
-                                            <p className="text-[11px] text-cream-light/40 mt-0.5">Customize keywords, default categories, and deadline offsets</p>
-                                        </div>
+                            <div className="glass-panel rounded-2xl p-4 md:p-5 space-y-3">
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-primary text-base">auto_awesome</span>
+                                        <h3 className="text-[10px] font-bold text-primary uppercase tracking-[0.1em]">Auto-Categorization</h3>
                                     </div>
                                     <button
                                         type="button"
                                         onClick={handleResetKeywords}
-                                        className="text-[10px] font-bold text-white/40 hover:text-primary transition-colors flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10"
+                                        className="text-[9px] font-bold text-white/40 hover:text-primary transition-colors flex items-center gap-0.5 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10"
                                         title="Reset keywords to defaults"
                                     >
-                                        <span className="material-symbols-outlined text-xs">restart_alt</span>
+                                        <span className="material-symbols-outlined text-[11px]">restart_alt</span>
                                         Reset
                                     </button>
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className="space-y-2.5">
                                     <ToggleSwitch
                                         checked={autoCatEnabled}
                                         onChange={(val) => saveCategorizationSettings({ autoCategorizeEnabled: val })}
@@ -13691,30 +14212,30 @@
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                                    <div className="p-3.5 bg-white/[0.03] rounded-2xl border border-white/5 space-y-1.5">
-                                        <label className="text-[11px] font-bold text-cream-light/70 uppercase tracking-wider block">Default Category</label>
-                                        <p className="text-[10px] text-cream-light/40">Fallback when no keywords match</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                                    <div className="p-3 bg-white/[0.03] rounded-xl border border-white/5 space-y-1">
+                                        <label className="text-[10px] font-bold text-cream-light/70 uppercase tracking-wider block">Default Category</label>
+                                        <p className="text-[9px] text-cream-light/40 leading-snug">Fallback when no keywords match</p>
                                         <input
                                             type="text"
                                             value={defaultCategory}
                                             onChange={(e) => setDefaultCategory(e.target.value)}
                                             onBlur={() => saveCategorizationSettings({ defaultCategory })}
                                             placeholder="e.g. Errands"
-                                            className="w-full bg-[#0a0f1d] text-white text-xs px-3 py-2 rounded-xl border border-white/10 focus:border-primary/50 outline-none font-montserrat mt-1"
+                                            className="w-full bg-[#0a0f1d] text-white text-[11px] px-2.5 py-1.5 rounded-lg border border-white/10 focus:border-primary/50 outline-none font-montserrat mt-1"
                                         />
                                     </div>
 
-                                    <div className="p-3.5 bg-white/[0.03] rounded-2xl border border-white/5 space-y-1.5">
-                                        <label className="text-[11px] font-bold text-cream-light/70 uppercase tracking-wider block">Prio Deadline Offset</label>
-                                        <p className="text-[10px] text-cream-light/40">Minutes before earliest task (rounded 10m)</p>
-                                        <div className="flex items-center gap-1.5 mt-1">
+                                    <div className="p-3 bg-white/[0.03] rounded-xl border border-white/5 space-y-1">
+                                        <label className="text-[10px] font-bold text-cream-light/70 uppercase tracking-wider block">Priority Offset</label>
+                                        <p className="text-[9px] text-cream-light/40 leading-snug">Minutes before earliest task</p>
+                                        <div className="flex items-center gap-1 mt-1">
                                             {[5, 10, 15, 20, 30].map(mins => (
                                                 <button
                                                     key={mins}
                                                     type="button"
                                                     onClick={() => saveCategorizationSettings({ prioOffsetMinutes: mins })}
-                                                    className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all ${prioOffset === mins ? 'bg-primary text-white shadow-[0_0_10px_rgba(249,115,22,0.4)]' : 'bg-white/5 text-white/50 hover:text-white hover:bg-white/10'}`}
+                                                    className={`flex-1 py-1 text-[10px] font-bold rounded-lg transition-all ${prioOffset === mins ? 'bg-primary text-white shadow-[0_0_8px_rgba(249,115,22,0.4)]' : 'bg-white/5 text-white/50 hover:text-white hover:bg-white/10'}`}
                                                 >
                                                     {mins}m
                                                 </button>
@@ -13836,28 +14357,27 @@
                             />
                             
                             {/* Data Management Section */}
-                            <div className="glass-panel rounded-3xl p-6 md:p-8 space-y-5">
-                                <div className="flex items-center gap-2.5 mb-1">
-                                    <span className="material-symbols-outlined text-primary text-xl">database</span>
-                                    <h3 className="text-xs font-bold text-primary uppercase tracking-widest">Data Management</h3>
+                            <div className="glass-panel rounded-2xl p-4 md:p-5 space-y-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="material-symbols-outlined text-primary text-base">database</span>
+                                    <h3 className="text-[10px] font-bold text-primary uppercase tracking-[0.1em]">Data Management</h3>
                                 </div>
-                                <p className="text-xs text-cream-light/50">Manage your deleted notes, diagnostic scans, and full data backups.</p>
                                 
-                                <div className="space-y-3">
+                                <div className="space-y-2">
                                     <button 
                                         onClick={() => navigate('/trash')}
-                                        className="flex items-center justify-between w-full p-4 bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-white/10 rounded-2xl transition-all group"
+                                        className="flex items-center justify-between w-full p-3 bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 rounded-xl transition-all group"
                                     >
-                                        <div className="flex items-center gap-3.5">
-                                            <div className="w-9 h-9 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-400 group-hover:scale-105 transition-transform">
-                                                <span className="material-symbols-outlined text-lg">delete</span>
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-400 group-hover:scale-105 transition-transform">
+                                                <span className="material-symbols-outlined text-[16px]">delete</span>
                                             </div>
                                             <div className="text-left">
-                                                <span className="text-sm font-medium text-cream-light group-hover:text-white transition-colors">Trash Folder</span>
-                                                <p className="text-[11px] text-cream-light/40 mt-0.5">View and restore deleted items</p>
+                                                <span className="text-[13px] font-semibold text-cream-light group-hover:text-white transition-colors">Trash Folder</span>
+                                                <p className="text-[10px] text-cream-light/40 mt-0.5">View and restore deleted items</p>
                                             </div>
                                         </div>
-                                        <span className="material-symbols-outlined text-slate-500 group-hover:translate-x-1 transition-transform">chevron_right</span>
+                                        <span className="material-symbols-outlined text-slate-500 text-[18px] group-hover:translate-x-1 transition-transform">chevron_right</span>
                                     </button>
                                     
                                     <button 
@@ -13868,42 +14388,40 @@
                                                 window.location.reload();
                                             }
                                         }}
-                                        className="flex items-center justify-between w-full p-4 bg-primary/5 hover:bg-primary/10 rounded-2xl transition-all group border border-primary/20"
+                                        className="flex items-center justify-between w-full p-3 bg-primary/5 hover:bg-primary/10 rounded-xl transition-all group border border-primary/20"
                                         id="settings-repair-sync-button"
                                     >
-                                        <div className="flex items-center gap-3.5">
-                                            <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center text-primary">
-                                                <span className="material-symbols-outlined text-lg animate-pulse">terminal</span>
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center text-primary">
+                                                <span className="material-symbols-outlined text-[16px] animate-pulse">terminal</span>
                                             </div>
                                             <div className="text-left">
-                                                <span className="text-sm font-bold text-primary italic">Repair Sync & Deep Scan</span>
-                                                <p className="text-[11px] text-primary/60 mt-0.5">Recover missing notes from alternate collections</p>
+                                                <span className="text-[13px] font-bold text-primary">Repair Sync & Deep Scan</span>
+                                                <p className="text-[10px] text-primary/60 mt-0.5">Recover missing notes</p>
                                             </div>
                                         </div>
-                                        <span className="material-symbols-outlined text-primary group-hover:rotate-180 transition-transform duration-500">sync</span>
+                                        <span className="material-symbols-outlined text-primary text-[18px] group-hover:rotate-180 transition-transform duration-500">sync</span>
                                     </button>
                                 </div>
 
-                                <div className="pt-4 border-t border-white/10 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-xs text-cream-light/50">Full JSON Backup & Restore</p>
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="pt-3 border-t border-white/10 space-y-2">
+                                    <p className="text-[10px] text-cream-light/50 font-semibold uppercase tracking-wider">Backup & Restore</p>
+                                    <div className="grid grid-cols-2 gap-2">
                                         <button
                                             id="settings-export-btn"
                                             onClick={handleExport}
-                                            className="flex items-center justify-center gap-2.5 p-3.5 bg-primary/15 hover:bg-primary/25 border border-primary/30 rounded-2xl transition-all group"
+                                            className="flex items-center justify-center gap-1.5 p-2.5 bg-primary/15 hover:bg-primary/25 border border-primary/30 rounded-xl transition-all group"
                                         >
-                                            <span className="material-symbols-outlined text-primary text-lg group-hover:-translate-y-0.5 transition-transform">download</span>
-                                            <span className="text-sm font-bold text-primary">Export Backup</span>
+                                            <span className="material-symbols-outlined text-primary text-[16px] group-hover:-translate-y-0.5 transition-transform">download</span>
+                                            <span className="text-[11px] font-bold text-primary">Export</span>
                                         </button>
                                         <label
                                             id="settings-import-label"
                                             htmlFor="settings-import-input"
-                                            className="flex items-center justify-center gap-2.5 p-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-all group cursor-pointer"
+                                            className="flex items-center justify-center gap-1.5 p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all group cursor-pointer"
                                         >
-                                            <span className="material-symbols-outlined text-cream-light/70 text-lg group-hover:-translate-y-0.5 transition-transform">upload</span>
-                                            <span className="text-sm font-bold text-cream-light/90">Import Backup</span>
+                                            <span className="material-symbols-outlined text-cream-light/70 text-[16px] group-hover:-translate-y-0.5 transition-transform">upload</span>
+                                            <span className="text-[11px] font-bold text-cream-light/90">Import</span>
                                             <input id="settings-import-input" type="file" accept=".json" className="hidden" onChange={handleImport} />
                                         </label>
                                     </div>
@@ -16196,21 +16714,25 @@
             const duration = toast.duration || (isSyncToast ? 2000 : (isExitToast ? 2000 : 5000));
             const remainingMs = Math.max(100, (toast.createdAt || Date.now()) + duration - Date.now());
 
+            // (2026-07-13) Fix toast timer reset on re-render. Prev: unstable remainingMs
             useEffect(() => {
-                const fadeDelay = Math.max(0, remainingMs - 400);
+                const now = Date.now();
+                const elapsed = now - (toast.createdAt || now);
+                const currentRemaining = Math.max(100, duration - elapsed);
+                const fadeDelay = Math.max(0, currentRemaining - 400);
                 const fadeTimer = setTimeout(() => {
                     setIsAutoFading(true);
                 }, fadeDelay);
 
                 const dismissTimer = setTimeout(() => {
                     onDismiss(toast.id);
-                }, remainingMs);
+                }, currentRemaining);
 
                 return () => {
                     clearTimeout(fadeTimer);
                     clearTimeout(dismissTimer);
                 };
-            }, [toast.id, onDismiss, remainingMs]);
+            }, [toast.id, onDismiss, duration]);
 
             const handleStart = (e) => {
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -16497,8 +17019,13 @@
             // (2026-07-13) Responsive background video selection for mobile vs desktop/tablet. Prev: single file
             const [videoSrc, setVideoSrc] = useState(null);
 
+            // (2026-07-13) Unload video on bgVideoEnabled false. Prev: left playing hidden
             useEffect(() => {
-                if (settingsData?.bgVideoEnabled === false) return;
+                if (settingsData?.bgVideoEnabled === false) {
+                    setVideoSrc(null);
+                    setIsVideoReady(false);
+                    return;
+                }
                 const isMobileDevice = typeof window !== 'undefined' && (window.innerWidth < 768 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
                 const targetSrc = isMobileDevice ? "fire_bg_video_hd_mobile.mp4" : "fire_bg_video_hd_desktop_tablet.mp4";
                 // (2026-08-24) Delay video load to 5s for better LCP. Prev: 3s
@@ -16551,15 +17078,16 @@
             const [activeAlarmAlert, setActiveAlarmAlert] = useState(null);
             const [isTransitioning, setIsTransitioning] = useState(false);
 
+            // (2026-07-13) Clean expired toasts using custom duration. Prev: fixed 5000ms
             useEffect(() => {
                 if (toasts.length === 0) return;
                 const interval = setInterval(() => {
                     const now = Date.now();
                     setToasts(prev => {
-                        const active = prev.filter(t => (now - (t.createdAt || 0)) < 5000);
+                        const active = prev.filter(t => (now - (t.createdAt || 0)) < (t.duration || 5000));
                         return active.length !== prev.length ? active : prev;
                     });
-                }, 100);
+                }, 200);
                 return () => clearInterval(interval);
             }, [toasts.length]);
 
@@ -18707,11 +19235,12 @@
                 setTrashQuickTasks(updatedTrash);
                 trashQuickTasksRef.current = updatedTrash;
 
-                setTimeout(() => {
-                    if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications?.rescheduleAll) {
-                        try { FaioraNotifications.rescheduleAll(updatedTasks); } catch(e) {}
-                    }
+                // FIX 2026-10-04: Reschedule notifications immediately to prevent outdated notifications
+                if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications?.rescheduleAll) {
+                    try { FaioraNotifications.rescheduleAll(updatedTasks); } catch(e) {}
+                }
 
+                setTimeout(() => {
                     const currentUid = auth.currentUser?.uid || user?.uid;
                     if (currentUid) {
                         try {
@@ -19107,6 +19636,15 @@
                         updatedAt: Date.now()
                     };
                     updated[targetIndex] = updatedTask;
+                    
+                    // FIX 2026-10-04: Immediately cancel and reschedule notifications to prevent outdated notifications
+                    FaioraNotifications.cancelForTask(id);
+                    if (!isDone && dueDate) {
+                        setTimeout(() => {
+                            FaioraNotifications.scheduleForTask(updatedTask);
+                        }, 100);
+                    }
+                    
                     handleUpdateQuickTasks(updated);
                 }
             };
@@ -19138,11 +19676,12 @@
                 handleUpdateQuickTasks(updated, updatedTrash);
                 
                 // (2026-08-24) Shorter task name to show full "moved to Trash" text. Prev: longer truncation
+                // FIX 2026-10-03: Reduced to 18 chars for compact snackbar display
                 const taskName = (taskToDelete.text || 'Task').trim();
                 let displayName;
-                if (taskName.length > 22) {
-                    const start = taskName.slice(0, 10);
-                    const end = taskName.slice(-7);
+                if (taskName.length > 18) {
+                    const start = taskName.slice(0, 9);
+                    const end = taskName.slice(-6);
                     displayName = `${start}...${end}`;
                 } else {
                     displayName = taskName;
@@ -19324,7 +19863,8 @@
                     
                     const taskName = (original.text || 'Task').trim();
                     let displayName;
-                    const maxLength = nextCompleted ? 15 : 11;
+                    // FIX 2026-10-03: Reduced character limit for shorter task names in snackbar
+                    const maxLength = nextCompleted ? 18 : 15;
                     if (taskName.length > maxLength) {
                         displayName = `${taskName.slice(0, maxLength)}...`;
                     } else {
@@ -19626,10 +20166,17 @@
                     console.log("👤 [AUTH] State changed. User:", u ? `${u.displayName} (${u.uid})` : 'NULL');
                     const nextUid = u?.uid ?? null;
                     const prevUid = prevAuthUidRef.current;
-                    if (prevUid !== nextUid) {
+                    
+                    // FIX 2026-10-03: Only clear data if user actually changed, not on initial load
+                    // This prevents flicker when the same user's data is already loaded from LocalStorage
+                    if (prevUid !== nextUid && prevUid !== null) {
+                        // User switched - clear old user's data
                         setNotes([]);
                         setQuickTasks([]);
                         setQuickTasksCollection(localStorage.getItem('faiora_quick_tasks_collection') || localStorage.getItem('faiora_active_collection') || 'tasks');
+                        prevAuthUidRef.current = nextUid;
+                    } else if (prevUid === null) {
+                        // Initial auth state - just update the ref, don't clear data
                         prevAuthUidRef.current = nextUid;
                     }
                     // (2026-07-13) Persist user info in localStorage for fast boot. Prev: none
@@ -20143,10 +20690,11 @@
                 return () => clearTimeout(timer);
             }, []);
 
+            // (2026-07-13) Run background video at normal 1.0x speed. Prev: 1.5x
             useEffect(() => {
                 const enforceSpeed = () => {
                     if (videoRef.current) {
-                        videoRef.current.playbackRate = 1.5;
+                        videoRef.current.playbackRate = 1.0;
                     }
                 };
                 enforceSpeed();
@@ -20195,14 +20743,14 @@
                 return null; // Simplified from LoadingPage
             }
 
-            // (2026-07-13) Glowing splash screen while checking auth. Prev: blank
+            // (2026-07-13) Dark orange splash screen while checking auth. Prev: #070b14
             if (!isAuthChecked && !user) {
                 return (
-                    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#070b14]">
+                    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#7c2d12]">
                         <div className="relative flex items-center justify-center">
-                            {/* (2026-07-13) Use transparent icon-only logo in splash. Prev: local_fire_dept */}
+                            {/* (2026-07-13) Undraggable splash logo img. Prev: draggable */}
                             <div className="w-16 h-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center shadow-[0_0_40px_rgba(249,115,22,0.35)] animate-pulse p-3">
-                                <img src="assets/icon-only.png" alt="Faiora Logo" className="w-10 h-10 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.8)]" />
+                                <img src="assets/icon-only.png" alt="Faiora Logo" draggable={false} onDragStart={(e) => e.preventDefault()} className="w-11 h-11 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.8)] select-none pointer-events-none" />
                             </div>
                         </div>
                         <h1 className="mt-4 text-base font-bold tracking-[0.25em] text-cream-light uppercase font-montserrat opacity-80">FAIORA</h1>
@@ -20220,11 +20768,11 @@
             return (
                 <HashRouter>
                     <FaioraErrorBoundary>
-                    {/* (2026-08-24) Defer video load to improve LCP. Prev: load immediately */}
-                    {videoSrc && (
+                    {/* (2026-07-13) Completely unmount video when disabled. Prev: opacity 0 */}
+                    {videoSrc && settingsData?.bgVideoEnabled !== false && (
                         <video 
                             ref={videoRef}
-                            className={`fire-bg-video ${isVideoReady && settingsData?.bgVideoEnabled !== false ? 'is-ready' : ''}`}
+                            className={`fire-bg-video ${isVideoReady ? 'is-ready' : ''}`}
                             autoPlay 
                             loop 
                             muted 
@@ -20343,14 +20891,14 @@
                         />,
                         document.body
                     )}
-                    {/* (2026-07-13) Hide toasts when modal open; zIndex 1500. Prev: 99999 */}
-                    {!(isCreatorOpen || isSetLockModalOpen || !!unlockingNote || isQuickTaskModalOpen || !!editingQuickTask || !!activeAlarmAlert || showPermissionModal) && !isTransitioning && typeof document !== 'undefined' && ReactDOM.createPortal(
+                    {/* (2026-07-13) Always show toasts at z-99999 via slice(-2). Prev: modal-hidden */}
+                    {typeof document !== 'undefined' && ReactDOM.createPortal(
                         <div className="toast-container" style={{
                             position: 'fixed',
                             bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
                             left: '50%',
                             transform: 'translateX(-50%)',
-                            zIndex: 1500,
+                            zIndex: 99999,
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
@@ -20361,7 +20909,7 @@
                             maxWidth: '480px',
                             boxSizing: 'border-box'
                         }}>
-                            {toasts.slice(0, 2).map(toast => (
+                            {toasts.slice(-2).map(toast => (
                                 <ToastPill
                                     key={toast.id}
                                     toast={toast}
@@ -20373,16 +20921,16 @@
                     )}
 
                     {/* Task Snackbars */}
-                    {/* (2026-07-13) Hide snackbars on modal; zIndex 1400. Prev: 99998 */}
-                    {!(isCreatorOpen || isSetLockModalOpen || !!unlockingNote || isQuickTaskModalOpen || !!editingQuickTask || !!activeAlarmAlert || showPermissionModal) && (
-                    <div style={{ position:'fixed', bottom:'calc(96px + env(safe-area-inset-bottom,0px))', left:'50%', transform:'translateX(-50%)', zIndex:1400, display:'flex', flexDirection:'column-reverse', gap:'12px', pointerEvents:'none', width:'calc(100% - 32px)', maxWidth:'480px', boxSizing:'border-box' }}>
+                    {/* (2026-07-13) Task snackbars zIndex 99998 always visible. Prev: modal-hidden */}
+                    <div style={{ position:'fixed', bottom:'calc(96px + env(safe-area-inset-bottom,0px))', left:'50%', transform:'translateX(-50%)', zIndex:99998, display:'flex', flexDirection:'column-reverse', gap:'12px', pointerEvents:'none', width:'calc(100% - 32px)', maxWidth:'480px', boxSizing:'border-box' }}>
                         <style>{`
+                            /* (2026-07-13) Reduced inner vertical padding. Prev: 0.85rem */
                             .task-snackbar {
                                 background: rgba(15, 23, 42, 0.9);
                                 backdrop-filter: blur(12px);
                                 border: 1px solid rgba(255, 255, 255, 0.1);
                                 border-radius: 1.25rem;
-                                padding: 0.85rem 1.25rem;
+                                padding: 0.65rem 1.25rem;
                                 display: flex;
                                 alignItems: center;
                                 justify-content: space-between;
@@ -20454,7 +21002,6 @@
                             />
                         ))}
                     </div>
-                    )}
                     </FaioraErrorBoundary>
                 </HashRouter>
             );

@@ -9,6 +9,15 @@ html, body {
     overscroll-behavior-y: contain;
 }
 
+/* (2026-07-13) Prevent logo dragging on web and mobile. Prev: draggable */
+img[src*="icon-only"],
+img[src*="logo"] {
+    -webkit-user-drag: none;
+    user-drag: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
 /* (2026-07-13) Local offline Material Symbols font-face. Prev: CDN text flash */
 @font-face {
     font-family: 'Material Symbols Outlined';
@@ -189,38 +198,40 @@ html, body {
     animation: mobile-header-pulse 8s ease-in-out infinite !important;
 }
 
-/* (2026-07-13) Hardware-accelerated 60fps glow pulse for auth. Prev: 120px blur */
+/* (2026-07-13) Minimal soft glow, zero-lag calm pulse. Prev: 250vmax spin */
 @keyframes auth-glow-breathe {
     0%, 100% {
-        opacity: 0.55;
-        transform: scale(0.95) translateZ(0);
+        opacity: 0.35;
+        transform: scale(0.98) translateZ(0);
     }
     50% {
-        opacity: 0.95;
-        transform: scale(1.08) translateZ(0);
+        opacity: 0.65;
+        transform: scale(1.02) translateZ(0);
     }
 }
-@keyframes auth-glow-swirl {
-    0% {
-        transform: rotate(0deg) scale(1) translateZ(0);
-        opacity: 0.6;
+@keyframes auth-glow-pulse {
+    0%, 100% {
+        opacity: 0.25;
     }
     50% {
-        transform: rotate(180deg) scale(1.12) translateZ(0);
-        opacity: 0.9;
-    }
-    100% {
-        transform: rotate(360deg) scale(1) translateZ(0);
-        opacity: 0.6;
+        opacity: 0.55;
     }
 }
 .auth-glow-primary {
+    position: absolute;
+    inset: -20%;
+    pointer-events: none;
+    z-index: 0;
     will-change: transform, opacity;
-    animation: auth-glow-breathe 4s ease-in-out infinite alternate !important;
+    animation: auth-glow-breathe 8s ease-in-out infinite alternate !important;
 }
 .auth-glow-secondary {
-    will-change: transform, opacity;
-    animation: auth-glow-swirl 10s linear infinite !important;
+    position: absolute;
+    inset: -15%;
+    pointer-events: none;
+    z-index: 0;
+    will-change: opacity;
+    animation: auth-glow-pulse 10s ease-in-out infinite alternate !important;
 }
 
 /* (2026-07-13) Reduce header height for compact top nav. Prev: 68px */
@@ -785,22 +796,13 @@ input::-moz-selection, textarea::-moz-selection, [contenteditable="true"]::-moz-
     gap: 10px;
 }
 
-/* (2026-07-13) Hide snackbars when any modal is open. Prev: visible */
-body:has(.z-\[2000\]) .toast-container,
-body:has(.z-\[2000\]) .task-snackbar,
-body:has(.z-\[2000\]) [style*="task-snackbar"],
-body.has-modal-open .toast-container,
-body.has-modal-open .task-snackbar {
-    opacity: 0 !important;
-    pointer-events: none !important;
-    visibility: hidden !important;
-}
-
-/* (2026-07-13) 18px padding & progress bar for toast-pill. Prev: 20px / 14px */
+/* (2026-07-13) Reduced inner vertical padding on toast-pill. Prev: 18px */
+/* FIX 2026-10-03: Increased padding (top/bottom: 16px, left/right: 24px) to prevent text truncation */
+/* FIX 2026-10-03: Widened snackbar from 480px to 560px for better readability */
 .toast-pill {
     background: rgba(15, 23, 42, 0.85);
     color: #fff;
-    padding: 18px 18px;
+    padding: 16px 24px;
     border-radius: 20px;
     font-size: 0.8rem;
     font-weight: 500;
@@ -813,13 +815,13 @@ body.has-modal-open .task-snackbar {
     font-family: 'Montserrat', sans-serif;
     opacity: 1;
     width: 100%;
-    max-width: 480px;
+    max-width: 560px;
     margin: 0 auto;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     text-align: left;
     animation: toast-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    min-height: 48px;
+    min-height: 42px;
     position: relative;
     overflow: hidden;
 }
@@ -868,8 +870,8 @@ body.has-modal-open .task-snackbar {
         max-width: 100%;
         justify-content: space-between;
         font-size: 0.75rem;
-        padding: 18px 16px;
-        min-height: 52px;
+        padding: 16px 20px;
+        min-height: 44px;
     }
 }
 

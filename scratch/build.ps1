@@ -20,6 +20,9 @@ Write-Host "Syncing active web assets from root to www..." -ForegroundColor Cyan
 # List of active files to copy directly
 $files = @(
     "style.css",
+    "favicon.png",
+    "favicon.ico",
+    "favicon-192.png",
     "manifest.json",
     "logo.png",
     "applogo.png",

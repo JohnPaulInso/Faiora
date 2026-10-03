@@ -181,7 +181,8 @@ self.addEventListener('notificationclick', (event) => {
 // SECTION: SW-LIFECYCLE — Install, Activate & Offline Cache
 // --------------------------------------------------------------------------
 // (2026-07-13) Bump cache name to v2 and purge old caches. Prev: v1
-const CACHE_NAME = 'faiora-offline-v2';
+// FIX 2026-10-04: Added nav icons to cache for offline and instant loading
+const CACHE_NAME = 'faiora-offline-v3';
 const PRECACHE_ASSETS = [
     './',
     './index.html',
@@ -198,6 +199,17 @@ const PRECACHE_ASSETS = [
     'assets/vendor/firebase-app-compat.js',
     'assets/vendor/firebase-auth-compat.js',
     'assets/vendor/firebase-firestore-compat.js',
+    // FIX 2026-10-04: Cache all navigation icons for instant loading and offline support
+    'assets/nav_icons/home_filled.png',
+    'assets/nav_icons/home_outline.png',
+    'assets/nav_icons/notes_filled.png',
+    'assets/nav_icons/notes_outline.png',
+    'assets/nav_icons/quick_tasks_filled.png',
+    'assets/nav_icons/quick_tasks_outline.png',
+    'assets/nav_icons/alarms_filled.png',
+    'assets/nav_icons/alarms_outline.png',
+    'assets/nav_icons/calendar_filled.png',
+    'assets/nav_icons/calendar_outline.png',
     'assets/vendor/firebase-messaging-compat.js'
 ];
 

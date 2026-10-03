@@ -40,7 +40,12 @@
             };
         })();
     </script>
-    <link rel="icon" href="logo.png">
+    <!-- (2026-07-13) Set transparent favicon.png with fallback. Prev: logo.png -->
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon.png?v=2">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon.png?v=2">
+    <link rel="icon" type="image/png" href="favicon.png?v=2">
+    <link rel="shortcut icon" type="image/png" href="favicon.png?v=2">
+    <link rel="apple-touch-icon" sizes="192x192" href="favicon-192.png?v=2">
     <link rel="manifest" href="manifest.json">
     
     <!-- Identity & Branding -->
@@ -242,6 +247,53 @@
     background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.02) 15%, rgba(249, 115, 22, 0.12) 38%, rgba(255, 255, 255, 0.15) 50%, rgba(249, 115, 22, 0.12) 62%, rgba(255, 255, 255, 0.02) 85%, transparent 100%) !important;
     pointer-events: none !important;
     z-index: 10 !important;
+}
+
+/* FIX 2026-10-03: Simple darken effect on tap for bottom navigation */
+/* FIX 2026-10-03: Improved active state persistence - stays dark while finger is pressed */
+@media (hover: none) and (pointer: coarse) {
+    /* Mobile touch devices - disable hover */
+    .nav-item-animation:hover {
+        background: transparent !important;
+    }
+    .nav-item-animation:hover .nav-icon-filter {
+        filter: none !important;
+    }
+    /* Use active state for subtle darken effect with better persistence */
+    .nav-item-animation:active {
+        background: transparent !important;
+        transform: scale(0.95) !important;
+    }
+    .nav-item-animation:active .nav-icon-filter {
+        /* Subtle darken on tap - stays dark while finger is pressed */
+        filter: brightness(0.6) !important;
+        transition: none !important;
+    }
+    /* Prevent text selection and touch callout on nav items */
+    .nav-item-animation {
+        -webkit-user-select: none !important;
+        user-select: none !important;
+        -webkit-touch-callout: none !important;
+        -webkit-tap-highlight-color: transparent !important;
+        touch-action: manipulation !important;
+    }
+}
+
+@media (hover: hover) and (pointer: fine) {
+    /* Desktop with mouse - subtle darken on hover */
+    .nav-item-animation:hover {
+        background: transparent !important;
+        transform: scale(1.05) !important;
+    }
+    .nav-item-animation:hover .nav-icon-filter {
+        filter: brightness(0.7) !important;
+    }
+}
+
+/* Default state for inactive nav icons */
+.nav-icon-filter {
+    filter: brightness(1);
+    transition: filter 0.2s ease-out, transform 0.15s ease-out;
 }
     </style>
   </head>

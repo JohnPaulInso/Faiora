@@ -19,14 +19,14 @@ public class MainActivity extends BridgeActivity {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
         }
 
-        // (2026-07-13) Set transparent status bar & edge-to-edge layout. Prev: default
+        // (2026-07-13) Set dark orange splash window background. Prev: #0c0502
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
         getWindow().setStatusBarColor(Color.TRANSPARENT);
-        getWindow().getDecorView().setBackgroundColor(Color.parseColor("#0c0502"));
+        getWindow().getDecorView().setBackgroundColor(Color.parseColor("#7c2d12"));
 
         // (2026-07-13) Remove boot overlay for auto-launch. Prev: boot overlay shown
         if (getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().setBackgroundColor(Color.parseColor("#0c0502"));
+            getBridge().getWebView().setBackgroundColor(Color.parseColor("#7c2d12"));
             getBridge().getWebView().addJavascriptInterface(new NativeAlarmBridge(this), "FaioraNativeAlarmBridge");
         }
     }

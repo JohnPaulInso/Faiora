@@ -1634,39 +1634,66 @@ const ResponsiveNav = () => {
       setTimeout(() => spark.remove(), 800);
     }
   };
-  const NavLink = ({ to, icon, label, fillOnActive = false }) => /* @__PURE__ */ React.createElement(
-    Link,
-    {
-      to,
-      onClick: createSparks,
-      onContextMenu: (e) => e.preventDefault(),
-      onTouchStart: (e) => {
-        e.currentTarget.dataset.longPress = setTimeout(() => {
-          e.currentTarget.dataset.preventClick = "true";
-        }, 500);
+  const navIconMap = {
+    "/": "home",
+    "/notes": "notes",
+    "/quick-tasks": "quick_tasks",
+    "/alarms": "alarms",
+    "/calendar": "calendar"
+  };
+  const NavLink = ({ to, label, iconKey = null }) => {
+    const active = isActive(to);
+    const resolvedKey = iconKey || navIconMap[to] || "home";
+    const iconSrc = `assets/nav_icons/${resolvedKey}_${active ? "filled" : "outline"}.png`;
+    return /* @__PURE__ */ React.createElement(
+      Link,
+      {
+        to,
+        onClick: createSparks,
+        onContextMenu: (e) => e.preventDefault(),
+        onTouchStart: (e) => {
+          const target = e.currentTarget;
+          if (!target) return;
+          target.dataset.longPress = String(setTimeout(() => {
+            if (target == null ? void 0 : target.dataset) target.dataset.preventClick = "true";
+          }, 500));
+        },
+        onTouchEnd: (e) => {
+          var _a;
+          const target = e.currentTarget;
+          if ((_a = target == null ? void 0 : target.dataset) == null ? void 0 : _a.longPress) {
+            clearTimeout(parseInt(target.dataset.longPress));
+            delete target.dataset.longPress;
+          }
+          setTimeout(() => {
+            if (target == null ? void 0 : target.dataset) delete target.dataset.preventClick;
+          }, 50);
+        },
+        onTouchCancel: (e) => {
+          var _a;
+          const target = e.currentTarget;
+          if ((_a = target == null ? void 0 : target.dataset) == null ? void 0 : _a.longPress) {
+            clearTimeout(parseInt(target.dataset.longPress));
+            delete target.dataset.longPress;
+          }
+        },
+        className: `nav-item-animation flex flex-col items-center justify-center group relative w-14 h-11 md:w-full md:aspect-square select-none transition-all duration-150 active:scale-95 rounded-xl`,
+        style: { WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }
       },
-      onTouchEnd: (e) => {
-        if (e.currentTarget.dataset.longPress) {
-          clearTimeout(parseInt(e.currentTarget.dataset.longPress));
-          delete e.currentTarget.dataset.longPress;
+      /* @__PURE__ */ React.createElement(
+        "img",
+        {
+          src: iconSrc,
+          alt: label,
+          draggable: false,
+          onDragStart: (e) => e.preventDefault(),
+          className: `nav-icon-filter w-6 h-6 object-contain select-none pointer-events-none transition-all duration-200 ${active ? "drop-shadow-[0_0_10px_rgba(249,115,22,0.85)]" : ""}`
         }
-        setTimeout(() => {
-          delete e.currentTarget.dataset.preventClick;
-        }, 50);
-      },
-      onTouchCancel: (e) => {
-        if (e.currentTarget.dataset.longPress) {
-          clearTimeout(parseInt(e.currentTarget.dataset.longPress));
-          delete e.currentTarget.dataset.longPress;
-        }
-      },
-      className: `nav-item-animation flex flex-col items-center justify-center group relative w-14 h-11 md:w-full md:aspect-square select-none ${isActive(to) ? "text-primary" : "text-slate-500 hover:text-primary/70 scale-95 hover:scale-100"}`,
-      style: { WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }
-    },
-    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-2xl md:text-2xl pointer-events-none", style: fillOnActive && isActive(to) ? { fontVariationSettings: '"FILL" 1' } : {} }, icon),
-    /* @__PURE__ */ React.createElement("span", { className: "absolute left-full ml-4 px-3 py-1 bg-primary text-white text-[10px] font-bold uppercase tracking-widest rounded-lg opacity-0 -translate-x-4 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 hidden md:block whitespace-nowrap z-[100] shadow-xl" }, label)
-  );
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("nav", { className: "faiora-mobile-nav fixed bottom-0 left-0 right-0 flex justify-around items-center py-2.5 z-[100] px-4 md:hidden transition-opacity duration-300" }, /* @__PURE__ */ React.createElement(NavLink, { to: "/", icon: "home", label: "Home" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/notes", icon: "grid_view", label: "Notes" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/quick-tasks", icon: "checklist", label: "Quick Tasks" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/alarms", icon: "alarm", label: "Alarms" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/calendar", icon: "calendar_month", label: "Calendar" })), /* @__PURE__ */ React.createElement("nav", { id: "faiora_desktop_sidebar", className: "faiora-desktop-sidebar hidden md:flex fixed left-0 top-0 bottom-0 w-24 bg-black/40 backdrop-blur-2xl border-r border-white/5 flex-col items-center py-12 gap-8 z-[100]" }, /* @__PURE__ */ React.createElement("div", { id: "faiora_sidebar_logo_container", className: "mb-4" }, /* @__PURE__ */ React.createElement("div", { className: "mb-6 flex items-center justify-center" }, /* @__PURE__ */ React.createElement("img", { src: "assets/icon-only.png", alt: "Faiora Logo", className: "w-10 h-10 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.7)]" }))), /* @__PURE__ */ React.createElement(NavLink, { to: "/", icon: "home", label: "Home" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/notes", icon: "grid_view", label: "Notes" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/quick-tasks", icon: "checklist", label: "Quick Tasks" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/alarms", icon: "alarm", label: "Alarms" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/calendar", icon: "calendar_month", label: "Calendar" })));
+      ),
+      /* @__PURE__ */ React.createElement("span", { className: "absolute left-full ml-4 px-3 py-1 bg-primary text-white text-[10px] font-bold uppercase tracking-widest rounded-lg opacity-0 -translate-x-4 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 hidden md:block whitespace-nowrap z-[100] shadow-xl" }, label)
+    );
+  };
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("nav", { className: "faiora-mobile-nav fixed bottom-0 left-0 right-0 flex justify-around items-center py-2.5 z-[100] px-4 md:hidden transition-opacity duration-300" }, /* @__PURE__ */ React.createElement(NavLink, { to: "/", label: "Home", iconKey: "home" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/notes", label: "Notes", iconKey: "notes" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/quick-tasks", label: "Quick Tasks", iconKey: "quick_tasks" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/alarms", label: "Alarms", iconKey: "alarms" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/calendar", label: "Calendar", iconKey: "calendar" })), /* @__PURE__ */ React.createElement("nav", { id: "faiora_desktop_sidebar", className: "faiora-desktop-sidebar hidden md:flex fixed left-0 top-0 bottom-0 w-24 bg-black/40 backdrop-blur-2xl border-r border-white/5 flex-col items-center py-12 gap-8 z-[100]" }, /* @__PURE__ */ React.createElement("div", { id: "faiora_sidebar_logo_container", className: "mb-4" }, /* @__PURE__ */ React.createElement("div", { className: "mb-6 flex items-center justify-center" }, /* @__PURE__ */ React.createElement("img", { src: "assets/icon-only.png", alt: "Faiora Logo", draggable: false, onDragStart: (e) => e.preventDefault(), className: "w-11 h-11 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.7)] select-none pointer-events-none" }))), /* @__PURE__ */ React.createElement(NavLink, { to: "/", label: "Home", iconKey: "home" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/notes", label: "Notes", iconKey: "notes" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/quick-tasks", label: "Quick Tasks", iconKey: "quick_tasks" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/alarms", label: "Alarms", iconKey: "alarms" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/calendar", label: "Calendar", iconKey: "calendar" })));
 };
 const PullToRefresh = ({ children, onRefresh, disabled = false }) => {
   const [pullDistance, setPullDistance] = useState(0);
@@ -2171,7 +2198,7 @@ const Header = ({
       "aria-label": "Go to homepage",
       title: "Go to homepage"
     },
-    /* @__PURE__ */ React.createElement("img", { src: "assets/icon-only.png", alt: "Faiora Logo", className: "w-[30px] h-[30px] object-contain drop-shadow-[0_0_4px_rgba(249,115,22,0.35)]" })
+    /* @__PURE__ */ React.createElement("img", { src: "assets/icon-only.png", alt: "Faiora Logo", draggable: false, onDragStart: (e) => e.preventDefault(), className: "w-[40px] h-[40px] object-contain drop-shadow-[0_0_6px_rgba(249,115,22,0.45)] select-none pointer-events-none" })
   ), showSearch ? /* @__PURE__ */ React.createElement("div", { className: "flex-1 relative flex items-center group h-9" }, /* @__PURE__ */ React.createElement("span", { className: "absolute left-3.5 flex items-center justify-center pointer-events-none text-white/40 group-focus-within:text-primary transition-colors" }, /* @__PURE__ */ React.createElement("span", { className: `${searchSpinnerActive ? "search-loader" : ""} flex items-center justify-center` }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[13.5px]" }, searchSpinnerActive ? "refresh" : "search"))), /* @__PURE__ */ React.createElement(
     "input",
     {
@@ -4804,17 +4831,17 @@ const LoginModal = () => {
   return /* @__PURE__ */ React.createElement("div", { className: "faiora-auth-screen fixed inset-0 z-[999] flex items-center justify-center p-4 overflow-hidden bg-[#0c0502]" }, /* @__PURE__ */ React.createElement(
     "div",
     {
-      className: "absolute inset-0 z-0 pointer-events-none auth-glow-primary",
+      className: "pointer-events-none auth-glow-primary",
       style: {
-        background: "radial-gradient(circle at 50% 38%, rgba(249, 115, 22, 0.42) 0%, rgba(194, 65, 12, 0.28) 32%, rgba(124, 45, 18, 0.14) 55%, transparent 75%)"
+        background: "radial-gradient(circle at 50% 50%, rgba(249, 115, 22, 0.2) 0%, rgba(194, 65, 12, 0.09) 32%, rgba(124, 45, 18, 0.03) 52%, transparent 70%)"
       }
     }
   ), /* @__PURE__ */ React.createElement(
     "div",
     {
-      className: "absolute inset-0 z-0 pointer-events-none auth-glow-secondary",
+      className: "pointer-events-none auth-glow-secondary",
       style: {
-        background: "radial-gradient(circle at 48% 46%, rgba(234, 88, 12, 0.32) 0%, rgba(154, 52, 18, 0.16) 42%, transparent 70%)"
+        background: "radial-gradient(circle at 50% 46%, rgba(234, 88, 12, 0.14) 0%, rgba(154, 52, 18, 0.05) 30%, transparent 62%)"
       }
     }
   ), /* @__PURE__ */ React.createElement("div", { className: "faiora-auth-panel max-w-sm sm:max-w-md w-full p-8 sm:p-10 rounded-3xl flex flex-col items-center text-center relative z-10 shadow-2xl border border-white/10 bg-[#160b07]/85 backdrop-blur-md transform-gpu" }, /* @__PURE__ */ React.createElement("div", { className: "mb-6 relative" }, /* @__PURE__ */ React.createElement("div", { className: "w-24 h-24 sm:w-28 sm:h-28 mx-auto mb-4 relative flex items-center justify-center" }, /* @__PURE__ */ React.createElement(
@@ -4822,7 +4849,9 @@ const LoginModal = () => {
     {
       src: "assets/icon-only.png",
       alt: "Faiora Logo",
-      className: "w-full h-full object-contain drop-shadow-[0_0_18px_rgba(249,115,22,0.65)]"
+      draggable: false,
+      onDragStart: (e) => e.preventDefault(),
+      className: "w-full h-full object-contain drop-shadow-[0_0_18px_rgba(249,115,22,0.65)] select-none pointer-events-none"
     }
   )), /* @__PURE__ */ React.createElement("h2", { className: "faiora-auth-title text-5xl sm:text-6xl font-black text-cream-light italic tracking-tighter drop-shadow-[0_0_24px_rgba(249,115,22,0.4)]", style: { fontFamily: "inherit" } }, "Faiora"), /* @__PURE__ */ React.createElement("p", { className: "faiora-auth-eyebrow text-primary font-bold uppercase tracking-[0.4em] text-xs mt-3" }, "Ignite your productivity")), /* @__PURE__ */ React.createElement("p", { className: "faiora-auth-copy text-cream-light/70 text-sm sm:text-base mb-8 max-w-xs font-sans leading-relaxed" }, "Experience a fiery approach to digital planning. Sync your lists, tasks, and goals with Google and light up your potential."), /* @__PURE__ */ React.createElement(
     "button",
@@ -5095,7 +5124,21 @@ const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQu
         let targetDate = getTomorrow();
         let targetTime = "10:00";
         let toastLabel = `Moved "${displayName}" to Tomorrow`;
-        if (isWithin3s) {
+        const isPastDueTask = Boolean(isOverdue || task.dueDate && task.dueDate < todayStr);
+        if (isPastDueTask) {
+          let baseTimeMs = now.getTime();
+          const laterDate = new Date(baseTimeMs + 2 * 60 * 60 * 1e3);
+          laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
+          targetDate = todayStr;
+          targetTime = "23:59";
+          if (formatDateLocal(laterDate) === todayStr) {
+            const h = String(laterDate.getHours()).padStart(2, "0");
+            const m = String(laterDate.getMinutes()).padStart(2, "0");
+            targetTime = `${h}:${m}`;
+          }
+          toastLabel = `Moved "${displayName}" to Today (${formatTime(targetTime)})`;
+          window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: "today" });
+        } else if (isWithin3s) {
           const prioTarget = getTaskPrioTarget(task);
           targetDate = prioTarget.date;
           targetTime = prioTarget.time;
@@ -5190,6 +5233,11 @@ const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQu
   };
   const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
     var _a;
+    const now = /* @__PURE__ */ new Date();
+    const todayStr = formatDateLocal(now);
+    if (isOverdue || task.dueDate && task.dueDate < todayStr) {
+      return { label: "TODAY", icon: "today" };
+    }
     const lastSwipe = (_a = window._faioraLastSwipe) == null ? void 0 : _a.get(task.id);
     if (lastSwipe && lastSwipe.action === "later" && Date.now() - lastSwipe.timestamp <= 3e3) {
       return { label: "PRIO", icon: "priority_high" };
@@ -5197,8 +5245,6 @@ const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQu
     if (task.dueDate === getTomorrow()) {
       return { label: "TOMORROW", icon: "event_upcoming" };
     }
-    const now = /* @__PURE__ */ new Date();
-    const todayStr = formatDateLocal(now);
     const hour = now.getHours();
     const minute = now.getMinutes();
     if (hour >= 22 || hour === 0 && minute > 30 || hour > 0 && hour < 6) {
@@ -5224,7 +5270,7 @@ const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQu
     {
       className: "quick-task-card relative rounded-2xl select-none",
       style: {
-        minHeight: hideDateSubtitle && !task.dueTime ? "42px" : window.innerWidth < 768 ? "52px" : "auto",
+        minHeight: hideDateSubtitle && !task.dueTime ? "38px" : window.innerWidth < 768 ? "46px" : "auto",
         maxHeight: "300px",
         opacity: 1,
         transform: "scale(1) translateY(0)",
@@ -5252,9 +5298,9 @@ const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQu
     /* @__PURE__ */ React.createElement(
       "div",
       {
-        className: `glass-panel rounded-2xl ${hideDateSubtitle ? "py-2 px-3 md:py-2.5 md:px-3.5" : "py-2.5 px-3 md:py-3 md:px-4"} flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${isSelectionMode && isSelected ? "!border-primary !bg-primary/15 shadow-md shadow-primary/20 scale-[0.99]" : ""} ${(isCompletedState || isCompleting) && !isSelectionMode ? "opacity-40 grayscale-[0.5]" : ""} ${isLongPressing ? "border-primary/80 shadow-[0_0_0_2px_rgba(249,115,22,0.4)] bg-primary/10 scale-[0.98]" : isPressed && !isSelectionMode ? "border-primary/50 bg-white/[0.08] shadow-md shadow-primary/15 scale-[0.99]" : isOverdue && !(isCompletedState || isCompleting) && !isSelectionMode ? "border-red-500/30" : isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? "border-primary/60" : isDueToday && !(isCompletedState || isCompleting) && !isSelectionMode ? "border-primary/40" : "border-white/5"} ${isDueToday && !isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? "today-task-glow" : ""} ${isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? "near-deadline-glow" : ""} ${isDueTomorrow && !(isCompletedState || isCompleting) && !isSelectionMode ? "tomorrow-glow" : ""}`,
+        className: `glass-panel rounded-2xl ${hideDateSubtitle ? "py-1.5 px-3 md:py-2 md:px-3.5" : "py-2 px-3 md:py-2.5 md:px-4"} flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${isSelectionMode && isSelected ? "!border-primary !bg-primary/15 shadow-md shadow-primary/20 scale-[0.99]" : ""} ${(isCompletedState || isCompleting) && !isSelectionMode ? "opacity-40 grayscale-[0.5]" : ""} ${isLongPressing ? "border-primary/80 shadow-[0_0_0_2px_rgba(249,115,22,0.4)] bg-primary/10 scale-[0.98]" : isPressed && !isSelectionMode ? "border-primary/50 bg-white/[0.08] shadow-md shadow-primary/15 scale-[0.99]" : isOverdue && !(isCompletedState || isCompleting) && !isSelectionMode ? "border-red-500/30" : isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? "border-primary/60" : isDueToday && !(isCompletedState || isCompleting) && !isSelectionMode ? "border-primary/40" : "border-white/5"} ${isDueToday && !isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? "today-task-glow" : ""} ${isNearDeadline && !(isCompletedState || isCompleting) && !isSelectionMode ? "near-deadline-glow" : ""} ${isDueTomorrow && !(isCompletedState || isCompleting) && !isSelectionMode ? "tomorrow-glow" : ""}`,
         style: {
-          minHeight: hideDateSubtitle && !task.dueTime ? "42px" : window.innerWidth < 768 ? "52px" : "auto",
+          minHeight: hideDateSubtitle && !task.dueTime ? "38px" : window.innerWidth < 768 ? "46px" : "auto",
           touchAction: "pan-y",
           transform: `translateX(${swipeOffset}px)`,
           transition: isSwipingRef.current ? "none" : "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
@@ -5384,58 +5430,25 @@ const QuickTaskNotepadItem = React.memo(({
         const now = /* @__PURE__ */ new Date();
         const todayStr = formatDateLocal(now);
         window._faioraLastSwipe = window._faioraLastSwipe || /* @__PURE__ */ new Map();
-        const lastSwipe = window._faioraLastSwipe.get(task.id);
         const nowMs = Date.now();
-        const isWithin3s = lastSwipe && lastSwipe.action === "later" && nowMs - lastSwipe.timestamp <= 3e3;
-        let targetDate = getTomorrow();
-        let targetTime = "10:00";
-        let toastLabel = `Moved "${displayName}" to Tomorrow`;
-        if (isWithin3s) {
-          const prioTarget = getTaskPrioTarget(task);
-          targetDate = prioTarget.date;
-          targetTime = prioTarget.time;
-          toastLabel = `Prioritized "${displayName}" (${formatTime(targetTime)})`;
-          window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: "prio" });
-        } else if (task.dueDate === getTomorrow()) {
-          targetDate = getDayAfterTomorrow();
-          targetTime = "10:00";
-          toastLabel = `Moved "${displayName}" to Tomorrow`;
-          window._faioraLastSwipe.delete(task.id);
-        } else {
-          const hour = now.getHours();
-          const minute = now.getMinutes();
-          const isNight1h = hour >= 20 && hour < 22 || hour === 0 && minute <= 30;
-          const isToTomorrow = hour >= 22 || hour === 0 && minute > 30 || hour > 0 && hour < 6;
-          if (isToTomorrow) {
-            targetDate = getTomorrow();
-            targetTime = "10:00";
-            toastLabel = `Moved "${displayName}" to Tomorrow`;
-            window._faioraLastSwipe.delete(task.id);
-          } else {
-            let baseTimeMs = now.getTime();
-            if (task.dueDate === todayStr && task.dueTime) {
-              const [th, tm] = task.dueTime.split(":").map(Number);
-              const tDate = new Date(now);
-              tDate.setHours(th, tm, 0, 0);
-              if (tDate.getTime() > baseTimeMs) baseTimeMs = tDate.getTime();
-            }
-            const laterDate = new Date(baseTimeMs + (isNight1h ? 1 : 4) * 60 * 60 * 1e3);
-            laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
-            if (formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 22) {
-              const h = String(laterDate.getHours()).padStart(2, "0");
-              const m = String(laterDate.getMinutes()).padStart(2, "0");
-              targetDate = formatDateLocal(laterDate);
-              targetTime = `${h}:${m}`;
-              toastLabel = `Moved "${displayName}" to Later (${formatTime(targetTime)})`;
-              window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: "later" });
-            } else {
-              targetDate = getTomorrow();
-              targetTime = "10:00";
-              toastLabel = `Moved "${displayName}" to Tomorrow`;
-              window._faioraLastSwipe.delete(task.id);
-            }
-          }
+        let baseTimeMs = now.getTime();
+        if (task.dueDate === todayStr && task.dueTime) {
+          const [th, tm] = task.dueTime.split(":").map(Number);
+          const tDate = new Date(now);
+          tDate.setHours(th, tm, 0, 0);
+          if (tDate.getTime() > baseTimeMs) baseTimeMs = tDate.getTime();
         }
+        const laterDate = new Date(baseTimeMs + 2 * 60 * 60 * 1e3);
+        laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
+        const targetDate = todayStr;
+        let targetTime = "23:59";
+        if (formatDateLocal(laterDate) === todayStr) {
+          const h = String(laterDate.getHours()).padStart(2, "0");
+          const m = String(laterDate.getMinutes()).padStart(2, "0");
+          targetTime = `${h}:${m}`;
+        }
+        const toastLabel = `Moved "${displayName}" to Today (${formatTime(targetTime)})`;
+        window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: "today" });
         const prevDueDate = task.dueDate;
         const prevDueTime = task.dueTime;
         onUpdateQuickTask(task.id, task.text, targetDate, targetTime, task.categories, task.progress);
@@ -5479,37 +5492,7 @@ const QuickTaskNotepadItem = React.memo(({
     }
     if (onToggle) onToggle(task.id);
   };
-  const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
-    var _a;
-    const lastSwipe = (_a = window._faioraLastSwipe) == null ? void 0 : _a.get(task.id);
-    if (lastSwipe && lastSwipe.action === "later" && Date.now() - lastSwipe.timestamp <= 3e3) {
-      return { label: "PRIO", icon: "priority_high" };
-    }
-    if (task.dueDate === getTomorrow()) {
-      return { label: "TOMORROW", icon: "event_upcoming" };
-    }
-    const now = /* @__PURE__ */ new Date();
-    const todayStr = formatDateLocal(now);
-    const hour = now.getHours();
-    const minute = now.getMinutes();
-    if (hour >= 22 || hour === 0 && minute > 30 || hour > 0 && hour < 6) {
-      return { label: "TOMORROW", icon: "event_upcoming" };
-    }
-    const isNight1h = hour >= 20 && hour < 22 || hour === 0 && minute <= 30;
-    let baseTimeMs = now.getTime();
-    if (task.dueDate === todayStr && task.dueTime) {
-      const [th, tm] = task.dueTime.split(":").map(Number);
-      const tDate = new Date(now);
-      tDate.setHours(th, tm, 0, 0);
-      if (tDate.getTime() > baseTimeMs) baseTimeMs = tDate.getTime();
-    }
-    const laterDate = new Date(baseTimeMs + (isNight1h ? 1 : 4) * 60 * 60 * 1e3);
-    laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
-    if (formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 22) {
-      return { label: "LATER", icon: "schedule" };
-    }
-    return { label: "TOMORROW", icon: "event_upcoming" };
-  })() : null;
+  const swipeRescheduleInfo = swipeOffset > 0 ? { label: "TODAY", icon: "today" } : null;
   return /* @__PURE__ */ React.createElement("div", { className: "relative overflow-hidden rounded-lg select-none" }, swipeOffset > 0 && swipeRescheduleInfo && /* @__PURE__ */ React.createElement(
     "div",
     {
@@ -6910,15 +6893,15 @@ const DashboardPage = ({ user, notes: notes2, quickTasks: quickTasks2, alarms: a
       title: isSelectionMode ? "Exit Selection" : "Select Tasks"
     },
     /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-sm md:text-base leading-none" }, isSelectionMode ? "close" : "checklist")
-  )), /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("div", { id: "quick_tasks_view_mode_bar", className: "quick-tasks-view-mode-bar flex items-center gap-1.5 mt-1 leading-none" }, /* @__PURE__ */ React.createElement("span", { className: "text-[8px] md:text-[9px] font-bold text-cream-light/45 uppercase tracking-widest leading-none" }, viewMode === "daily" ? "Daily Breakdown View" : viewMode === "notepad" ? "Date Notepad View" : viewMode === "categories" ? "Category Notepad View" : "Standard View"), /* @__PURE__ */ React.createElement("span", { className: "text-white/20 text-[8px] md:text-[9px] leading-none select-none" }, "\u2022"), /* @__PURE__ */ React.createElement(
     Link,
     {
       to: "/quick-tasks",
-      className: "text-[8px] md:text-[9px] font-bold text-primary/70 uppercase tracking-widest hover:text-primary transition-colors inline-flex items-center gap-0.5 w-max active:scale-95 mt-1 leading-none"
+      className: "text-[8px] md:text-[9px] font-bold text-primary/70 uppercase tracking-widest hover:text-primary transition-colors inline-flex items-center gap-0.5 w-max active:scale-95 leading-none"
     },
     /* @__PURE__ */ React.createElement("span", null, "View All"),
     /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[10px] leading-none" }, "chevron_right")
-  )), /* @__PURE__ */ React.createElement("div", { className: "h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent min-w-[8px]" }), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 md:gap-3 shrink-0" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center bg-white/[0.03] p-1 rounded-full border border-white/10 backdrop-blur-md shadow-inner gap-0.5 shrink-0" }, /* @__PURE__ */ React.createElement(
+  ))), /* @__PURE__ */ React.createElement("div", { className: "h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent min-w-[8px]" }), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 md:gap-3 shrink-0" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center bg-white/[0.03] p-1 rounded-full border border-white/10 backdrop-blur-md shadow-inner gap-0.5 shrink-0" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
@@ -10181,24 +10164,44 @@ const BackupManagementSection = ({ user, activeCollection: activeCollection2, qu
   const [showPreview, setShowPreview] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const fetchBackups = useCallback(async () => {
+  const [lastDoc, setLastDoc] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const fetchBackups = useCallback(async (isLoadMore = false) => {
     if (!user) return;
-    setLoading(true);
+    if (!isLoadMore) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
     try {
       const taskCollection = localStorage.getItem("faiora_quick_tasks_collection") || activeCollection2 || "tasks";
-      const snapshot = await db.collection(taskCollection).doc(user.uid).collection("quickTaskBackups").orderBy("timestamp", "desc").limit(30).get();
+      let query = db.collection(taskCollection).doc(user.uid).collection("quickTaskBackups").orderBy("timestamp", "desc").limit(10);
+      if (isLoadMore && lastDoc) {
+        query = query.startAfter(lastDoc);
+      }
+      const snapshot = await query.get();
       const backupList = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data()
       }));
-      setBackups(backupList);
+      if (snapshot.docs.length > 0) {
+        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+      }
+      setHasMore(snapshot.docs.length === 10);
+      if (isLoadMore) {
+        setBackups((prev) => [...prev, ...backupList]);
+      } else {
+        setBackups(backupList);
+      }
     } catch (error) {
       console.error("Failed to fetch backups:", error);
-      showToast2 == null ? void 0 : showToast2("Failed to load backups");
+      showToast2 == null ? void 0 : showToast2("Failed to load backups: " + error.message);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [user, activeCollection2, showToast2]);
+  }, [user, activeCollection2, showToast2, lastDoc]);
   useEffect(() => {
     fetchBackups();
   }, [fetchBackups]);
@@ -10243,17 +10246,58 @@ const BackupManagementSection = ({ user, activeCollection: activeCollection2, qu
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
     return (bytes / 1024 / 1024).toFixed(2) + " MB";
   };
-  return /* @__PURE__ */ React.createElement("div", { className: "glass-panel rounded-3xl p-6 md:p-8 space-y-5" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2.5" }, /* @__PURE__ */ React.createElement("div", { className: "w-8 h-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg" }, "backup")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h3", { className: "text-xs font-bold text-primary uppercase tracking-widest" }, "Quick Task Backups"), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-cream-light/40 mt-0.5" }, "Automated daily backups with 30-day retention"))), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "glass-panel rounded-3xl p-6 md:p-8 space-y-5" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2.5" }, /* @__PURE__ */ React.createElement("div", { className: "w-8 h-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg" }, "backup")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h3", { className: "text-xs font-bold text-primary uppercase tracking-widest" }, "Quick Task Backups"), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-cream-light/40 mt-0.5" }, "Automated daily backups with 30-day retention"))), /* @__PURE__ */ React.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
-      onClick: fetchBackups,
+      onClick: async () => {
+        try {
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            showToast2 == null ? void 0 : showToast2("Please sign in to create a backup");
+            return;
+          }
+          const tasks = quickTasks2 || [];
+          const tasksJson = JSON.stringify(tasks);
+          const backup = {
+            timestamp: Date.now(),
+            date: (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+            tasks,
+            count: tasks.length,
+            size: tasksJson.length
+          };
+          const taskCollection = localStorage.getItem("faiora_quick_tasks_collection") || activeCollection2 || "tasks";
+          const backupRef = db.collection(taskCollection).doc(currentUser.uid).collection("quickTaskBackups").doc(`backup_${backup.date}`);
+          await backupRef.set(backup);
+          showToast2 == null ? void 0 : showToast2(`Backup created: ${backup.count} tasks`);
+          setLastDoc(null);
+          setHasMore(true);
+          fetchBackups(false);
+        } catch (error) {
+          console.error("Manual backup failed:", error);
+          showToast2 == null ? void 0 : showToast2("Failed to create backup: " + error.message);
+        }
+      },
+      className: "text-[10px] font-bold text-white hover:text-primary transition-colors flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30",
+      title: "Create backup now"
+    },
+    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-xs" }, "add"),
+    "Backup Now"
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: () => {
+        setLastDoc(null);
+        setHasMore(true);
+        fetchBackups(false);
+      },
       className: "text-[10px] font-bold text-white/40 hover:text-primary transition-colors flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10",
       title: "Refresh backup list"
     },
     /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-xs" }, "refresh"),
     "Refresh"
-  )), loading ? /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, [...Array(3)].map((_, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "h-16 bg-white/5 animate-pulse rounded-2xl" }))) : backups.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "p-6 text-center space-y-2" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-3xl text-white/20" }, "cloud_off"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-cream-light/40" }, "No backups available yet."), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-cream-light/30" }, "Backups are created automatically at midnight each day.")) : /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, backups.map((backup) => /* @__PURE__ */ React.createElement("div", { key: backup.id, className: "flex items-center justify-between p-4 bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 rounded-2xl transition-all group" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3.5" }, /* @__PURE__ */ React.createElement("div", { className: "w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg" }, "folder_zip")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "text-sm font-semibold text-cream-light group-hover:text-white transition-colors" }, formatDate(backup.date)), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-cream-light/40" }, backup.count, " tasks \u2022 ", formatSize(backup.size)))), /* @__PURE__ */ React.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React.createElement(
+  ))), loading ? /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, [...Array(3)].map((_, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "h-16 bg-white/5 animate-pulse rounded-2xl" }))) : backups.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "p-6 text-center space-y-2" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-3xl text-white/20" }, "cloud_off"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-cream-light/40" }, "No backups available yet."), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-cream-light/30" }, "Backups are created automatically at midnight each day.")) : /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, backups.map((backup) => /* @__PURE__ */ React.createElement("div", { key: backup.id, className: "flex items-center justify-between p-4 bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 rounded-2xl transition-all group" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3.5" }, /* @__PURE__ */ React.createElement("div", { className: "w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg" }, "folder_zip")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "text-sm font-semibold text-cream-light group-hover:text-white transition-colors" }, formatDate(backup.date)), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-cream-light/40" }, backup.count, " tasks \u2022 ", formatSize(backup.size)))), /* @__PURE__ */ React.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => {
@@ -10273,7 +10317,15 @@ const BackupManagementSection = ({ user, activeCollection: activeCollection2, qu
       className: "px-3 py-1.5 text-xs font-bold bg-primary/20 hover:bg-primary text-primary hover:text-white border border-primary/30 rounded-xl transition-all"
     },
     "Restore"
-  ))))), showPreview && selectedBackup && /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm", onClick: () => setShowPreview(false) }, /* @__PURE__ */ React.createElement("div", { className: "bg-[#0a0f1d] border border-white/10 rounded-3xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col", onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-4" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h3", { className: "text-xl font-bold text-white" }, "Backup Preview"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-cream-light/40 mt-1" }, formatDate(selectedBackup.date), " \u2022 ", selectedBackup.count, " tasks")), /* @__PURE__ */ React.createElement(
+  )))), hasMore && /* @__PURE__ */ React.createElement("div", { className: "pt-2" }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => fetchBackups(true),
+      disabled: loadingMore,
+      className: "w-full py-3 text-sm font-bold text-cream-light/80 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-white/20 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+    },
+    loadingMore ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-base animate-spin" }, "refresh"), "Loading...") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-base" }, "expand_more"), "Load More Backups")
+  ))), showPreview && selectedBackup && /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm", onClick: () => setShowPreview(false) }, /* @__PURE__ */ React.createElement("div", { className: "bg-[#0a0f1d] border border-white/10 rounded-3xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col", onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-4" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h3", { className: "text-xl font-bold text-white" }, "Backup Preview"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-cream-light/40 mt-1" }, formatDate(selectedBackup.date), " \u2022 ", selectedBackup.count, " tasks")), /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => setShowPreview(false),
@@ -12494,18 +12546,21 @@ const ToastPill = ({ toast, onDismiss }) => {
   const duration = toast.duration || (isSyncToast ? 2e3 : isExitToast ? 2e3 : 5e3);
   const remainingMs = Math.max(100, (toast.createdAt || Date.now()) + duration - Date.now());
   useEffect(() => {
-    const fadeDelay = Math.max(0, remainingMs - 400);
+    const now = Date.now();
+    const elapsed = now - (toast.createdAt || now);
+    const currentRemaining = Math.max(100, duration - elapsed);
+    const fadeDelay = Math.max(0, currentRemaining - 400);
     const fadeTimer = setTimeout(() => {
       setIsAutoFading(true);
     }, fadeDelay);
     const dismissTimer = setTimeout(() => {
       onDismiss(toast.id);
-    }, remainingMs);
+    }, currentRemaining);
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(dismissTimer);
     };
-  }, [toast.id, onDismiss, remainingMs]);
+  }, [toast.id, onDismiss, duration]);
   const handleStart = (e) => {
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     startYRef.current = clientY;
@@ -12768,7 +12823,11 @@ const App = () => {
   const [settingsData2, setSettingsData] = useState({});
   const [videoSrc, setVideoSrc] = useState(null);
   useEffect(() => {
-    if ((settingsData2 == null ? void 0 : settingsData2.bgVideoEnabled) === false) return;
+    if ((settingsData2 == null ? void 0 : settingsData2.bgVideoEnabled) === false) {
+      setVideoSrc(null);
+      setIsVideoReady(false);
+      return;
+    }
     const isMobileDevice = typeof window !== "undefined" && (window.innerWidth < 768 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
     const targetSrc = isMobileDevice ? "fire_bg_video_hd_mobile.mp4" : "fire_bg_video_hd_desktop_tablet.mp4";
     const timer = setTimeout(() => {
@@ -12837,10 +12896,10 @@ const App = () => {
     const interval = setInterval(() => {
       const now = Date.now();
       setToasts((prev) => {
-        const active = prev.filter((t) => now - (t.createdAt || 0) < 5e3);
+        const active = prev.filter((t) => now - (t.createdAt || 0) < (t.duration || 5e3));
         return active.length !== prev.length ? active : prev;
       });
-    }, 100);
+    }, 200);
     return () => clearInterval(interval);
   }, [toasts.length]);
   const showToast2 = useCallback((message, action = null, key = null) => {
@@ -15029,9 +15088,9 @@ const App = () => {
     handleUpdateQuickTasks(updated, updatedTrash);
     const taskName = (taskToDelete.text || "Task").trim();
     let displayName;
-    if (taskName.length > 22) {
-      const start = taskName.slice(0, 10);
-      const end = taskName.slice(-7);
+    if (taskName.length > 18) {
+      const start = taskName.slice(0, 9);
+      const end = taskName.slice(-6);
       displayName = `${start}...${end}`;
     } else {
       displayName = taskName;
@@ -15190,7 +15249,7 @@ const App = () => {
       updated[targetIndex] = updatedTask;
       const taskName = (original.text || "Task").trim();
       let displayName;
-      const maxLength = nextCompleted ? 15 : 11;
+      const maxLength = nextCompleted ? 18 : 15;
       if (taskName.length > maxLength) {
         displayName = `${taskName.slice(0, maxLength)}...`;
       } else {
@@ -15469,10 +15528,12 @@ const App = () => {
       console.log("\u{1F464} [AUTH] State changed. User:", u ? `${u.displayName} (${u.uid})` : "NULL");
       const nextUid = (u == null ? void 0 : u.uid) ?? null;
       const prevUid = prevAuthUidRef.current;
-      if (prevUid !== nextUid) {
+      if (prevUid !== nextUid && prevUid !== null) {
         setNotes([]);
         setQuickTasks([]);
         setQuickTasksCollection(localStorage.getItem("faiora_quick_tasks_collection") || localStorage.getItem("faiora_active_collection") || "tasks");
+        prevAuthUidRef.current = nextUid;
+      } else if (prevUid === null) {
         prevAuthUidRef.current = nextUid;
       }
       if (u) {
@@ -15912,7 +15973,7 @@ const App = () => {
   useEffect(() => {
     const enforceSpeed = () => {
       if (videoRef.current) {
-        videoRef.current.playbackRate = 1.5;
+        videoRef.current.playbackRate = 1;
       }
     };
     enforceSpeed();
@@ -15949,16 +16010,16 @@ const App = () => {
     return null;
   }
   if (!isAuthChecked && !user) {
-    return /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#070b14]" }, /* @__PURE__ */ React.createElement("div", { className: "relative flex items-center justify-center" }, /* @__PURE__ */ React.createElement("div", { className: "w-16 h-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center shadow-[0_0_40px_rgba(249,115,22,0.35)] animate-pulse p-3" }, /* @__PURE__ */ React.createElement("img", { src: "assets/icon-only.png", alt: "Faiora Logo", className: "w-10 h-10 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.8)]" }))), /* @__PURE__ */ React.createElement("h1", { className: "mt-4 text-base font-bold tracking-[0.25em] text-cream-light uppercase font-montserrat opacity-80" }, "FAIORA"));
+    return /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#7c2d12]" }, /* @__PURE__ */ React.createElement("div", { className: "relative flex items-center justify-center" }, /* @__PURE__ */ React.createElement("div", { className: "w-16 h-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center shadow-[0_0_40px_rgba(249,115,22,0.35)] animate-pulse p-3" }, /* @__PURE__ */ React.createElement("img", { src: "assets/icon-only.png", alt: "Faiora Logo", draggable: false, onDragStart: (e) => e.preventDefault(), className: "w-11 h-11 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.8)] select-none pointer-events-none" }))), /* @__PURE__ */ React.createElement("h1", { className: "mt-4 text-base font-bold tracking-[0.25em] text-cream-light uppercase font-montserrat opacity-80" }, "FAIORA"));
   }
   if (!user) {
     return /* @__PURE__ */ React.createElement(LoginModal, null);
   }
-  return /* @__PURE__ */ React.createElement(HashRouter, null, /* @__PURE__ */ React.createElement(FaioraErrorBoundary, null, videoSrc && /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement(HashRouter, null, /* @__PURE__ */ React.createElement(FaioraErrorBoundary, null, videoSrc && (settingsData2 == null ? void 0 : settingsData2.bgVideoEnabled) !== false && /* @__PURE__ */ React.createElement(
     "video",
     {
       ref: videoRef,
-      className: `fire-bg-video ${isVideoReady && (settingsData2 == null ? void 0 : settingsData2.bgVideoEnabled) !== false ? "is-ready" : ""}`,
+      className: `fire-bg-video ${isVideoReady ? "is-ready" : ""}`,
       autoPlay: true,
       loop: true,
       muted: true,
@@ -16068,13 +16129,13 @@ const App = () => {
       }
     ),
     document.body
-  ), !(isCreatorOpen || isSetLockModalOpen || !!unlockingNote || isQuickTaskModalOpen || !!editingQuickTask || !!activeAlarmAlert || showPermissionModal) && !isTransitioning && typeof document !== "undefined" && ReactDOM.createPortal(
+  ), typeof document !== "undefined" && ReactDOM.createPortal(
     /* @__PURE__ */ React.createElement("div", { className: "toast-container", style: {
       position: "fixed",
       bottom: "calc(80px + env(safe-area-inset-bottom, 0px))",
       left: "50%",
       transform: "translateX(-50%)",
-      zIndex: 1500,
+      zIndex: 99999,
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
@@ -16084,7 +16145,7 @@ const App = () => {
       width: "calc(100% - 32px)",
       maxWidth: "480px",
       boxSizing: "border-box"
-    } }, toasts.slice(0, 2).map((toast) => /* @__PURE__ */ React.createElement(
+    } }, toasts.slice(-2).map((toast) => /* @__PURE__ */ React.createElement(
       ToastPill,
       {
         key: toast.id,
@@ -16093,13 +16154,14 @@ const App = () => {
       }
     ))),
     document.body
-  ), !(isCreatorOpen || isSetLockModalOpen || !!unlockingNote || isQuickTaskModalOpen || !!editingQuickTask || !!activeAlarmAlert || showPermissionModal) && /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", bottom: "calc(96px + env(safe-area-inset-bottom,0px))", left: "50%", transform: "translateX(-50%)", zIndex: 1400, display: "flex", flexDirection: "column-reverse", gap: "12px", pointerEvents: "none", width: "calc(100% - 32px)", maxWidth: "480px", boxSizing: "border-box" } }, /* @__PURE__ */ React.createElement("style", null, `
+  ), /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", bottom: "calc(96px + env(safe-area-inset-bottom,0px))", left: "50%", transform: "translateX(-50%)", zIndex: 99998, display: "flex", flexDirection: "column-reverse", gap: "12px", pointerEvents: "none", width: "calc(100% - 32px)", maxWidth: "480px", boxSizing: "border-box" } }, /* @__PURE__ */ React.createElement("style", null, `
+                            /* (2026-07-13) Reduced inner vertical padding. Prev: 0.85rem */
                             .task-snackbar {
                                 background: rgba(15, 23, 42, 0.9);
                                 backdrop-filter: blur(12px);
                                 border: 1px solid rgba(255, 255, 255, 0.1);
                                 border-radius: 1.25rem;
-                                padding: 0.85rem 1.25rem;
+                                padding: 0.65rem 1.25rem;
                                 display: flex;
                                 alignItems: center;
                                 justify-content: space-between;
