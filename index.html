@@ -6814,12 +6814,14 @@
                             outerContainer.classList.add('task-completing');
                         }
                         setTimeout(() => {
+                            if (outerContainer) {
+                                outerContainer.classList.remove('task-completing');
+                            }
                             onToggle(task.id);
                         }, 300);
                     }
                 } else {
                     // Uncompleting - immediate, no animation
-                    console.log('[QUICKTASK] Uncompleting task - immediate toggle');
                     onToggle(task.id);
                 }
             };
@@ -7152,6 +7154,8 @@
                     const rect = taskElement.getBoundingClientRect();
                     const centerX = rect.left + rect.width / 2;
                     const centerY = rect.top + rect.height / 2;
+                // (2026-07-13) Close unclosed if block. Prev: missing brace, syntax error
+                }
                     
                 if (isCompleting) {
                     try {

@@ -1,4 +1,4 @@
-@echo off
+    @echo off
 rem (2026-07-13) Open APK output in Explorer on complete. Prev: no open
 echo [1/4] Building assets...
 call npm run build
