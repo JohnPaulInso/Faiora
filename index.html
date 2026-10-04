@@ -10954,20 +10954,24 @@
                 return () => clearTimeout(timer);
             }, [normalizedTaskSearch, quickTaskSearchResults.length]);
 
-            const cells = [];
-            for (let i = firstDay - 1; i >= 0; i--) {
-                cells.push({ day: prevMonthDays - i, current: false });
-            }
-            /* 2026-04-15: Restored corrupted calendar grid population logic */
-            for (let d = 1; d <= daysInMonth; d++) {
-                cells.push({ day: d, current: true });
-            }
-            const remaining = 7 - (cells.length % 7);
-            if (remaining < 7) {
-                for (let i = 1; i <= remaining; i++) {
-                    cells.push({ day: i, current: false });
+            // (2026-10-04) Memoized cells to prevent lag on upcomingPage/search state changes. Prev: rebuilt every render
+            const cells = useMemo(() => {
+                const arr = [];
+                for (let i = firstDay - 1; i >= 0; i--) {
+                    arr.push({ day: prevMonthDays - i, current: false });
                 }
-            }
+                /* 2026-04-15: Restored corrupted calendar grid population logic */
+                for (let d = 1; d <= daysInMonth; d++) {
+                    arr.push({ day: d, current: true });
+                }
+                const remaining = 7 - (arr.length % 7);
+                if (remaining < 7) {
+                    for (let i = 1; i <= remaining; i++) {
+                        arr.push({ day: i, current: false });
+                    }
+                }
+                return arr;
+            }, [year, month, firstDay, daysInMonth, prevMonthDays]);
 
             return (
                 /* 2026-04-15: Ensured FAB is enabled for CalendarPage */
@@ -10991,7 +10995,7 @@
                             </div>
                             {/* (2026-07-13) Fix top margin on calendar tab page. Prev: mt-16 */}
                             {/* (2026-10-04) Fixed: outer wrapper div now properly closed. Prev: missing closing div broke layout */}
-                            <div className="px-4 md:px-0 mx-2 mt-[calc(72px+env(safe-area-inset-top,0px))] md:mt-4">
+                            <div className="px-4 md:px-0 mx-0 mt-[calc(72px+env(safe-area-inset-top,0px))] md:mt-4">
                                 <div className="flex items-center justify-between mb-4 md:mb-6">
                                     <div className="flex items-center justify-between w-full">
                                         <button onClick={prevMonth} className="w-10 h-10 glass-panel rounded-full text-cream-light/60 hover:text-primary transition-all flex items-center justify-center border border-white/5 hover:border-primary/20"><span className="material-symbols-outlined text-lg">chevron_left</span></button>
@@ -11019,26 +11023,25 @@
                                                 <div 
                                                     key={i} 
                                                     onClick={() => cell.current && (setSelectedDate(new Date(year, month, cell.day)), setUpcomingPage(0))}
-                                                    className={`border-r border-b border-white/5 pt-1.5 px-1.5 pb-3 h-[90px] md:h-[110px] overflow-hidden relative transition-colors cursor-pointer ${cell.current ? 'hover:bg-white/5' : 'opacity-25'} ${todayMatch ? 'bg-primary/10' : ''} ${selectedMatch && !todayMatch ? 'bg-white/5' : ''}`}
+                                                    // (2026-07-13) Fix overflow text visibility below 4th chip. Prev: clipped
+                                                    className={`border-r border-b border-white/5 pt-1 px-1 pb-1 h-[108px] md:h-[120px] overflow-hidden relative transition-colors cursor-pointer ${cell.current ? 'hover:bg-white/5' : 'opacity-25'} ${todayMatch ? 'bg-primary/10' : ''} ${selectedMatch && !todayMatch ? 'bg-white/5' : ''}`}
                                                 >
                                                     <span className={`text-xs font-sans ${todayMatch ? 'font-bold text-primary' : ''} ${selectedMatch && !todayMatch ? 'font-semibold text-cream-light' : ''}`}>{cell.day}</span>
                                                     {todayMatch && <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary glow-orange"></div>}
                                                     {reminders.length > 0 && (
-                                                        // (2026-07-13) Truncate calendar task items to single-line with compact font. Prev: line-clamp-2 caused tall wrapped towers
-                                                        <div className="flex flex-col gap-0.5 mt-1 overflow-hidden max-h-[54px] md:max-h-[72px]">
-                                                            {/* (2026-10-04) Show up to 4 task previews per day. Prev: 2 */}
+                                                        <div className="flex flex-col gap-0.5 mt-0.5">
                                                             {reminders.slice(0, 4).map((r, ri) => (
                                                                 <div 
                                                                     key={ri} 
                                                                     title={r.type === 'quickTask' ? formatTaskText(r.text) : (r.title || 'Note')}
-                                                                    className={`w-full truncate text-[7px] leading-tight font-semibold rounded px-1 py-0.5 ${r.type === 'quickTask' ? 'bg-white/10 text-cream-light/90' : 'bg-primary/20 text-primary'} border border-white/5`}
+                                                                    className={`w-full truncate text-[7px] leading-none font-semibold rounded px-1 flex-shrink-0 h-[14px] flex items-center ${r.type === 'quickTask' ? 'bg-white/10 text-cream-light/90' : 'bg-primary/20 text-primary'} border border-white/5`}
                                                                 >
                                                                     {r.type === 'quickTask' ? formatTaskText(r.text) : (r.title || 'Note')}
                                                                 </div>
                                                             ))}
                                                             {reminders.length > 4 && (
-                                                                <span className="text-[6px] font-bold text-primary/60 truncate pl-0.5">
-                                                                    +{reminders.length - 4}
+                                                                <span className="text-[8px] font-bold text-primary truncate pl-0.5 leading-none flex-shrink-0 block mt-0.5">
+                                                                    +{reminders.length - 4} more
                                                                 </span>
                                                             )}
                                                         </div>
@@ -11051,47 +11054,7 @@
                             </div>
                         </div>
                         {/* (2026-10-04) Close left flex-col column. Prev: missing caused JSX unclosed-div error */}
-                        <aside className="w-full md:w-96 border-t md:border-t-0 md:border-l border-white/5 bg-black/20 backdrop-blur-md p-6 overflow-y-auto no-scrollbar flex-shrink-0 md:rounded-none rounded-[2.5rem] mt-6 md:mt-0">
-                            <div ref={quickTaskMatchesRef} className="mb-6 glass-panel rounded-[2rem] p-4 border border-white/5">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <span className="material-symbols-outlined text-primary">search</span>
-                                    <div>
-                                        <h3 className="text-[11px] font-bold text-cream-light/60 uppercase tracking-[0.24em]">
-                                            {normalizedTaskSearch ? 'Matches' : 'Task Search'}
-                                        </h3>
-                                        <p className="text-[9px] text-white/20 font-bold uppercase tracking-[0.16em] mt-1">
-                                            {normalizedTaskSearch ? 'Select a result to jump' : 'Search tasks from the header'}
-                                        </p>
-                                    </div>
-                                </div>
-                                {normalizedTaskSearch ? (
-                                    <div className="space-y-2">
-                                        {quickTaskSearchResults.length > 0 ? (
-                                            quickTaskSearchResults.map(task => (
-                                                <button
-                                                    key={task.id}
-                                                    type="button"
-                                                    onClick={() => jumpToQuickTaskDate(task)}
-                                                    className="w-full text-left rounded-2xl border border-white/5 bg-white/5 px-4 py-3 hover:bg-white/10 hover:border-primary/20 transition-all"
-                                                >
-                                                    <p className="text-sm font-bold text-cream-light/90 line-clamp-2">{formatTaskText(task.text)}</p>
-                                                    <p className="text-[10px] font-bold text-primary/70 uppercase tracking-[0.18em] mt-2">
-                                                        {task.dueTime ? `${formatDateMinimal(task.dueDate)} @ ${task.dueTime}` : formatReminderDate(task.dueDate)}
-                                                    </p>
-                                                </button>
-                                            ))
-                                        ) : (
-                                            <div className="rounded-2xl border border-white/5 bg-white/5 px-4 py-4 text-xs text-white/35">
-                                                No quick tasks matched that search. Try a task word, `today`, `tomorrow`, or a date like `Apr 24`.
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-4 text-xs text-white/35 leading-relaxed">
-                                        Search from the header with a task word or date. Press Enter to jump to the first match.
-                                    </div>
-                                )}
-                            </div>
+                        <aside className="w-full md:w-96 border-t md:border-t-0 md:border-l border-white/5 bg-black/20 backdrop-blur-md p-6 pb-28 overflow-y-auto no-scrollbar flex-shrink-0 md:rounded-none rounded-[2.5rem] mt-6 md:mt-0">
                             <div className="mb-6">
                                 <div className="flex items-center gap-3 mb-1.5 justify-between">
                                     <h3 className="text-xl font-display font-bold text-cream-light">Daily Agenda</h3>

@@ -5039,9 +5039,9 @@ const LoginModal = () => {
     {
       onClick: handleLogin,
       disabled: isLoggingIn || loginSuccess,
-      className: `faiora-auth-button bg-white text-black py-4 px-8 rounded-2xl font-bold flex items-center justify-center flex-nowrap gap-3 hover:bg-primary hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-2xl shadow-primary/20 group mb-4 min-w-[220px] sm:min-w-[260px] ${isLoggingIn ? "opacity-70 cursor-not-allowed !scale-100" : ""}`
+      className: `faiora-auth-button bg-white text-black rounded-2xl font-bold flex items-center justify-center flex-nowrap gap-3 hover:bg-primary hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-2xl shadow-primary/20 group mb-4 w-[220px] sm:w-[260px] h-[54px] ${isLoggingIn ? "opacity-70 cursor-not-allowed !scale-100" : ""}`
     },
-    isLoggingIn ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-xl animate-spin text-primary group-hover:text-white" }, "progress_activity"), /* @__PURE__ */ React.createElement("span", { className: "text-sm sm:text-base whitespace-nowrap leading-none font-bold" }, "Connecting...")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { className: "w-5 h-5 shrink-0", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { fill: "#4285F4", d: "M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" }), /* @__PURE__ */ React.createElement("path", { fill: "#34A853", d: "M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" }), /* @__PURE__ */ React.createElement("path", { fill: "#FBBC05", d: "M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" }), /* @__PURE__ */ React.createElement("path", { fill: "#EA4335", d: "M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" })), /* @__PURE__ */ React.createElement("span", { className: "text-sm sm:text-base whitespace-nowrap leading-none font-bold" }, "Login with Google"))
+    isLoggingIn ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { className: "w-5 h-5 shrink-0 animate-spin", viewBox: "0 0 24 24", fill: "none" }, /* @__PURE__ */ React.createElement("circle", { className: "opacity-25", cx: "12", cy: "12", r: "10", stroke: "currentColor", strokeWidth: "3" }), /* @__PURE__ */ React.createElement("path", { className: "opacity-75", fill: "currentColor", d: "M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" })), /* @__PURE__ */ React.createElement("span", { className: "text-sm sm:text-base whitespace-nowrap leading-none font-bold" }, "Connecting...")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { className: "w-5 h-5 shrink-0", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { fill: "#4285F4", d: "M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" }), /* @__PURE__ */ React.createElement("path", { fill: "#34A853", d: "M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" }), /* @__PURE__ */ React.createElement("path", { fill: "#FBBC05", d: "M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" }), /* @__PURE__ */ React.createElement("path", { fill: "#EA4335", d: "M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" })), /* @__PURE__ */ React.createElement("span", { className: "text-sm sm:text-base whitespace-nowrap leading-none font-bold" }, "Login with Google"))
   ), loginSuccess && /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 text-emerald-400 text-sm font-bold font-montserrat uppercase tracking-wider mb-4 animate-pulse" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg" }, "check_circle"), /* @__PURE__ */ React.createElement("span", null, "Successful Login")), /* @__PURE__ */ React.createElement("div", { className: "faiora-auth-links flex gap-6 text-[10px] uppercase tracking-widest font-bold text-cream-light/40 mt-2" }, /* @__PURE__ */ React.createElement("a", { href: "privacy.html", className: "hover:text-primary transition-colors" }, "Privacy"), /* @__PURE__ */ React.createElement("a", { href: "terms.html", className: "hover:text-primary transition-colors" }, "Terms"))));
 };
 const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmText = "Confirm", cancelText = "Cancel", type = "danger" }) => {
@@ -8355,6 +8355,8 @@ const CalendarPage = ({ user, notes: notes2, quickTasks: quickTasks2 = [], onOpe
   const [currentDate, setCurrentDate] = useState(/* @__PURE__ */ new Date());
   const [selectedDate, setSelectedDate] = useState(/* @__PURE__ */ new Date());
   const [taskSearchQuery, setTaskSearchQuery] = useState("");
+  const [upcomingPage, setUpcomingPage] = useState(0);
+  const UPCOMING_PAGE_SIZE = 5;
   const quickTaskMatchesRef = useRef(null);
   const today = /* @__PURE__ */ new Date();
   const year = currentDate.getFullYear();
@@ -8406,8 +8408,11 @@ const CalendarPage = ({ user, notes: notes2, quickTasks: quickTasks2 = [], onOpe
       ...(notes2 || []).filter((n) => n.reminderDate).map((n) => ({ ...n, type: "note", sortDate: parseDateString(n.reminderDate) })),
       ...(quickTasks2 || []).filter((t) => t.dueDate).map((t) => ({ ...t, type: "quickTask", sortDate: parseDateString(t.dueDate) }))
     ];
-    return allItems.filter((item) => item.sortDate >= now).sort((a, b) => a.sortDate - b.sortDate).slice(0, 8);
+    return allItems.filter((item) => item.sortDate >= now).sort((a, b) => a.sortDate - b.sortDate);
   }, [notes2, quickTasks2]);
+  const upcomingTotal = upcomingReminders.length;
+  const upcomingMaxPage = Math.max(0, Math.ceil(upcomingTotal / UPCOMING_PAGE_SIZE) - 1);
+  const upcomingPagedItems = upcomingReminders.slice(upcomingPage * UPCOMING_PAGE_SIZE, (upcomingPage + 1) * UPCOMING_PAGE_SIZE);
   const normalizedTaskSearch = taskSearchQuery.trim().toLowerCase();
   const quickTaskSearchResults = useMemo(() => {
     if (!normalizedTaskSearch) return [];
@@ -8449,6 +8454,9 @@ const CalendarPage = ({ user, notes: notes2, quickTasks: quickTasks2 = [], onOpe
     setSelectedDate(new Date(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate()));
     setTaskSearchQuery("");
   }, []);
+  useEffect(() => {
+    setUpcomingPage(0);
+  }, [selectedDate.getTime()]);
   const handleQuickTaskSearchSubmit = useCallback((query) => {
     const trimmed = String(query || "").trim();
     if (!trimmed) return;
@@ -8467,19 +8475,22 @@ const CalendarPage = ({ user, notes: notes2, quickTasks: quickTasks2 = [], onOpe
     }, 120);
     return () => clearTimeout(timer);
   }, [normalizedTaskSearch, quickTaskSearchResults.length]);
-  const cells = [];
-  for (let i = firstDay - 1; i >= 0; i--) {
-    cells.push({ day: prevMonthDays - i, current: false });
-  }
-  for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ day: d, current: true });
-  }
-  const remaining = 7 - cells.length % 7;
-  if (remaining < 7) {
-    for (let i = 1; i <= remaining; i++) {
-      cells.push({ day: i, current: false });
+  const cells = useMemo(() => {
+    const arr = [];
+    for (let i = firstDay - 1; i >= 0; i--) {
+      arr.push({ day: prevMonthDays - i, current: false });
     }
-  }
+    for (let d = 1; d <= daysInMonth; d++) {
+      arr.push({ day: d, current: true });
+    }
+    const remaining = 7 - arr.length % 7;
+    if (remaining < 7) {
+      for (let i = 1; i <= remaining; i++) {
+        arr.push({ day: i, current: false });
+      }
+    }
+    return arr;
+  }, [year, month, firstDay, daysInMonth, prevMonthDays]);
   return (
     /* 2026-04-15: Ensured FAB is enabled for CalendarPage */
     /* @__PURE__ */ React.createElement(
@@ -8499,7 +8510,7 @@ const CalendarPage = ({ user, notes: notes2, quickTasks: quickTasks2 = [], onOpe
           onSearchSubmit: handleQuickTaskSearchSubmit,
           searchPlaceholder: "Search quick task"
         }
-      )), /* @__PURE__ */ React.createElement("div", { className: "px-4 md:px-0 mx-2 mt-[calc(72px+env(safe-area-inset-top,0px))] md:mt-4" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-8 md:mb-12" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between w-full" }, /* @__PURE__ */ React.createElement("button", { onClick: prevMonth, className: "w-10 h-10 glass-panel rounded-full text-cream-light/60 hover:text-primary transition-all flex items-center justify-center border border-white/5 hover:border-primary/20" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg" }, "chevron_left")), /* @__PURE__ */ React.createElement("div", { className: "flex-1 text-center" }, /* @__PURE__ */ React.createElement("h2", { className: "text-xl md:text-3xl font-display font-bold text-cream-light tracking-[0.10em] md:tracking-[0.20em] uppercase" }, monthName, " ", year)), /* @__PURE__ */ React.createElement("button", { onClick: nextMonth, className: "w-10 h-10 glass-panel rounded-full text-cream-light/60 hover:text-primary transition-all flex items-center justify-center border border-white/5 hover:border-primary/20" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg" }, "chevron_right")))), /* @__PURE__ */ React.createElement("div", { className: "glass-panel rounded-xl md:rounded-2xl overflow-hidden border-white/5 shadow-2xl" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-7 bg-white/5 text-center border-b border-white/5 py-2.5" }, ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => /* @__PURE__ */ React.createElement("div", { key: day, className: "text-[9px] font-bold text-primary/60 uppercase tracking-widest" }, day))), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-7" }, cells.map((cell, i) => {
+      )), /* @__PURE__ */ React.createElement("div", { className: "px-4 md:px-0 mx-0 mt-[calc(72px+env(safe-area-inset-top,0px))] md:mt-4" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-4 md:mb-6" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between w-full" }, /* @__PURE__ */ React.createElement("button", { onClick: prevMonth, className: "w-10 h-10 glass-panel rounded-full text-cream-light/60 hover:text-primary transition-all flex items-center justify-center border border-white/5 hover:border-primary/20" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg" }, "chevron_left")), /* @__PURE__ */ React.createElement("div", { className: "flex-1 text-center" }, /* @__PURE__ */ React.createElement("h2", { className: "text-xl md:text-3xl font-display font-bold text-cream-light tracking-[0.10em] md:tracking-[0.20em] uppercase" }, monthName, " ", year)), /* @__PURE__ */ React.createElement("button", { onClick: nextMonth, className: "w-10 h-10 glass-panel rounded-full text-cream-light/60 hover:text-primary transition-all flex items-center justify-center border border-white/5 hover:border-primary/20" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg" }, "chevron_right")))), /* @__PURE__ */ React.createElement("div", { className: "glass-panel rounded-xl md:rounded-2xl overflow-hidden border-white/5 shadow-2xl mb-6" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-7 bg-white/5 text-center border-b border-white/5 py-2.5" }, ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => /* @__PURE__ */ React.createElement("div", { key: day, className: "text-[9px] font-bold text-primary/60 uppercase tracking-widest" }, day))), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-7" }, cells.map((cell, i) => {
         const reminders = cell.current ? getRemindersForDay(cell.day) : [];
         const todayMatch = cell.current && isToday(cell.day);
         const selectedMatch = cell.current && isSelected(cell.day);
@@ -8507,33 +8518,22 @@ const CalendarPage = ({ user, notes: notes2, quickTasks: quickTasks2 = [], onOpe
           "div",
           {
             key: i,
-            onClick: () => cell.current && setSelectedDate(new Date(year, month, cell.day)),
-            className: `border-r border-b border-white/5 p-2 min-h-[100px] md:min-h-[110px] relative transition-colors cursor-pointer ${cell.current ? "hover:bg-white/5" : "opacity-25"} ${todayMatch ? "bg-primary/10" : ""} ${selectedMatch && !todayMatch ? "bg-white/5" : ""}`
+            onClick: () => cell.current && (setSelectedDate(new Date(year, month, cell.day)), setUpcomingPage(0)),
+            className: `border-r border-b border-white/5 pt-1 px-1 pb-1 h-[108px] md:h-[120px] overflow-hidden relative transition-colors cursor-pointer ${cell.current ? "hover:bg-white/5" : "opacity-25"} ${todayMatch ? "bg-primary/10" : ""} ${selectedMatch && !todayMatch ? "bg-white/5" : ""}`
           },
           /* @__PURE__ */ React.createElement("span", { className: `text-xs font-sans ${todayMatch ? "font-bold text-primary" : ""} ${selectedMatch && !todayMatch ? "font-semibold text-cream-light" : ""}` }, cell.day),
-          todayMatch && /* @__PURE__ */ React.createElement("div", { className: "absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-primary glow-orange" }),
-          reminders.length > 0 && // (2026-07-13) Truncate calendar task items to single-line with compact font. Prev: line-clamp-2 caused tall wrapped towers
-          /* @__PURE__ */ React.createElement("div", { className: "flex flex-col gap-0.5 mt-1.5 overflow-hidden" }, reminders.slice(0, 2).map((r, ri) => /* @__PURE__ */ React.createElement(
+          todayMatch && /* @__PURE__ */ React.createElement("div", { className: "absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary glow-orange" }),
+          reminders.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "flex flex-col gap-0.5 mt-0.5" }, reminders.slice(0, 4).map((r, ri) => /* @__PURE__ */ React.createElement(
             "div",
             {
               key: ri,
               title: r.type === "quickTask" ? formatTaskText(r.text) : r.title || "Note",
-              className: `w-full truncate text-[7px] md:text-[8px] leading-tight font-semibold rounded px-1 py-0.5 ${r.type === "quickTask" ? "bg-white/10 text-cream-light/90" : "bg-primary/20 text-primary"} border border-white/5`
+              className: `w-full truncate text-[7px] leading-none font-semibold rounded px-1 flex-shrink-0 h-[14px] flex items-center ${r.type === "quickTask" ? "bg-white/10 text-cream-light/90" : "bg-primary/20 text-primary"} border border-white/5`
             },
             r.type === "quickTask" ? formatTaskText(r.text) : r.title || "Note"
-          )), reminders.length > 2 && /* @__PURE__ */ React.createElement("span", { className: "text-[6.5px] md:text-[7.5px] font-bold text-primary/60 truncate pl-0.5" }, "+", reminders.length - 2, " more"))
+          )), reminders.length > 4 && /* @__PURE__ */ React.createElement("span", { className: "text-[8px] font-bold text-primary truncate pl-0.5 leading-none flex-shrink-0 block mt-0.5" }, "+", reminders.length - 4, " more"))
         );
-      }))))), /* @__PURE__ */ React.createElement("aside", { className: "w-full md:w-96 border-t md:border-t-0 md:border-l border-white/5 bg-black/20 backdrop-blur-md p-6 overflow-y-auto no-scrollbar flex-shrink-0 md:rounded-none rounded-[2.5rem] mt-6 md:mt-0" }, /* @__PURE__ */ React.createElement("div", { ref: quickTaskMatchesRef, className: "mb-6 glass-panel rounded-[2rem] p-4 border border-white/5" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3 mb-3" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-primary" }, "search"), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h3", { className: "text-[11px] font-bold text-cream-light/60 uppercase tracking-[0.24em]" }, normalizedTaskSearch ? "Matches" : "Task Search"), /* @__PURE__ */ React.createElement("p", { className: "text-[9px] text-white/20 font-bold uppercase tracking-[0.16em] mt-1" }, normalizedTaskSearch ? "Select a result to jump" : "Search tasks from the header"))), normalizedTaskSearch ? /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, quickTaskSearchResults.length > 0 ? quickTaskSearchResults.map((task) => /* @__PURE__ */ React.createElement(
-        "button",
-        {
-          key: task.id,
-          type: "button",
-          onClick: () => jumpToQuickTaskDate(task),
-          className: "w-full text-left rounded-2xl border border-white/5 bg-white/5 px-4 py-3 hover:bg-white/10 hover:border-primary/20 transition-all"
-        },
-        /* @__PURE__ */ React.createElement("p", { className: "text-sm font-bold text-cream-light/90 line-clamp-2" }, formatTaskText(task.text)),
-        /* @__PURE__ */ React.createElement("p", { className: "text-[10px] font-bold text-primary/70 uppercase tracking-[0.18em] mt-2" }, task.dueTime ? `${formatDateMinimal(task.dueDate)} @ ${task.dueTime}` : formatReminderDate(task.dueDate))
-      )) : /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl border border-white/5 bg-white/5 px-4 py-4 text-xs text-white/35" }, "No quick tasks matched that search. Try a task word, `today`, `tomorrow`, or a date like `Apr 24`.")) : /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-4 text-xs text-white/35 leading-relaxed" }, "Search from the header with a task word or date. Press Enter to jump to the first match.")), /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3 mb-1.5 justify-between" }, /* @__PURE__ */ React.createElement("h3", { className: "text-xl font-display font-bold text-cream-light" }, "Daily Agenda"), /* @__PURE__ */ React.createElement(
+      }))))), /* @__PURE__ */ React.createElement("aside", { className: "w-full md:w-96 border-t md:border-t-0 md:border-l border-white/5 bg-black/20 backdrop-blur-md p-6 pb-28 overflow-y-auto no-scrollbar flex-shrink-0 md:rounded-none rounded-[2.5rem] mt-6 md:mt-0" }, /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3 mb-1.5 justify-between" }, /* @__PURE__ */ React.createElement("h3", { className: "text-xl font-display font-bold text-cream-light" }, "Daily Agenda"), /* @__PURE__ */ React.createElement(
         "button",
         {
           onClick: () => onAddQuickTask && onAddQuickTask(formatDateLocal(selectedDate)),
@@ -8598,7 +8598,7 @@ const CalendarPage = ({ user, notes: notes2, quickTasks: quickTasks2 = [], onOpe
             )
           );
         }
-      })) : /* @__PURE__ */ React.createElement("div", { className: "text-center py-8 mb-8" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-3xl text-white/5 mb-2" }, "event_available"), /* @__PURE__ */ React.createElement("p", { className: "text-white/20 text-xs font-sans" }, "No reminders this day")), upcomingReminders.length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3 mb-4" }, /* @__PURE__ */ React.createElement("h4", { className: "text-xs font-bold text-cream-light/60 uppercase tracking-[0.2em]" }, "Upcoming"), /* @__PURE__ */ React.createElement("div", { className: "h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent" })), /* @__PURE__ */ React.createElement("div", { className: "space-y-2.5" }, upcomingReminders.map((item, idx) => {
+      })) : /* @__PURE__ */ React.createElement("div", { className: "text-center py-8 mb-8" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-3xl text-white/5 mb-2" }, "event_available"), /* @__PURE__ */ React.createElement("p", { className: "text-white/20 text-xs font-sans" }, "No reminders this day")), upcomingReminders.length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3 mb-4" }, /* @__PURE__ */ React.createElement("h4", { className: "text-xs font-bold text-cream-light/60 uppercase tracking-[0.2em]" }, "Upcoming"), /* @__PURE__ */ React.createElement("div", { className: "h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent" })), /* @__PURE__ */ React.createElement("div", { className: "space-y-2.5" }, upcomingPagedItems.map((item, idx) => {
         if (item.type === "note") {
           return /* @__PURE__ */ React.createElement("div", { key: idx, onClick: () => onEditNote && onEditNote(item), className: "card-glow bg-orange-100/95 rounded-[2rem] p-4 border-b-4 border-orange-300/50 cursor-pointer hover:scale-[1.01] transition-transform relative overflow-hidden" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 mb-1" }, /* @__PURE__ */ React.createElement("h4", { className: "text-sm font-bold text-orange-950/90 leading-tight truncate flex-1" }, item.title || "Untitled"), item.isLocked && /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-orange-950/40 text-xs" }, "lock")), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-orange-900/60 font-sans font-medium capitalize" }, formatReminderDate(item.reminderDate), item.labels && item.labels[0] ? ` \u2022 ${item.labels[0]}` : ""));
         }
@@ -8647,7 +8647,25 @@ const CalendarPage = ({ user, notes: notes2, quickTasks: quickTasks2 = [], onOpe
             }
           )))
         ));
-      })))))
+      }), upcomingTotal > UPCOMING_PAGE_SIZE && /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between pt-2 pb-1" }, /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          onClick: () => setUpcomingPage((p) => Math.max(0, p - 1)),
+          disabled: upcomingPage === 0,
+          className: "flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border border-white/10 text-cream-light/50 hover:border-primary/40 hover:text-primary disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+        },
+        /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[12px]" }, "chevron_left"),
+        "Prev"
+      ), /* @__PURE__ */ React.createElement("span", { className: "text-[10px] font-bold text-white/30 tracking-wider" }, upcomingPage + 1, " / ", upcomingMaxPage + 1, " \xA0\xB7\xA0 ", upcomingTotal, " upcoming"), /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          onClick: () => setUpcomingPage((p) => Math.min(upcomingMaxPage, p + 1)),
+          disabled: upcomingPage >= upcomingMaxPage,
+          className: "flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border border-white/10 text-cream-light/50 hover:border-primary/40 hover:text-primary disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+        },
+        "Next",
+        /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[12px]" }, "chevron_right")
+      ))))))
     )
   );
 };
