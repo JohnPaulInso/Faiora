@@ -19,14 +19,13 @@
     </style>
 
 
-    <!-- (2026-07-13) Dark orange splash, no white plate. Prev: black & white plate -->
-    <!-- FIX 2026-10-04: Use applogo.png directly, not transparent overlay -->
+    <!-- (2026-07-13) #361100 splash & ic_stat_faiora. Prev: #7c2d12 & applogo -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
-        <item name="windowSplashScreenBackground">#7c2d12</item>
-        <item name="android:windowSplashScreenBackground">#7c2d12</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/applogo</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/applogo</item>
+        <item name="windowSplashScreenBackground">#361100</item>
+        <item name="android:windowSplashScreenBackground">#361100</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_stat_faiora</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_stat_faiora</item>
         <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>

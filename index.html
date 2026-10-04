@@ -3981,10 +3981,16 @@
                 const isBulletActive = document.queryCommandState('insertUnorderedList');
                 const isNumberActive = document.queryCommandState('insertOrderedList');
 
+                // (2026-07-13) Auto-convert entire line to checklist/bullet. Prev: empty box
+                let container = range.startContainer;
+                if (container && container.nodeType === 3) container = container.parentElement;
+                const activeCheckItem = container ? container.closest('.checklist-item') : null;
+                const checkItemsToConvert = selectedCheckItems.length > 0 ? selectedCheckItems : (activeCheckItem ? [activeCheckItem] : []);
+
                 // Direction: FROM Checklist TO Bullets/Numbers/Normal/H1/H2
-                if (type !== 'todo' && selectedCheckItems.length > 0) {
+                if (type !== 'todo' && checkItemsToConvert.length > 0) {
                     const newDivs = [];
-                    selectedCheckItems.forEach(item => {
+                    checkItemsToConvert.forEach(item => {
                         const content = item.querySelector('span:not(.checklist-checkbox)') || item;
                         const div = document.createElement('div');
                         div.innerHTML = content.innerHTML;
@@ -4014,13 +4020,14 @@
                     if (isNumberActive) document.execCommand('insertOrderedList');
                     document.execCommand('formatBlock', false, 'div');
                 } else if (type === 'todo') {
-                    if (selectedCheckItems.length > 0) {
+                    if (selectedCheckItems.length > 0 || activeCheckItem) {
                         // TOGGLE OFF: Convert selected checklists back to plain divs
+                        const itemsToOff = selectedCheckItems.length > 0 ? selectedCheckItems : [activeCheckItem];
                         const newDivs = [];
-                        selectedCheckItems.forEach(item => {
+                        itemsToOff.forEach(item => {
                             const contentSpan = item.querySelector('span:not(.checklist-checkbox)') || item;
                             const div = document.createElement('div');
-                            div.innerHTML = contentSpan.innerHTML;
+                            div.innerHTML = contentSpan.innerHTML || '&nbsp;';
                             item.parentNode.replaceChild(div, item);
                             newDivs.push(div);
                         });
@@ -4033,37 +4040,80 @@
                             selection.removeAllRanges();
                             selection.addRange(newRange);
                         }
+                        setHasChanges(true);
+                        hasChangesRef.current = true;
+                        saveState();
                         return; // Done with toggle-off
                     }
                     
-                    let container = range.startContainer;
-                    if (container.nodeType === 3) container = container.parentElement;
-                    const inListItem = container.closest('li');
+                    const inListItem = container ? container.closest('li') : null;
 
                     if (inListItem && range.collapsed) {
                         const html = inListItem.innerHTML;
                         const wrapper = document.createElement('div');
                         wrapper.className = 'checklist-item';
-                        wrapper.innerHTML = `<span class="checklist-checkbox" contenteditable="false"></span><span>${html || '&nbsp;'}</span>`;
+                        wrapper.innerHTML = `<span class="checklist-checkbox" contenteditable="false"></span><span>${html.trim() || '&nbsp;'}</span>`;
                         const list = inListItem.closest('ul, ol');
                         if (list && list.children.length === 1) {
                             list.parentNode.replaceChild(wrapper, list);
                         } else {
                             inListItem.parentNode.replaceChild(wrapper, inListItem);
                         }
-                    } else if (range.collapsed) {
-                        const wrapper = document.createElement('div');
-                        wrapper.className = 'checklist-item';
-                        wrapper.innerHTML = '<span class="checklist-checkbox" contenteditable="false"></span><span>&nbsp;</span>';
-                        range.insertNode(wrapper);
                         const newRange = document.createRange();
                         const contentSpan = wrapper.querySelector('span:not(.checklist-checkbox)');
                         if (contentSpan) {
-                            newRange.setStart(contentSpan, 1);
-                            newRange.collapse(true);
+                            newRange.selectNodeContents(contentSpan);
+                            newRange.collapse(false);
                             selection.removeAllRanges();
                             selection.addRange(newRange);
                         }
+                        setHasChanges(true);
+                        hasChangesRef.current = true;
+                        saveState();
+                        return;
+                    } else if (range.collapsed) {
+                        // Find the whole line block to convert
+                        let targetBlock = getBlockParent(range.startContainer);
+                        if (!targetBlock || targetBlock === editorRef.current) {
+                            let curr = range.startContainer.nodeType === 3 ? range.startContainer.parentElement : range.startContainer;
+                            while (curr && curr.parentElement && curr.parentElement !== editorRef.current) {
+                                curr = curr.parentElement;
+                            }
+                            targetBlock = curr;
+                        }
+                        if (targetBlock && targetBlock !== editorRef.current && targetBlock.parentNode) {
+                            const html = targetBlock.innerHTML !== undefined ? targetBlock.innerHTML : (targetBlock.textContent || '');
+                            const cleanHtml = html.replace(/<br\s*[\/]?>/gi, '').trim();
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'checklist-item';
+                            wrapper.innerHTML = `<span class="checklist-checkbox" contenteditable="false"></span><span>${cleanHtml || '&nbsp;'}</span>`;
+                            targetBlock.parentNode.replaceChild(wrapper, targetBlock);
+                            const newRange = document.createRange();
+                            const contentSpan = wrapper.querySelector('span:not(.checklist-checkbox)');
+                            if (contentSpan) {
+                                newRange.selectNodeContents(contentSpan);
+                                newRange.collapse(false);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                            }
+                        } else {
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'checklist-item';
+                            wrapper.innerHTML = '<span class="checklist-checkbox" contenteditable="false"></span><span>&nbsp;</span>';
+                            range.insertNode(wrapper);
+                            const newRange = document.createRange();
+                            const contentSpan = wrapper.querySelector('span:not(.checklist-checkbox)');
+                            if (contentSpan) {
+                                newRange.setStart(contentSpan, 1);
+                                newRange.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                            }
+                        }
+                        setHasChanges(true);
+                        hasChangesRef.current = true;
+                        saveState();
+                        return;
                     } else {
                         // BATCH CONVERSION — collect items from DOM BEFORE any mutation
 
@@ -5380,84 +5430,81 @@
                                     </button>
                                     
                                     {activePopup === 'format' && (
-                                        <div className="format-popup-bar absolute bottom-[calc(100%+8px)] left-1 bg-white rounded-2xl pl-3 shadow-xl border border-black/5 flex flex-nowrap items-center p-2 z-[150] animate-in slide-in-from-bottom-2 duration-200">
+                                        // (2026-07-13) Fix toolbar clipping, overlap & button scaling. Prev: mb-2 overlap
+                                        <div className="format-popup-bar absolute bottom-[calc(100%+10px)] left-1 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-black/5 flex flex-nowrap items-center p-1.5 gap-0.5 z-[150] animate-in slide-in-from-bottom-2 duration-200">
                                                 
                                                 {/* Style Sub-menu Trigger */}
-                                                 <div className="relative px-2">
+                                                 <div className="relative px-1">
                                                      <button 
                                                          onClick={() => handleSetActiveSubPopup(activeSubPopup === 'style' ? null : 'style')}
-                                                         className={"h-10 pl-3 pr-3 flex items-center justify-center gap-1.5 rounded-lg text-slate-600 transition-colors " + (activeSubPopup === 'style' ? "bg-black/5" : "hover:bg-black/5")}
+                                                         className={"h-9 px-2.5 flex items-center justify-center gap-1 rounded-xl text-slate-600 transition-all active:scale-95 " + (activeSubPopup === 'style' ? "bg-orange-500/15 text-primary font-bold" : "hover:bg-black/5")}
                                                      >
-                                                        <span className="text-[14px] font-bold tracking-tight uppercase font-montserrat">H1</span>
+                                                        <span className="text-[13px] font-bold tracking-tight uppercase font-montserrat">H1</span>
                                                         <span className="material-symbols-outlined text-sm">arrow_drop_up</span>
                                                     </button>
                                                     {/* Style Horizontal Bar */}
                                                     {activeSubPopup === 'style' && (
-                                                        <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-2xl border border-black/10 flex items-center p-1.5 px-3 z-[160] animate-in slide-in-from-bottom-2 duration-200 gap-2 w-max whitespace-nowrap">
-                                                        <button onMouseDown={(e) => { e.preventDefault(); convertActiveBlock('h1'); }} className="h-9 px-2 flex items-center hover:bg-black/5 rounded-md text-base font-bold text-slate-700 font-montserrat">H1</button>
-                                                        <button onMouseDown={(e) => { e.preventDefault(); convertActiveBlock('h2'); }} className="h-9 px-2 flex items-center hover:bg-black/5 rounded-md text-sm font-bold text-slate-600 font-montserrat">H2</button>
-                                                        <button onMouseDown={(e) => { e.preventDefault(); convertActiveBlock('normal'); }} className="centered h-9 px-6 flex items-center text-center justify-center hover:bg-black/5 rounded-md text-xs text-slate-500 font-montserrat">Normal</button>
+                                                        <div className="absolute bottom-[calc(100%+10px)] left-0 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-black/10 flex items-center p-1.5 px-2.5 z-[160] animate-in slide-in-from-bottom-2 duration-200 gap-1.5 w-max whitespace-nowrap">
+                                                        <button onMouseDown={(e) => { e.preventDefault(); convertActiveBlock('h1'); }} className="h-8 px-2.5 flex items-center hover:bg-orange-50 hover:text-primary active:scale-95 rounded-lg text-sm font-bold text-slate-700 font-montserrat transition-all">H1</button>
+                                                        <button onMouseDown={(e) => { e.preventDefault(); convertActiveBlock('h2'); }} className="h-8 px-2.5 flex items-center hover:bg-orange-50 hover:text-primary active:scale-95 rounded-lg text-xs font-bold text-slate-600 font-montserrat transition-all">H2</button>
+                                                        <button onMouseDown={(e) => { e.preventDefault(); convertActiveBlock('normal'); }} className="h-8 px-3 flex items-center text-center justify-center hover:bg-orange-50 hover:text-primary active:scale-95 rounded-lg text-xs text-slate-500 font-montserrat transition-all">Normal</button>
                                                         </div>
                                                     )}
-                                                </div>
+                                                 </div>
 
-                                                <div className="fmt-divider w-px h-6 bg-black/10 mx-1"></div>
+                                                <div className="fmt-divider w-px h-5 bg-black/10 mx-0.5"></div>
 
                                                 {/* Case Sub-menu Trigger */}
                                                 <div className="relative">
                                                      <button 
                                                          onClick={() => handleSetActiveSubPopup(activeSubPopup === 'case' ? null : 'case')}
-                                                         className={"w-10 h-10 flex items-center justify-center gap-1 rounded-lg text-slate-600 transition-colors " + (activeSubPopup === 'case' ? "bg-black/5" : "hover:bg-black/5")}
+                                                         className={"w-9 h-9 flex items-center justify-center gap-0.5 rounded-xl text-slate-600 transition-all active:scale-95 " + (activeSubPopup === 'case' ? "bg-orange-500/15 text-primary font-bold" : "hover:bg-black/5")}
                                                      >
-                                                        <span className="text-[14px] font-bold tracking-tight font-montserrat">Aa</span>
+                                                        <span className="text-[13px] font-bold tracking-tight font-montserrat">Aa</span>
                                                         <span className="material-symbols-outlined text-sm">arrow_drop_up</span>
                                                     </button>
                                                     {/* Case Horizontal Bar */}
                                                     {activeSubPopup === 'case' && (
-                                                        <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-2xl border border-black/10 flex items-center p-1.5 px-2 z-[150] animate-in slide-in-from-bottom-2 duration-200 gap-1">
-                                                            <button onMouseDown={(e) => { e.preventDefault(); applyCase('cap'); }} className="h-5 px-3 flex items-center hover:bg-black/5 rounded-lg text-xs capitalize font-bold text-slate-700 font-montserrat">Aa</button>
-                                                            <button onMouseDown={(e) => { e.preventDefault(); applyCase('upper'); }} className="h-5 px-3 flex items-center hover:bg-black/5 rounded-lg text-xs uppercase font-bold text-slate-700 font-montserrat">AA</button>
-                                                            <button onMouseDown={(e) => { e.preventDefault(); applyCase('lower'); }} className="h-5 px-3 flex items-center hover:bg-black/5 rounded-lg text-xs lowercase font-bold text-slate-700 font-montserrat">aa</button>
+                                                        <div className="absolute bottom-[calc(100%+10px)] left-0 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-black/10 flex items-center p-1.5 px-2 z-[160] animate-in slide-in-from-bottom-2 duration-200 gap-1">
+                                                            <button onMouseDown={(e) => { e.preventDefault(); applyCase('cap'); }} className="h-7 px-2.5 flex items-center hover:bg-orange-50 hover:text-primary active:scale-95 rounded-lg text-xs capitalize font-bold text-slate-700 font-montserrat transition-all">Aa</button>
+                                                            <button onMouseDown={(e) => { e.preventDefault(); applyCase('upper'); }} className="h-7 px-2.5 flex items-center hover:bg-orange-50 hover:text-primary active:scale-95 rounded-lg text-xs uppercase font-bold text-slate-700 font-montserrat transition-all">AA</button>
+                                                            <button onMouseDown={(e) => { e.preventDefault(); applyCase('lower'); }} className="h-7 px-2.5 flex items-center hover:bg-orange-50 hover:text-primary active:scale-95 rounded-lg text-xs lowercase font-bold text-slate-700 font-montserrat transition-all">aa</button>
                                                         </div>
                                                     )}
                                                 </div>
 
-                                                <div className="fmt-divider w-px h-6 bg-black/10 mx-1"></div>
+                                                <div className="fmt-divider w-px h-5 bg-black/10 mx-0.5"></div>
 
                                                 {/* Basic Formatting Buttons */}
-                                                <div className="flex items-center">
-                                                    <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('**'); }} className={"w-10 h-10 flex items-center justify-center rounded-lg transition-colors " + (activeFormats.bold ? "bg-black/10 text-primary scale-110" : "hover:bg-black/5 text-slate-600")} title="Bold">
-                                                        <span className="material-symbols-outlined text-[20px]" style={activeFormats.bold ? {fontVariationSettings: "'WGHT' 700"} : {}}>format_bold</span>
+                                                <div className="flex items-center gap-0.5">
+                                                    <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('**'); }} className={"w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95 " + (activeFormats.bold ? "bg-orange-500/15 text-primary font-bold" : "hover:bg-black/5 text-slate-600")} title="Bold">
+                                                        <span className="material-symbols-outlined text-[19px]" style={activeFormats.bold ? {fontVariationSettings: "'WGHT' 700"} : {}}>format_bold</span>
                                                     </button>
-                                                    <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('*'); }} className={"w-10 h-10 flex items-center justify-center rounded-lg transition-colors " + (activeFormats.italic ? "bg-black/10 text-primary scale-110" : "hover:bg-black/5 text-slate-600")} title="Italic">
-                                                        <span className="material-symbols-outlined text-[20px]">format_italic</span>
+                                                    <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('*'); }} className={"w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95 " + (activeFormats.italic ? "bg-orange-500/15 text-primary" : "hover:bg-black/5 text-slate-600")} title="Italic">
+                                                        <span className="material-symbols-outlined text-[19px]">format_italic</span>
                                                     </button>
-                                                    <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('__'); }} className={"w-10 h-10 flex items-center justify-center rounded-lg transition-colors " + (activeFormats.underline ? "bg-black/10 text-primary scale-110" : "hover:bg-black/5 text-slate-600")} title="Underline">
-                                                        <span className="material-symbols-outlined text-[20px]">format_underlined</span>
+                                                    <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('__'); }} className={"w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95 " + (activeFormats.underline ? "bg-orange-500/15 text-primary" : "hover:bg-black/5 text-slate-600")} title="Underline">
+                                                        <span className="material-symbols-outlined text-[19px]">format_underlined</span>
                                                     </button>
-                                                    <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('~~'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Strikethrough">
-                                                        <span className="material-symbols-outlined text-[20px]">strikethrough_s</span>
+                                                    <button onMouseDown={(e) => { e.preventDefault(); toggleFormat('~~'); }} className="w-9 h-9 flex items-center justify-center hover:bg-black/5 active:scale-95 rounded-xl text-slate-600 transition-all" title="Strikethrough">
+                                                        <span className="material-symbols-outlined text-[19px]">strikethrough_s</span>
                                                     </button>
                                                 </div>
 
-                                                <div className="fmt-divider w-px h-6 bg-black/5 mx-1"></div>
-
-                                                
-
-
+                                                <div className="fmt-divider w-px h-5 bg-black/10 mx-0.5"></div>
 
                                                 {/* Highlight Color Picker */}
                                                 <div className="relative">
                                                     <button 
                                                         onClick={() => handleSetActiveSubPopup(activeSubPopup === 'highlight' ? null : 'highlight')}
-                                                        className={"w-10 h-10 flex items-center justify-center gap-1 rounded-lg text-slate-600 transition-colors " + (activeSubPopup === 'highlight' ? "bg-black/5" : "hover:bg-black/5")}
+                                                        className={"w-9 h-9 flex items-center justify-center gap-0.5 rounded-xl text-slate-600 transition-all active:scale-95 " + (activeSubPopup === 'highlight' ? "bg-orange-500/15 text-primary font-bold" : "hover:bg-black/5")}
                                                         title="Highlight Color"
                                                     >
                                                          <span className="material-symbols-outlined text-[20px]">ink_highlighter</span>
                                                          <span className="material-symbols-outlined text-sm">arrow_drop_up</span>
                                                      </button>
                                                     {activeSubPopup === 'highlight' && (
-                                                        <div className="absolute bottom-full right-0 mb-2 p-2 bg-white rounded-xl shadow-2xl border border-black/5 flex items-center z-[160] animate-in slide-in-from-bottom-1 duration-200" style={{ minWidth: '130px' }}>
+                                                        <div className="absolute bottom-[calc(100%+10px)] right-0 p-2 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-black/5 flex items-center z-[160] animate-in slide-in-from-bottom-1 duration-200" style={{ minWidth: '130px' }}>
                                                             <div className="grid grid-cols-4 gap-2">
                                                                 <button 
                                                                     onMouseDown={(e) => { e.preventDefault(); toggleHighlight('transparent'); }}
@@ -5490,7 +5537,7 @@
                                                         <span className="material-symbols-outlined text-sm">arrow_drop_up</span>
                                                     </button>
                                                     {activeSubPopup === 'divider' && (
-                                                        <div className="absolute bottom-full right-0 mb-2 p-2.5 bg-white rounded-2xl shadow-2xl border border-black/5 z-[160] animate-in slide-in-from-bottom-1 duration-200 w-52">
+                                                        <div className="absolute bottom-[calc(100%+10px)] right-0 p-2.5 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-black/5 z-[160] animate-in slide-in-from-bottom-1 duration-200 w-52">
                                                             <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1">Gradient Dividers</p>
                                                             <div className="grid grid-cols-4 gap-2 mb-2.5">
                                                                 {[
@@ -5548,21 +5595,22 @@
                                         <span className="material-symbols-outlined text-[26px]">menu</span>
                                     </button>
                                     {activePopup === 'tools' && (
-                                        <div className="absolute bottom-[calc(100%+8px)] left-0 md:left-0 md:translate-x-0 bg-white rounded-2xl shadow-xl border border-black/5 flex items-center p-1 z-[150] animate-in slide-in-from-bottom-2 duration-200">
-                                            <div className="flex items-center px-1">
-                                                <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('justifyLeft'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Align Left"><span className="material-symbols-outlined text-[20px]">format_align_left</span></button>
-                                                <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('justifyCenter'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Align Center"><span className="material-symbols-outlined text-[20px]">format_align_center</span></button>
-                                                <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('justifyRight'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Align Right"><span className="material-symbols-outlined text-[20px]">format_align_right</span></button>
+                                        // (2026-07-13) Fix tools bar overlap & spacing. Prev: mb overlap
+                                        <div className="absolute bottom-[calc(100%+10px)] left-0 md:left-0 md:translate-x-0 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-black/5 flex items-center p-1.5 z-[150] animate-in slide-in-from-bottom-2 duration-200 gap-0.5">
+                                            <div className="flex items-center gap-0.5 px-0.5">
+                                                <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('justifyLeft'); }} className="w-9 h-9 flex items-center justify-center hover:bg-orange-50 hover:text-primary rounded-xl text-slate-600 active:scale-95 transition-all" title="Align Left"><span className="material-symbols-outlined text-[19px]">format_align_left</span></button>
+                                                <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('justifyCenter'); }} className="w-9 h-9 flex items-center justify-center hover:bg-orange-50 hover:text-primary rounded-xl text-slate-600 active:scale-95 transition-all" title="Align Center"><span className="material-symbols-outlined text-[19px]">format_align_center</span></button>
+                                                <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('justifyRight'); }} className="w-9 h-9 flex items-center justify-center hover:bg-orange-50 hover:text-primary rounded-xl text-slate-600 active:scale-95 transition-all" title="Align Right"><span className="material-symbols-outlined text-[19px]">format_align_right</span></button>
                                             </div>
-                                            <div className="w-px h-6 bg-black/5 mx-1"></div>
-                                            <div className="flex items-center px-1">
-                                                <button onClick={() => { convertActiveBlock('todo'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Checklist"><span className="material-symbols-outlined text-[20px]">checklist</span></button>
-                                                <button onClick={() => { convertActiveBlock('bullet'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Bullets"><span className="material-symbols-outlined text-[20px]">format_list_bulleted</span></button>
-                                                <button onClick={() => { convertActiveBlock('number'); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Numbering"><span className="material-symbols-outlined text-[20px]">format_list_numbered</span></button>
+                                            <div className="w-px h-5 bg-black/10 mx-0.5"></div>
+                                            <div className="flex items-center gap-0.5 px-0.5">
+                                                <button onClick={() => { convertActiveBlock('todo'); }} className="w-9 h-9 flex items-center justify-center hover:bg-orange-50 hover:text-primary rounded-xl text-slate-600 active:scale-95 transition-all" title="Checklist"><span className="material-symbols-outlined text-[19px]">checklist</span></button>
+                                                <button onClick={() => { convertActiveBlock('bullet'); }} className="w-9 h-9 flex items-center justify-center hover:bg-orange-50 hover:text-primary rounded-xl text-slate-600 active:scale-95 transition-all" title="Bullets"><span className="material-symbols-outlined text-[19px]">format_list_bulleted</span></button>
+                                                <button onClick={() => { convertActiveBlock('number'); }} className="w-9 h-9 flex items-center justify-center hover:bg-orange-50 hover:text-primary rounded-xl text-slate-600 active:scale-95 transition-all" title="Numbering"><span className="material-symbols-outlined text-[19px]">format_list_numbered</span></button>
                                             </div>
-                                            <div className="w-px h-6 bg-black/5 mx-1"></div>
-                                            <div className="flex items-center px-1">
-                                                <button onClick={() => { fileInputRef.current.click(); }} className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600" title="Add Image"><span className="material-symbols-outlined text-[20px]">image</span></button>
+                                            <div className="w-px h-5 bg-black/10 mx-0.5"></div>
+                                            <div className="flex items-center px-0.5">
+                                                <button onClick={() => { fileInputRef.current.click(); }} className="w-9 h-9 flex items-center justify-center hover:bg-orange-50 hover:text-primary rounded-xl text-slate-600 active:scale-95 transition-all" title="Add Image"><span className="material-symbols-outlined text-[19px]">image</span></button>
                                             </div>
                                         </div>
                                     )}
@@ -6331,33 +6379,30 @@
 
         // --- Page Components ---
 
+        // (2026-07-13) Compact Faiora modal, side-by-side buttons. Prev: tall & stacked
         const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmText = "Confirm", cancelText = "Cancel", type = "danger" }) => {
-            /* confirmation-modal - z-index raised above header */
-            /* confirmation-modal - raised z-index to 999 */
-            // (2026-07-13) Set modal wrapper z-950 below nav & FAB. Prev: z-999
             return (
-                /* (2026-07-13) Darkened 85% blurred backdrop. Prev: bg-black/70 */
-                <div className="fixed inset-0 z-[950] flex items-center justify-center p-4 md:p-10 bg-black/85 backdrop-blur-md animation-fade-in">
-                    <div className="w-full max-w-sm bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl border border-white/10 p-8 text-center space-y-6 transform scale-up-center font-montserrat">
-                        <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${type === 'danger' ? 'bg-rose-500/10 text-rose-500' : 'bg-primary/10 text-primary'}`}>
-                            <span className="material-symbols-outlined text-3xl">{type === 'danger' ? 'warning' : 'info'}</span>
+                <div className="fixed inset-0 z-[950] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animation-fade-in">
+                    <div className="w-full max-w-xs sm:max-w-sm glass-panel bg-[#160d08]/95 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-white/10 p-5 text-center space-y-4 transform scale-up-center font-montserrat">
+                        <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center ${type === 'danger' ? 'bg-rose-500/15 text-rose-400 border border-rose-500/25' : 'bg-primary/15 text-primary border border-primary/25'}`}>
+                            <span className="material-symbols-outlined text-2xl">{type === 'danger' ? 'warning' : 'info'}</span>
                         </div>
-                        <div className="space-y-2">
-                            <h3 className="text-xl font-bold dark:text-cream-light tracking-tight">{title}</h3>
-                            <p className="text-sm dark:text-cream-light/60 leading-relaxed font-medium">{message}</p>
+                        <div className="space-y-1.5">
+                            <h3 className="text-base font-bold text-cream-light tracking-tight">{title}</h3>
+                            <p className="text-xs text-cream-light/60 leading-relaxed font-medium">{message}</p>
                         </div>
-                        <div className="flex flex-col gap-3">
-                            <button 
-                                onClick={onConfirm}
-                                className={`w-full py-4 rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all ${type === 'danger' ? 'bg-rose-500 hover:bg-rose-600 shadow-lg shadow-rose-500/20' : 'bg-primary hover:bg-primary-dark shadow-lg shadow-primary/20'} text-white`}
-                            >
-                                {confirmText}
-                            </button>
+                        <div className="grid grid-cols-2 gap-2.5 pt-1">
                             <button 
                                 onClick={onCancel}
-                                className="w-full py-4 rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all bg-black/5 dark:bg-white/5 dark:hover:bg-white/10"
+                                className="w-full py-2.5 rounded-xl font-bold uppercase tracking-wider text-[11px] transition-all bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10"
                             >
                                 {cancelText}
+                            </button>
+                            <button 
+                                onClick={onConfirm}
+                                className={`w-full py-2.5 rounded-xl font-bold uppercase tracking-wider text-[11px] transition-all ${type === 'danger' ? 'bg-rose-500 hover:bg-rose-600 shadow-md shadow-rose-500/20' : 'bg-primary hover:bg-primary-dark shadow-md shadow-primary/20'} text-white`}
+                            >
+                                {confirmText}
                             </button>
                         </div>
                     </div>
@@ -9445,6 +9490,17 @@
             const dragRef = useRef(null);
             const [selectedNotes, setSelectedNotes] = useState([]);
             const selectionMode = selectedNotes.length > 0;
+            // (2026-07-13) Back clears note selection. Prev: navigated home
+            useEffect(() => {
+                if (selectedNotes.length > 0) {
+                    window.__faioraClearNotesSelection = () => setSelectedNotes([]);
+                } else {
+                    window.__faioraClearNotesSelection = null;
+                }
+                return () => {
+                    window.__faioraClearNotesSelection = null;
+                };
+            }, [selectedNotes.length]);
             const pointerHandledRef = useRef(false);
             const geometryRef = useRef(null);
             const lastUpdateRef = useRef(0);
@@ -10584,32 +10640,34 @@
 
                         {/* (2026-07-13) Set modal wrapper z-950 below nav & FAB. Prev: z-999 */}
                         {pendingDeleteSection && (
-                            /* (2026-07-13) Darkened 85% blurred backdrop. Prev: bg-black/70 */
-                            <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[950] flex items-center justify-center p-6 animate-in fade-in duration-300">
-                                <div className="glass-panel w-full max-w-md rounded-[2.5rem] border border-white/10 p-10 text-center animate-in zoom-in-95 duration-300 font-montserrat">
-                                    <div className="w-20 h-20 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center mx-auto mb-8">
-                                        <span className="material-symbols-outlined text-red-400 text-4xl">warning</span>
+                            /* (2026-07-13) Compact delete section modal with side buttons. Prev: stacked */
+                            <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[950] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                                <div className="glass-panel w-full max-w-xs sm:max-w-sm rounded-2xl border border-white/10 bg-[#160d08]/95 backdrop-blur-xl p-5 text-center animate-in zoom-in-95 duration-300 font-montserrat space-y-4">
+                                    <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center mx-auto">
+                                        <span className="material-symbols-outlined text-red-400 text-2xl">warning</span>
                                     </div>
-                                    <h3 className="text-2xl font-bold text-cream-light mb-4">Delete Section?</h3>
-                                    <p className="text-white/50 text-base leading-relaxed mb-10">
-                                        Are you sure you want to delete <span className="text-primary font-bold">"{pendingDeleteSection}"</span>? Its notes will be automatically moved to <span className="text-white/80 font-semibold">ALL NOTES</span>.
-                                    </p>
-                                    <div className="flex flex-col gap-4">
-                                         <button 
-                                             onClick={() => {
-                                                 onDeleteSection(pendingDeleteSection, false);
-                                                 handleSetPendingDeleteSection(null);
-                                             }}
-                                             className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold uppercase tracking-widest transition-all shadow-xl shadow-red-500/20"
-                                         >
-                                             Delete Section
-                                         </button>
-                                         <button 
-                                             onClick={() => handleSetPendingDeleteSection(null)}
-                                             className="w-full py-3 bg-transparent text-white/50 hover:text-white rounded-2xl font-bold uppercase tracking-widest transition-all mt-2"
-                                         >
-                                             Cancel
-                                         </button>
+                                    <div className="space-y-1.5">
+                                        <h3 className="text-base font-bold text-cream-light tracking-tight">Delete Section?</h3>
+                                        <p className="text-xs text-cream-light/60 leading-relaxed font-medium">
+                                            Are you sure you want to delete <span className="text-primary font-bold">"{pendingDeleteSection}"</span>? Its notes will be automatically moved to <span className="text-white/80 font-semibold">ALL NOTES</span>.
+                                        </p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2.5 pt-1">
+                                        <button 
+                                            onClick={() => handleSetPendingDeleteSection(null)}
+                                            className="w-full py-2.5 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-xl font-bold uppercase tracking-wider text-[11px] transition-all border border-white/10"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button 
+                                            onClick={() => {
+                                                onDeleteSection(pendingDeleteSection, false);
+                                                handleSetPendingDeleteSection(null);
+                                            }}
+                                            className="w-full py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold uppercase tracking-wider text-[11px] transition-all shadow-md shadow-rose-500/20"
+                                        >
+                                            Delete
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -11024,15 +11082,84 @@
                                         <div className="h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent"></div>
                                     </div>
                                     <div className="space-y-2.5">
-                                        {upcomingReminders.map((item, idx) => (
-                                                                                        <div key={idx} onClick={() => item.type === 'note' ? onEditNote(item) : onEditQuickTask(item)} className="flex items-start gap-3 p-3 rounded-2xl hover:bg-white/5 transition-colors cursor-pointer group">
-                                                <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${item.type === 'quickTask' ? 'bg-cream-light/40' : 'bg-primary'}`}></div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-semibold text-cream-light/80 truncate">{item.type === 'quickTask' ? formatTaskText(item.text) : (item.title || 'Untitled')}</p>
-                                                    <p className="text-[9px] text-cream-light/30 font-sans mt-0.5">{item.type === 'note' ? formatReminderDate(item.reminderDate) : item.dueDate}</p>
+                                        {/* (2026-07-13) Natural quick task card in calendar. Prev: raw bullet dot */}
+                                        {upcomingReminders.map((item, idx) => {
+                                            if (item.type === 'note') {
+                                                return (
+                                                    <div key={idx} onClick={() => onEditNote && onEditNote(item)} className="card-glow bg-orange-100/95 rounded-[2rem] p-4 border-b-4 border-orange-300/50 cursor-pointer hover:scale-[1.01] transition-transform relative overflow-hidden">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <h4 className="text-sm font-bold text-orange-950/90 leading-tight truncate flex-1">{item.title || 'Untitled'}</h4>
+                                                            {item.isLocked && <span className="material-symbols-outlined text-orange-950/40 text-xs">lock</span>}
+                                                        </div>
+                                                        <p className="text-[11px] text-orange-900/60 font-sans font-medium capitalize">{formatReminderDate(item.reminderDate)}{item.labels && item.labels[0] ? ` • ${item.labels[0]}` : ''}</p>
+                                                    </div>
+                                                );
+                                            }
+                                            const dueDateInfo = formatDueDate(item.dueDate, item.dueTime);
+                                            const isOverdue = dueDateInfo.isOverdue && !item.completed;
+                                            const isNearDeadline = dueDateInfo.isNearDeadline && !item.completed;
+                                            const isDueToday = dueDateInfo.isDueToday && !item.completed;
+                                            const isDueTomorrow = dueDateInfo.isDueTomorrow && !item.completed;
+                                            return (
+                                                <div key={idx} className="quick-task-card relative rounded-2xl select-none">
+                                                    <div 
+                                                        className={`glass-panel rounded-2xl py-2.5 px-3 md:py-3 md:px-4 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${item.completed ? 'opacity-40 grayscale-[0.5]' : ''} ${isOverdue ? 'border-red-500/30' : isNearDeadline ? 'border-primary/60' : isDueToday ? 'border-primary/40' : 'border-white/5'} ${isDueToday && !isNearDeadline && !item.completed ? 'today-task-glow' : ''} ${isNearDeadline && !item.completed ? 'near-deadline-glow' : ''} ${isDueTomorrow && !item.completed ? 'tomorrow-glow' : ''}`}
+                                                        onClick={() => onEditQuickTask && onEditQuickTask(item)}
+                                                    >
+                                                        <div className="flex items-center gap-2.5 md:gap-3 pointer-events-none flex-1 min-w-0 pr-2">
+                                                            <div 
+                                                                className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${item.completed ? 'bg-primary border-primary text-white scale-105' : 'border-white/30 text-transparent group-hover:border-white/60'}`}
+                                                                onClick={(e) => { 
+                                                                    e.stopPropagation(); 
+                                                                    if (!item.completed) {
+                                                                        const taskElement = e.currentTarget.closest('.quick-task-card');
+                                                                        if (taskElement) {
+                                                                            const rect = taskElement.getBoundingClientRect();
+                                                                            const checkmarkX = rect.left + 20;
+                                                                            const checkmarkY = rect.top + rect.height / 2;
+                                                                            if (window.createFireSparks) {
+                                                                                window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
+                                                                            }
+                                                                            if (window.playWhooshSound) {
+                                                                                window.playWhooshSound();
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                    onToggleQuickTask && onToggleQuickTask(item.id); 
+                                                                }}
+                                                                style={{ pointerEvents: 'auto' }}
+                                                            >
+                                                                <span className="material-symbols-outlined text-xs font-bold">check</span>
+                                                            </div>
+                                                            <div className="flex flex-col justify-center flex-1 min-w-0">
+                                                                <h4 className={`text-xs md:text-[13px] text-cream-light font-montserrat font-semibold tracking-wide leading-snug transition-all duration-300 line-clamp-2 overflow-hidden ${item.completed ? 'line-through decoration-primary/50 opacity-60' : 'group-hover:text-primary'} ${isOverdue && !item.completed ? 'text-red-400' : ''}`}>
+                                                                    {formatTaskText(item.text)}
+                                                                </h4>
+                                                                {(item.dueDate || item.dueTime) && (
+                                                                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                                                        <p className={`text-[8.5px] md:text-[9.5px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1 transition-opacity ${isOverdue && !item.completed ? 'text-red-500' : 'text-primary/80 opacity-60 group-hover:opacity-100'}`}>
+                                                                            <span className="material-symbols-outlined text-[9px] md:text-[10px]">{item.dueTime ? 'schedule' : 'event'}</span>
+                                                                            {item.dueTime ? formatTime(item.dueTime) : (dueDateInfo.label || item.dueDate)}
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        {item.progress > 0 && !item.completed && (
+                                                            <div className="flex flex-col items-end gap-0.5 shrink-0 px-2 pointer-events-none">
+                                                                <span className="text-[9px] font-montserrat font-bold text-white/50">{item.progress}%</span>
+                                                                <div className="w-12 md:w-14 h-1 bg-white/10 rounded-full overflow-hidden">
+                                                                    <div 
+                                                                        className="h-full bg-primary rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(249,115,22,0.4)]"
+                                                                        style={{ width: `${item.progress}%` }}
+                                                                    ></div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
@@ -13879,7 +14006,7 @@
                     autoCategorizeEnabled: autoCatEnabled,
                     categoryKeywords
                 });
-                showToast("Setting saved");
+                // (2026-07-13) Omit duplicate toast; onSaveSettings toasts. Prev: double toast
             };
 
             // (2026-07-13) Complete backup: notes, tasks, alarms, settings, profile, categories, sections, trash, pomodoro, marks. Prev: partial
@@ -14052,14 +14179,15 @@
                 }
             };
 
+            // (2026-07-13) Subtle glass border for ToggleSwitch. Prev: stark white outline
             const ToggleSwitch = ({ checked, onChange, label, description, icon }) => (
                 <div 
                     onClick={() => onChange(!checked)}
-                    className="flex items-center justify-between p-3.5 bg-white/[0.04] hover:bg-white/[0.07] border border-white/8 hover:border-white/12 rounded-xl transition-all cursor-pointer group select-none"
+                    className="flex items-center justify-between p-3.5 bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 rounded-xl transition-all cursor-pointer group select-none"
                 >
                     <div className="flex items-center gap-3 pr-3">
                         {icon && (
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${checked ? 'bg-primary/25 text-primary' : 'bg-white/8 text-cream-light/50 group-hover:text-cream-light/80'}`}>
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${checked ? 'bg-primary/25 text-primary' : 'bg-white/5 text-cream-light/50 group-hover:text-cream-light/80'}`}>
                                 <span className="material-symbols-outlined text-[18px]">{icon}</span>
                             </div>
                         )}
@@ -17034,6 +17162,8 @@
                     const active = prev.filter(t => {
                         if ((now - (t.createdAt || 0)) >= (t.duration || 5000)) return false;
                         if (taskKey && t.taskKey && t.taskKey === taskKey) return false;
+                        // (2026-07-13) Deduplicate identical toasts. Prev: stacked duplicate snackbars
+                        if (t.message === message) return false;
                         return true;
                     });
                     return [...active, { id, message, action, createdAt, duration, hideProgress: isSync, taskKey }];
@@ -18235,6 +18365,12 @@
                      // 1. Check open modals / items first
                      window.dispatchEvent(new CustomEvent('faiora-close-popups'));
 
+                     // (2026-07-13) Back closes note selection. Prev: ignored
+                     if (typeof window.__faioraClearNotesSelection === 'function') {
+                         window.__faioraClearNotesSelection();
+                         return;
+                     }
+
                      if (window.__faioraFabMenuOpen) {
                          window.__faioraCloseFabMenu?.();
                          return;
@@ -18319,6 +18455,12 @@
                             const currentState = window.history.state;
 
                             // 1. Close any open modal or FAB menu first
+                            // (2026-07-13) Dismiss notes select. Prev: ignored
+                            if (typeof window.__faioraClearNotesSelection === 'function') {
+                                window.__faioraClearNotesSelection();
+                                return;
+                            }
+
                             if (window.__faioraFabMenuOpen) {
                                 window.__faioraCloseFabMenu?.();
                                 return;
@@ -19601,18 +19743,10 @@
                 const updatedTrash = [nextTrashTask, ...trashQuickTasksRef.current.filter(task => task.id !== id)];
                 handleUpdateQuickTasks(updated, updatedTrash);
                 
-                // (2026-08-24) Shorter task name to show full "moved to Trash" text. Prev: longer truncation
-                // FIX 2026-10-03: Reduced to 18 chars for compact snackbar display
+                // (2026-07-13) Truncate to 12 chars without "Task " prefix. Prev: 7 chars & "Task"
                 const taskName = (taskToDelete.text || 'Task').trim();
-                let displayName;
-                if (taskName.length > 18) {
-                    const start = taskName.slice(0, 9);
-                    const end = taskName.slice(-6);
-                    displayName = `${start}...${end}`;
-                } else {
-                    displayName = taskName;
-                }
-                showToast(`Task "${displayName}" moved to Trash`, {
+                const displayName = taskName.length > 12 ? `${taskName.slice(0, 12)}...` : taskName;
+                showToast(`"${displayName}" moved to Trash`, {
                     label: 'UNDO',
                     onClick: () => {
                         const restored = [taskToDelete, ...quickTasksRef.current];
@@ -19787,15 +19921,9 @@
                     };
                     updated[targetIndex] = updatedTask;
                     
+                    // (2026-07-13) Truncate to 12 chars without "Task " prefix. Prev: 7 chars & "Task"
                     const taskName = (original.text || 'Task').trim();
-                    let displayName;
-                    // FIX 2026-10-03: Reduced character limit for shorter task names in snackbar
-                    const maxLength = nextCompleted ? 18 : 15;
-                    if (taskName.length > maxLength) {
-                        displayName = `${taskName.slice(0, maxLength)}...`;
-                    } else {
-                        displayName = taskName;
-                    }
+                    const displayName = taskName.length > 12 ? `${taskName.slice(0, 12)}...` : taskName;
                     
                     if (updatedTask.completed) {
                         // (2026-07-13) Native task completion bridge call. Prev: cancelForTask only
@@ -19811,7 +19939,7 @@
                         const originalProgress = original.progress;
                         const originalLastProgress = original.lastProgress;
                         // (2026-07-13) Deduplicate undo toasts per task. Prev: multiple stacked toasts
-                        showToast(`Task "${displayName}" completed`, {
+                        showToast(`"${displayName}" completed`, {
                             label: 'UNDO',
                             taskId: id,
                             onClick: () => {
@@ -19837,7 +19965,7 @@
                         const wasCompleted = original.completed;
                         const beforeProgress = original.progress;
                         const beforeLastProgress = original.lastProgress;
-                        showToast(`Task "${displayName}" marked active`, {
+                        showToast(`"${displayName}" marked active`, {
                             label: 'UNDO',
                             taskId: id,
                             onClick: () => {

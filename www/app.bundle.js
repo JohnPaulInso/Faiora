@@ -3059,9 +3059,13 @@ const TaskCreator = ({ onClose, user, editingNote, activeCollection: activeColle
     const selectedCheckItems = getSelectedCheckItems();
     const isBulletActive = document.queryCommandState("insertUnorderedList");
     const isNumberActive = document.queryCommandState("insertOrderedList");
-    if (type !== "todo" && selectedCheckItems.length > 0) {
+    let container2 = range.startContainer;
+    if (container2 && container2.nodeType === 3) container2 = container2.parentElement;
+    const activeCheckItem = container2 ? container2.closest(".checklist-item") : null;
+    const checkItemsToConvert = selectedCheckItems.length > 0 ? selectedCheckItems : activeCheckItem ? [activeCheckItem] : [];
+    if (type !== "todo" && checkItemsToConvert.length > 0) {
       const newDivs = [];
-      selectedCheckItems.forEach((item) => {
+      checkItemsToConvert.forEach((item) => {
         const content2 = item.querySelector("span:not(.checklist-checkbox)") || item;
         const div = document.createElement("div");
         div.innerHTML = content2.innerHTML;
@@ -3089,12 +3093,13 @@ const TaskCreator = ({ onClose, user, editingNote, activeCollection: activeColle
       if (isNumberActive) document.execCommand("insertOrderedList");
       document.execCommand("formatBlock", false, "div");
     } else if (type === "todo") {
-      if (selectedCheckItems.length > 0) {
+      if (selectedCheckItems.length > 0 || activeCheckItem) {
+        const itemsToOff = selectedCheckItems.length > 0 ? selectedCheckItems : [activeCheckItem];
         const newDivs = [];
-        selectedCheckItems.forEach((item) => {
+        itemsToOff.forEach((item) => {
           const contentSpan = item.querySelector("span:not(.checklist-checkbox)") || item;
           const div = document.createElement("div");
-          div.innerHTML = contentSpan.innerHTML;
+          div.innerHTML = contentSpan.innerHTML || "&nbsp;";
           item.parentNode.replaceChild(div, item);
           newDivs.push(div);
         });
@@ -3105,35 +3110,77 @@ const TaskCreator = ({ onClose, user, editingNote, activeCollection: activeColle
           selection.removeAllRanges();
           selection.addRange(newRange);
         }
+        setHasChanges(true);
+        hasChangesRef.current = true;
+        saveState();
         return;
       }
-      let container2 = range.startContainer;
-      if (container2.nodeType === 3) container2 = container2.parentElement;
-      const inListItem = container2.closest("li");
+      const inListItem = container2 ? container2.closest("li") : null;
       if (inListItem && range.collapsed) {
         const html = inListItem.innerHTML;
         const wrapper = document.createElement("div");
         wrapper.className = "checklist-item";
-        wrapper.innerHTML = `<span class="checklist-checkbox" contenteditable="false"></span><span>${html || "&nbsp;"}</span>`;
+        wrapper.innerHTML = `<span class="checklist-checkbox" contenteditable="false"></span><span>${html.trim() || "&nbsp;"}</span>`;
         const list = inListItem.closest("ul, ol");
         if (list && list.children.length === 1) {
           list.parentNode.replaceChild(wrapper, list);
         } else {
           inListItem.parentNode.replaceChild(wrapper, inListItem);
         }
-      } else if (range.collapsed) {
-        const wrapper = document.createElement("div");
-        wrapper.className = "checklist-item";
-        wrapper.innerHTML = '<span class="checklist-checkbox" contenteditable="false"></span><span>&nbsp;</span>';
-        range.insertNode(wrapper);
         const newRange = document.createRange();
         const contentSpan = wrapper.querySelector("span:not(.checklist-checkbox)");
         if (contentSpan) {
-          newRange.setStart(contentSpan, 1);
-          newRange.collapse(true);
+          newRange.selectNodeContents(contentSpan);
+          newRange.collapse(false);
           selection.removeAllRanges();
           selection.addRange(newRange);
         }
+        setHasChanges(true);
+        hasChangesRef.current = true;
+        saveState();
+        return;
+      } else if (range.collapsed) {
+        let targetBlock = getBlockParent(range.startContainer);
+        if (!targetBlock || targetBlock === editorRef.current) {
+          let curr = range.startContainer.nodeType === 3 ? range.startContainer.parentElement : range.startContainer;
+          while (curr && curr.parentElement && curr.parentElement !== editorRef.current) {
+            curr = curr.parentElement;
+          }
+          targetBlock = curr;
+        }
+        if (targetBlock && targetBlock !== editorRef.current && targetBlock.parentNode) {
+          const html = targetBlock.innerHTML !== void 0 ? targetBlock.innerHTML : targetBlock.textContent || "";
+          const cleanHtml = html.replace(/<br\s*[\/]?>/gi, "").trim();
+          const wrapper = document.createElement("div");
+          wrapper.className = "checklist-item";
+          wrapper.innerHTML = `<span class="checklist-checkbox" contenteditable="false"></span><span>${cleanHtml || "&nbsp;"}</span>`;
+          targetBlock.parentNode.replaceChild(wrapper, targetBlock);
+          const newRange = document.createRange();
+          const contentSpan = wrapper.querySelector("span:not(.checklist-checkbox)");
+          if (contentSpan) {
+            newRange.selectNodeContents(contentSpan);
+            newRange.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+          }
+        } else {
+          const wrapper = document.createElement("div");
+          wrapper.className = "checklist-item";
+          wrapper.innerHTML = '<span class="checklist-checkbox" contenteditable="false"></span><span>&nbsp;</span>';
+          range.insertNode(wrapper);
+          const newRange = document.createRange();
+          const contentSpan = wrapper.querySelector("span:not(.checklist-checkbox)");
+          if (contentSpan) {
+            newRange.setStart(contentSpan, 1);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+          }
+        }
+        setHasChanges(true);
+        hasChangesRef.current = true;
+        saveState();
+        return;
       } else {
         const startBlock = getBlockParent(range.startContainer);
         const parentList = startBlock ? startBlock.closest("ul, ol") : null;
@@ -4288,62 +4335,63 @@ const TaskCreator = ({ onClose, user, editingNote, activeCollection: activeColle
       disabled: !canEdit
     },
     /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[22px]" }, "format_color_text")
-  ), activePopup === "format" && /* @__PURE__ */ React.createElement("div", { className: "format-popup-bar absolute bottom-[calc(100%+8px)] left-1 bg-white rounded-2xl pl-3 shadow-xl border border-black/5 flex flex-nowrap items-center p-2 z-[150] animate-in slide-in-from-bottom-2 duration-200" }, /* @__PURE__ */ React.createElement("div", { className: "relative px-2" }, /* @__PURE__ */ React.createElement(
+  ), activePopup === "format" && // (2026-07-13) Fix toolbar clipping, overlap & button scaling. Prev: mb-2 overlap
+  /* @__PURE__ */ React.createElement("div", { className: "format-popup-bar absolute bottom-[calc(100%+10px)] left-1 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-black/5 flex flex-nowrap items-center p-1.5 gap-0.5 z-[150] animate-in slide-in-from-bottom-2 duration-200" }, /* @__PURE__ */ React.createElement("div", { className: "relative px-1" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => handleSetActiveSubPopup(activeSubPopup === "style" ? null : "style"),
-      className: "h-10 pl-3 pr-3 flex items-center justify-center gap-1.5 rounded-lg text-slate-600 transition-colors " + (activeSubPopup === "style" ? "bg-black/5" : "hover:bg-black/5")
+      className: "h-9 px-2.5 flex items-center justify-center gap-1 rounded-xl text-slate-600 transition-all active:scale-95 " + (activeSubPopup === "style" ? "bg-orange-500/15 text-primary font-bold" : "hover:bg-black/5")
     },
-    /* @__PURE__ */ React.createElement("span", { className: "text-[14px] font-bold tracking-tight uppercase font-montserrat" }, "H1"),
+    /* @__PURE__ */ React.createElement("span", { className: "text-[13px] font-bold tracking-tight uppercase font-montserrat" }, "H1"),
     /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-sm" }, "arrow_drop_up")
-  ), activeSubPopup === "style" && /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-2xl border border-black/10 flex items-center p-1.5 px-3 z-[160] animate-in slide-in-from-bottom-2 duration-200 gap-2 w-max whitespace-nowrap" }, /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
+  ), activeSubPopup === "style" && /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-[calc(100%+10px)] left-0 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-black/10 flex items-center p-1.5 px-2.5 z-[160] animate-in slide-in-from-bottom-2 duration-200 gap-1.5 w-max whitespace-nowrap" }, /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
     e.preventDefault();
     convertActiveBlock("h1");
-  }, className: "h-9 px-2 flex items-center hover:bg-black/5 rounded-md text-base font-bold text-slate-700 font-montserrat" }, "H1"), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
+  }, className: "h-8 px-2.5 flex items-center hover:bg-orange-50 hover:text-primary active:scale-95 rounded-lg text-sm font-bold text-slate-700 font-montserrat transition-all" }, "H1"), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
     e.preventDefault();
     convertActiveBlock("h2");
-  }, className: "h-9 px-2 flex items-center hover:bg-black/5 rounded-md text-sm font-bold text-slate-600 font-montserrat" }, "H2"), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
+  }, className: "h-8 px-2.5 flex items-center hover:bg-orange-50 hover:text-primary active:scale-95 rounded-lg text-xs font-bold text-slate-600 font-montserrat transition-all" }, "H2"), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
     e.preventDefault();
     convertActiveBlock("normal");
-  }, className: "centered h-9 px-6 flex items-center text-center justify-center hover:bg-black/5 rounded-md text-xs text-slate-500 font-montserrat" }, "Normal"))), /* @__PURE__ */ React.createElement("div", { className: "fmt-divider w-px h-6 bg-black/10 mx-1" }), /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement(
+  }, className: "h-8 px-3 flex items-center text-center justify-center hover:bg-orange-50 hover:text-primary active:scale-95 rounded-lg text-xs text-slate-500 font-montserrat transition-all" }, "Normal"))), /* @__PURE__ */ React.createElement("div", { className: "fmt-divider w-px h-5 bg-black/10 mx-0.5" }), /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => handleSetActiveSubPopup(activeSubPopup === "case" ? null : "case"),
-      className: "w-10 h-10 flex items-center justify-center gap-1 rounded-lg text-slate-600 transition-colors " + (activeSubPopup === "case" ? "bg-black/5" : "hover:bg-black/5")
+      className: "w-9 h-9 flex items-center justify-center gap-0.5 rounded-xl text-slate-600 transition-all active:scale-95 " + (activeSubPopup === "case" ? "bg-orange-500/15 text-primary font-bold" : "hover:bg-black/5")
     },
-    /* @__PURE__ */ React.createElement("span", { className: "text-[14px] font-bold tracking-tight font-montserrat" }, "Aa"),
+    /* @__PURE__ */ React.createElement("span", { className: "text-[13px] font-bold tracking-tight font-montserrat" }, "Aa"),
     /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-sm" }, "arrow_drop_up")
-  ), activeSubPopup === "case" && /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-2xl border border-black/10 flex items-center p-1.5 px-2 z-[150] animate-in slide-in-from-bottom-2 duration-200 gap-1" }, /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
+  ), activeSubPopup === "case" && /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-[calc(100%+10px)] left-0 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-black/10 flex items-center p-1.5 px-2 z-[160] animate-in slide-in-from-bottom-2 duration-200 gap-1" }, /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
     e.preventDefault();
     applyCase("cap");
-  }, className: "h-5 px-3 flex items-center hover:bg-black/5 rounded-lg text-xs capitalize font-bold text-slate-700 font-montserrat" }, "Aa"), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
+  }, className: "h-7 px-2.5 flex items-center hover:bg-orange-50 hover:text-primary active:scale-95 rounded-lg text-xs capitalize font-bold text-slate-700 font-montserrat transition-all" }, "Aa"), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
     e.preventDefault();
     applyCase("upper");
-  }, className: "h-5 px-3 flex items-center hover:bg-black/5 rounded-lg text-xs uppercase font-bold text-slate-700 font-montserrat" }, "AA"), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
+  }, className: "h-7 px-2.5 flex items-center hover:bg-orange-50 hover:text-primary active:scale-95 rounded-lg text-xs uppercase font-bold text-slate-700 font-montserrat transition-all" }, "AA"), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
     e.preventDefault();
     applyCase("lower");
-  }, className: "h-5 px-3 flex items-center hover:bg-black/5 rounded-lg text-xs lowercase font-bold text-slate-700 font-montserrat" }, "aa"))), /* @__PURE__ */ React.createElement("div", { className: "fmt-divider w-px h-6 bg-black/10 mx-1" }), /* @__PURE__ */ React.createElement("div", { className: "flex items-center" }, /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
+  }, className: "h-7 px-2.5 flex items-center hover:bg-orange-50 hover:text-primary active:scale-95 rounded-lg text-xs lowercase font-bold text-slate-700 font-montserrat transition-all" }, "aa"))), /* @__PURE__ */ React.createElement("div", { className: "fmt-divider w-px h-5 bg-black/10 mx-0.5" }), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-0.5" }, /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
     e.preventDefault();
     toggleFormat("**");
-  }, className: "w-10 h-10 flex items-center justify-center rounded-lg transition-colors " + (activeFormats.bold ? "bg-black/10 text-primary scale-110" : "hover:bg-black/5 text-slate-600"), title: "Bold" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[20px]", style: activeFormats.bold ? { fontVariationSettings: "'WGHT' 700" } : {} }, "format_bold")), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
+  }, className: "w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95 " + (activeFormats.bold ? "bg-orange-500/15 text-primary font-bold" : "hover:bg-black/5 text-slate-600"), title: "Bold" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[19px]", style: activeFormats.bold ? { fontVariationSettings: "'WGHT' 700" } : {} }, "format_bold")), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
     e.preventDefault();
     toggleFormat("*");
-  }, className: "w-10 h-10 flex items-center justify-center rounded-lg transition-colors " + (activeFormats.italic ? "bg-black/10 text-primary scale-110" : "hover:bg-black/5 text-slate-600"), title: "Italic" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[20px]" }, "format_italic")), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
+  }, className: "w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95 " + (activeFormats.italic ? "bg-orange-500/15 text-primary" : "hover:bg-black/5 text-slate-600"), title: "Italic" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[19px]" }, "format_italic")), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
     e.preventDefault();
     toggleFormat("__");
-  }, className: "w-10 h-10 flex items-center justify-center rounded-lg transition-colors " + (activeFormats.underline ? "bg-black/10 text-primary scale-110" : "hover:bg-black/5 text-slate-600"), title: "Underline" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[20px]" }, "format_underlined")), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
+  }, className: "w-9 h-9 flex items-center justify-center rounded-xl transition-all active:scale-95 " + (activeFormats.underline ? "bg-orange-500/15 text-primary" : "hover:bg-black/5 text-slate-600"), title: "Underline" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[19px]" }, "format_underlined")), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
     e.preventDefault();
     toggleFormat("~~");
-  }, className: "w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600", title: "Strikethrough" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[20px]" }, "strikethrough_s"))), /* @__PURE__ */ React.createElement("div", { className: "fmt-divider w-px h-6 bg-black/5 mx-1" }), /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement(
+  }, className: "w-9 h-9 flex items-center justify-center hover:bg-black/5 active:scale-95 rounded-xl text-slate-600 transition-all", title: "Strikethrough" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[19px]" }, "strikethrough_s"))), /* @__PURE__ */ React.createElement("div", { className: "fmt-divider w-px h-5 bg-black/10 mx-0.5" }), /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => handleSetActiveSubPopup(activeSubPopup === "highlight" ? null : "highlight"),
-      className: "w-10 h-10 flex items-center justify-center gap-1 rounded-lg text-slate-600 transition-colors " + (activeSubPopup === "highlight" ? "bg-black/5" : "hover:bg-black/5"),
+      className: "w-9 h-9 flex items-center justify-center gap-0.5 rounded-xl text-slate-600 transition-all active:scale-95 " + (activeSubPopup === "highlight" ? "bg-orange-500/15 text-primary font-bold" : "hover:bg-black/5"),
       title: "Highlight Color"
     },
     /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[20px]" }, "ink_highlighter"),
     /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-sm" }, "arrow_drop_up")
-  ), activeSubPopup === "highlight" && /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-full right-0 mb-2 p-2 bg-white rounded-xl shadow-2xl border border-black/5 flex items-center z-[160] animate-in slide-in-from-bottom-1 duration-200", style: { minWidth: "130px" } }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-4 gap-2" }, /* @__PURE__ */ React.createElement(
+  ), activeSubPopup === "highlight" && /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-[calc(100%+10px)] right-0 p-2 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-black/5 flex items-center z-[160] animate-in slide-in-from-bottom-1 duration-200", style: { minWidth: "130px" } }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-4 gap-2" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       onMouseDown: (e) => {
@@ -4374,7 +4422,7 @@ const TaskCreator = ({ onClose, user, editingNote, activeCollection: activeColle
     },
     /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[20px]", style: { color: "#ea580c" } }, "horizontal_rule"),
     /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-sm" }, "arrow_drop_up")
-  ), activeSubPopup === "divider" && /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-full right-0 mb-2 p-2.5 bg-white rounded-2xl shadow-2xl border border-black/5 z-[160] animate-in slide-in-from-bottom-1 duration-200 w-52" }, /* @__PURE__ */ React.createElement("p", { className: "text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1" }, "Gradient Dividers"), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-4 gap-2 mb-2.5" }, [
+  ), activeSubPopup === "divider" && /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-[calc(100%+10px)] right-0 p-2.5 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-black/5 z-[160] animate-in slide-in-from-bottom-1 duration-200 w-52" }, /* @__PURE__ */ React.createElement("p", { className: "text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1" }, "Gradient Dividers"), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-4 gap-2 mb-2.5" }, [
     { name: "Flame", bg: "linear-gradient(to right, #f97316, #fbbf24, transparent)" },
     { name: "Emerald", bg: "linear-gradient(to right, #10b981, #06b6d4, transparent)" },
     { name: "Sunset", bg: "linear-gradient(to right, #8b5cf6, #ec4899, transparent)" },
@@ -4412,24 +4460,25 @@ const TaskCreator = ({ onClose, user, editingNote, activeCollection: activeColle
       className: "w-5 h-5 rounded-full border border-black/5 hover:scale-110 transition-transform",
       style: { backgroundColor: color }
     }
-  ))))))), /* @__PURE__ */ React.createElement("div", { className: "relative flex-shrink-0" }, /* @__PURE__ */ React.createElement("button", { onClick: () => handleSetActivePopup(activePopup === "tools" ? null : "tools"), className: "footer-action-btn flex items-center justify-center transition-all rounded-xl " + (activePopup === "tools" ? "bg-black/5 text-secondary" : "text-secondary hover:bg-black/5"), title: "More Tools" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[26px]" }, "menu")), activePopup === "tools" && /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-[calc(100%+8px)] left-0 md:left-0 md:translate-x-0 bg-white rounded-2xl shadow-xl border border-black/5 flex items-center p-1 z-[150] animate-in slide-in-from-bottom-2 duration-200" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center px-1" }, /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
+  ))))))), /* @__PURE__ */ React.createElement("div", { className: "relative flex-shrink-0" }, /* @__PURE__ */ React.createElement("button", { onClick: () => handleSetActivePopup(activePopup === "tools" ? null : "tools"), className: "footer-action-btn flex items-center justify-center transition-all rounded-xl " + (activePopup === "tools" ? "bg-black/5 text-secondary" : "text-secondary hover:bg-black/5"), title: "More Tools" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[26px]" }, "menu")), activePopup === "tools" && // (2026-07-13) Fix tools bar overlap & spacing. Prev: mb overlap
+  /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-[calc(100%+10px)] left-0 md:left-0 md:translate-x-0 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-black/5 flex items-center p-1.5 z-[150] animate-in slide-in-from-bottom-2 duration-200 gap-0.5" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-0.5 px-0.5" }, /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
     e.preventDefault();
     document.execCommand("justifyLeft");
-  }, className: "w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600", title: "Align Left" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[20px]" }, "format_align_left")), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
+  }, className: "w-9 h-9 flex items-center justify-center hover:bg-orange-50 hover:text-primary rounded-xl text-slate-600 active:scale-95 transition-all", title: "Align Left" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[19px]" }, "format_align_left")), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
     e.preventDefault();
     document.execCommand("justifyCenter");
-  }, className: "w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600", title: "Align Center" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[20px]" }, "format_align_center")), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
+  }, className: "w-9 h-9 flex items-center justify-center hover:bg-orange-50 hover:text-primary rounded-xl text-slate-600 active:scale-95 transition-all", title: "Align Center" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[19px]" }, "format_align_center")), /* @__PURE__ */ React.createElement("button", { onMouseDown: (e) => {
     e.preventDefault();
     document.execCommand("justifyRight");
-  }, className: "w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600", title: "Align Right" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[20px]" }, "format_align_right"))), /* @__PURE__ */ React.createElement("div", { className: "w-px h-6 bg-black/5 mx-1" }), /* @__PURE__ */ React.createElement("div", { className: "flex items-center px-1" }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
+  }, className: "w-9 h-9 flex items-center justify-center hover:bg-orange-50 hover:text-primary rounded-xl text-slate-600 active:scale-95 transition-all", title: "Align Right" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[19px]" }, "format_align_right"))), /* @__PURE__ */ React.createElement("div", { className: "w-px h-5 bg-black/10 mx-0.5" }), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-0.5 px-0.5" }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
     convertActiveBlock("todo");
-  }, className: "w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600", title: "Checklist" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[20px]" }, "checklist")), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+  }, className: "w-9 h-9 flex items-center justify-center hover:bg-orange-50 hover:text-primary rounded-xl text-slate-600 active:scale-95 transition-all", title: "Checklist" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[19px]" }, "checklist")), /* @__PURE__ */ React.createElement("button", { onClick: () => {
     convertActiveBlock("bullet");
-  }, className: "w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600", title: "Bullets" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[20px]" }, "format_list_bulleted")), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+  }, className: "w-9 h-9 flex items-center justify-center hover:bg-orange-50 hover:text-primary rounded-xl text-slate-600 active:scale-95 transition-all", title: "Bullets" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[19px]" }, "format_list_bulleted")), /* @__PURE__ */ React.createElement("button", { onClick: () => {
     convertActiveBlock("number");
-  }, className: "w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600", title: "Numbering" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[20px]" }, "format_list_numbered"))), /* @__PURE__ */ React.createElement("div", { className: "w-px h-6 bg-black/5 mx-1" }), /* @__PURE__ */ React.createElement("div", { className: "flex items-center px-1" }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
+  }, className: "w-9 h-9 flex items-center justify-center hover:bg-orange-50 hover:text-primary rounded-xl text-slate-600 active:scale-95 transition-all", title: "Numbering" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[19px]" }, "format_list_numbered"))), /* @__PURE__ */ React.createElement("div", { className: "w-px h-5 bg-black/10 mx-0.5" }), /* @__PURE__ */ React.createElement("div", { className: "flex items-center px-0.5" }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
     fileInputRef.current.click();
-  }, className: "w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-lg text-slate-600", title: "Add Image" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[20px]" }, "image"))))), /* @__PURE__ */ React.createElement("div", { className: "relative flex-shrink-0" }, /* @__PURE__ */ React.createElement(
+  }, className: "w-9 h-9 flex items-center justify-center hover:bg-orange-50 hover:text-primary rounded-xl text-slate-600 active:scale-95 transition-all", title: "Add Image" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[19px]" }, "image"))))), /* @__PURE__ */ React.createElement("div", { className: "relative flex-shrink-0" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => handleSetActivePopup(activePopup === "charts" ? null : "charts"),
@@ -4940,24 +4989,21 @@ const LoginModal = () => {
   ), loginSuccess && /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 text-emerald-400 text-sm font-bold font-montserrat uppercase tracking-wider mb-4 animate-pulse" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg" }, "check_circle"), /* @__PURE__ */ React.createElement("span", null, "Successful Login")), /* @__PURE__ */ React.createElement("div", { className: "faiora-auth-links flex gap-6 text-[10px] uppercase tracking-widest font-bold text-cream-light/40 mt-2" }, /* @__PURE__ */ React.createElement("a", { href: "privacy.html", className: "hover:text-primary transition-colors" }, "Privacy"), /* @__PURE__ */ React.createElement("a", { href: "terms.html", className: "hover:text-primary transition-colors" }, "Terms"))));
 };
 const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmText = "Confirm", cancelText = "Cancel", type = "danger" }) => {
-  return (
-    /* (2026-07-13) Darkened 85% blurred backdrop. Prev: bg-black/70 */
-    /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-[950] flex items-center justify-center p-4 md:p-10 bg-black/85 backdrop-blur-md animation-fade-in" }, /* @__PURE__ */ React.createElement("div", { className: "w-full max-w-sm bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl border border-white/10 p-8 text-center space-y-6 transform scale-up-center font-montserrat" }, /* @__PURE__ */ React.createElement("div", { className: `w-16 h-16 mx-auto rounded-full flex items-center justify-center ${type === "danger" ? "bg-rose-500/10 text-rose-500" : "bg-primary/10 text-primary"}` }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-3xl" }, type === "danger" ? "warning" : "info")), /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, /* @__PURE__ */ React.createElement("h3", { className: "text-xl font-bold dark:text-cream-light tracking-tight" }, title), /* @__PURE__ */ React.createElement("p", { className: "text-sm dark:text-cream-light/60 leading-relaxed font-medium" }, message)), /* @__PURE__ */ React.createElement("div", { className: "flex flex-col gap-3" }, /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        onClick: onConfirm,
-        className: `w-full py-4 rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all ${type === "danger" ? "bg-rose-500 hover:bg-rose-600 shadow-lg shadow-rose-500/20" : "bg-primary hover:bg-primary-dark shadow-lg shadow-primary/20"} text-white`
-      },
-      confirmText
-    ), /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        onClick: onCancel,
-        className: "w-full py-4 rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all bg-black/5 dark:bg-white/5 dark:hover:bg-white/10"
-      },
-      cancelText
-    ))))
-  );
+  return /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-[950] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animation-fade-in" }, /* @__PURE__ */ React.createElement("div", { className: "w-full max-w-xs sm:max-w-sm glass-panel bg-[#160d08]/95 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-white/10 p-5 text-center space-y-4 transform scale-up-center font-montserrat" }, /* @__PURE__ */ React.createElement("div", { className: `w-12 h-12 mx-auto rounded-full flex items-center justify-center ${type === "danger" ? "bg-rose-500/15 text-rose-400 border border-rose-500/25" : "bg-primary/15 text-primary border border-primary/25"}` }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-2xl" }, type === "danger" ? "warning" : "info")), /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, /* @__PURE__ */ React.createElement("h3", { className: "text-base font-bold text-cream-light tracking-tight" }, title), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-cream-light/60 leading-relaxed font-medium" }, message)), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2.5 pt-1" }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: onCancel,
+      className: "w-full py-2.5 rounded-xl font-bold uppercase tracking-wider text-[11px] transition-all bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10"
+    },
+    cancelText
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: onConfirm,
+      className: `w-full py-2.5 rounded-xl font-bold uppercase tracking-wider text-[11px] transition-all ${type === "danger" ? "bg-rose-500 hover:bg-rose-600 shadow-md shadow-rose-500/20" : "bg-primary hover:bg-primary-dark shadow-md shadow-primary/20"} text-white`
+    },
+    confirmText
+  ))));
 };
 const getThemeClasses = (themeId) => {
   const maps = {
@@ -7342,6 +7388,16 @@ const NotesPage = React.memo(({ user, notes: notes2, onOpenCreator, onEditNote, 
   const dragRef = useRef(null);
   const [selectedNotes, setSelectedNotes] = useState([]);
   const selectionMode = selectedNotes.length > 0;
+  useEffect(() => {
+    if (selectedNotes.length > 0) {
+      window.__faioraClearNotesSelection = () => setSelectedNotes([]);
+    } else {
+      window.__faioraClearNotesSelection = null;
+    }
+    return () => {
+      window.__faioraClearNotesSelection = null;
+    };
+  }, [selectedNotes.length]);
   const pointerHandledRef = useRef(false);
   const geometryRef = useRef(null);
   const lastUpdateRef = useRef(0);
@@ -8176,24 +8232,24 @@ const NotesPage = React.memo(({ user, notes: notes2, onOpenCreator, onEditNote, 
     const showDropdownOnAll = !labelFilterShown;
     const allNotesSection = (searchQuery || labelFilter) && allNotesFiltered.length === 0 ? null : /* @__PURE__ */ React.createElement("section", { key: "__allnotes", className: "mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500", "data-drop-section": "" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-4 mb-8" }, /* @__PURE__ */ React.createElement("h2", { className: "text-sm font-bold text-cream-light/90 uppercase tracking-[0.3em] font-display" }, "ALL NOTES"), /* @__PURE__ */ React.createElement("div", { className: "h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent" }), showDropdownOnAll && /* @__PURE__ */ React.createElement(LabelFilterDropdown, null)), isLoading ? /* @__PURE__ */ React.createElement("div", { className: "pb-32" }, renderNoteSkeletonGrid(allNotesFiltered.length || localNotes.length || 4)) : allNotesFiltered.length > 0 ? /* @__PURE__ */ React.createElement("div", { className: "pb-32" }, renderNoteGrid(allNotesFiltered, null, "")) : /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center justify-center py-20 text-center animate-pulse" }, !isFirstSyncDone || isProbing ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "loading-spinner mb-4" }), /* @__PURE__ */ React.createElement("p", { className: "text-white/40 font-medium font-montserrat uppercase tracking-widest text-[10px]" }, "Syncing your life...")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-5xl text-white/5 mb-3" }, "note_stack"), /* @__PURE__ */ React.createElement("p", { className: "text-white/30 text-sm" }, labelFilter ? "No notes match this filter" : "No notes here"))));
     return /* @__PURE__ */ React.createElement(React.Fragment, null, pinnedSection, customSections, addSectionButton, allNotesSection);
-  })(), pendingDeleteSection && /* (2026-07-13) Darkened 85% blurred backdrop. Prev: bg-black/70 */
-  /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 bg-black/85 backdrop-blur-md z-[950] flex items-center justify-center p-6 animate-in fade-in duration-300" }, /* @__PURE__ */ React.createElement("div", { className: "glass-panel w-full max-w-md rounded-[2.5rem] border border-white/10 p-10 text-center animate-in zoom-in-95 duration-300 font-montserrat" }, /* @__PURE__ */ React.createElement("div", { className: "w-20 h-20 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center mx-auto mb-8" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-red-400 text-4xl" }, "warning")), /* @__PURE__ */ React.createElement("h3", { className: "text-2xl font-bold text-cream-light mb-4" }, "Delete Section?"), /* @__PURE__ */ React.createElement("p", { className: "text-white/50 text-base leading-relaxed mb-10" }, "Are you sure you want to delete ", /* @__PURE__ */ React.createElement("span", { className: "text-primary font-bold" }, '"', pendingDeleteSection, '"'), "? Its notes will be automatically moved to ", /* @__PURE__ */ React.createElement("span", { className: "text-white/80 font-semibold" }, "ALL NOTES"), "."), /* @__PURE__ */ React.createElement("div", { className: "flex flex-col gap-4" }, /* @__PURE__ */ React.createElement(
+  })(), pendingDeleteSection && /* (2026-07-13) Compact delete section modal with side buttons. Prev: stacked */
+  /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 bg-black/85 backdrop-blur-md z-[950] flex items-center justify-center p-4 animate-in fade-in duration-300" }, /* @__PURE__ */ React.createElement("div", { className: "glass-panel w-full max-w-xs sm:max-w-sm rounded-2xl border border-white/10 bg-[#160d08]/95 backdrop-blur-xl p-5 text-center animate-in zoom-in-95 duration-300 font-montserrat space-y-4" }, /* @__PURE__ */ React.createElement("div", { className: "w-12 h-12 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center mx-auto" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-red-400 text-2xl" }, "warning")), /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, /* @__PURE__ */ React.createElement("h3", { className: "text-base font-bold text-cream-light tracking-tight" }, "Delete Section?"), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-cream-light/60 leading-relaxed font-medium" }, "Are you sure you want to delete ", /* @__PURE__ */ React.createElement("span", { className: "text-primary font-bold" }, '"', pendingDeleteSection, '"'), "? Its notes will be automatically moved to ", /* @__PURE__ */ React.createElement("span", { className: "text-white/80 font-semibold" }, "ALL NOTES"), ".")), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2.5 pt-1" }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => handleSetPendingDeleteSection(null),
+      className: "w-full py-2.5 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-xl font-bold uppercase tracking-wider text-[11px] transition-all border border-white/10"
+    },
+    "Cancel"
+  ), /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => {
         onDeleteSection(pendingDeleteSection, false);
         handleSetPendingDeleteSection(null);
       },
-      className: "w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold uppercase tracking-widest transition-all shadow-xl shadow-red-500/20"
+      className: "w-full py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold uppercase tracking-wider text-[11px] transition-all shadow-md shadow-rose-500/20"
     },
-    "Delete Section"
-  ), /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      onClick: () => handleSetPendingDeleteSection(null),
-      className: "w-full py-3 bg-transparent text-white/50 hover:text-white rounded-2xl font-bold uppercase tracking-widest transition-all mt-2"
-    },
-    "Cancel"
+    "Delete"
   )))), pendingDeleteNotes.length > 0 && /* @__PURE__ */ React.createElement(
     ConfirmationModal,
     {
@@ -8453,7 +8509,56 @@ const CalendarPage = ({ user, notes: notes2, quickTasks: quickTasks2 = [], onOpe
             )
           );
         }
-      })) : /* @__PURE__ */ React.createElement("div", { className: "text-center py-8 mb-8" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-3xl text-white/5 mb-2" }, "event_available"), /* @__PURE__ */ React.createElement("p", { className: "text-white/20 text-xs font-sans" }, "No reminders this day")), upcomingReminders.length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3 mb-4" }, /* @__PURE__ */ React.createElement("h4", { className: "text-xs font-bold text-cream-light/60 uppercase tracking-[0.2em]" }, "Upcoming"), /* @__PURE__ */ React.createElement("div", { className: "h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent" })), /* @__PURE__ */ React.createElement("div", { className: "space-y-2.5" }, upcomingReminders.map((item, idx) => /* @__PURE__ */ React.createElement("div", { key: idx, onClick: () => item.type === "note" ? onEditNote(item) : onEditQuickTask(item), className: "flex items-start gap-3 p-3 rounded-2xl hover:bg-white/5 transition-colors cursor-pointer group" }, /* @__PURE__ */ React.createElement("div", { className: `w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${item.type === "quickTask" ? "bg-cream-light/40" : "bg-primary"}` }), /* @__PURE__ */ React.createElement("div", { className: "flex-1 min-w-0" }, /* @__PURE__ */ React.createElement("p", { className: "text-xs font-semibold text-cream-light/80 truncate" }, item.type === "quickTask" ? formatTaskText(item.text) : item.title || "Untitled"), /* @__PURE__ */ React.createElement("p", { className: "text-[9px] text-cream-light/30 font-sans mt-0.5" }, item.type === "note" ? formatReminderDate(item.reminderDate) : item.dueDate))))))))
+      })) : /* @__PURE__ */ React.createElement("div", { className: "text-center py-8 mb-8" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-3xl text-white/5 mb-2" }, "event_available"), /* @__PURE__ */ React.createElement("p", { className: "text-white/20 text-xs font-sans" }, "No reminders this day")), upcomingReminders.length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3 mb-4" }, /* @__PURE__ */ React.createElement("h4", { className: "text-xs font-bold text-cream-light/60 uppercase tracking-[0.2em]" }, "Upcoming"), /* @__PURE__ */ React.createElement("div", { className: "h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent" })), /* @__PURE__ */ React.createElement("div", { className: "space-y-2.5" }, upcomingReminders.map((item, idx) => {
+        if (item.type === "note") {
+          return /* @__PURE__ */ React.createElement("div", { key: idx, onClick: () => onEditNote && onEditNote(item), className: "card-glow bg-orange-100/95 rounded-[2rem] p-4 border-b-4 border-orange-300/50 cursor-pointer hover:scale-[1.01] transition-transform relative overflow-hidden" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 mb-1" }, /* @__PURE__ */ React.createElement("h4", { className: "text-sm font-bold text-orange-950/90 leading-tight truncate flex-1" }, item.title || "Untitled"), item.isLocked && /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-orange-950/40 text-xs" }, "lock")), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-orange-900/60 font-sans font-medium capitalize" }, formatReminderDate(item.reminderDate), item.labels && item.labels[0] ? ` \u2022 ${item.labels[0]}` : ""));
+        }
+        const dueDateInfo = formatDueDate(item.dueDate, item.dueTime);
+        const isOverdue = dueDateInfo.isOverdue && !item.completed;
+        const isNearDeadline = dueDateInfo.isNearDeadline && !item.completed;
+        const isDueToday = dueDateInfo.isDueToday && !item.completed;
+        const isDueTomorrow = dueDateInfo.isDueTomorrow && !item.completed;
+        return /* @__PURE__ */ React.createElement("div", { key: idx, className: "quick-task-card relative rounded-2xl select-none" }, /* @__PURE__ */ React.createElement(
+          "div",
+          {
+            className: `glass-panel rounded-2xl py-2.5 px-3 md:py-3 md:px-4 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${item.completed ? "opacity-40 grayscale-[0.5]" : ""} ${isOverdue ? "border-red-500/30" : isNearDeadline ? "border-primary/60" : isDueToday ? "border-primary/40" : "border-white/5"} ${isDueToday && !isNearDeadline && !item.completed ? "today-task-glow" : ""} ${isNearDeadline && !item.completed ? "near-deadline-glow" : ""} ${isDueTomorrow && !item.completed ? "tomorrow-glow" : ""}`,
+            onClick: () => onEditQuickTask && onEditQuickTask(item)
+          },
+          /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2.5 md:gap-3 pointer-events-none flex-1 min-w-0 pr-2" }, /* @__PURE__ */ React.createElement(
+            "div",
+            {
+              className: `w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${item.completed ? "bg-primary border-primary text-white scale-105" : "border-white/30 text-transparent group-hover:border-white/60"}`,
+              onClick: (e) => {
+                e.stopPropagation();
+                if (!item.completed) {
+                  const taskElement = e.currentTarget.closest(".quick-task-card");
+                  if (taskElement) {
+                    const rect = taskElement.getBoundingClientRect();
+                    const checkmarkX = rect.left + 20;
+                    const checkmarkY = rect.top + rect.height / 2;
+                    if (window.createFireSparks) {
+                      window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
+                    }
+                    if (window.playWhooshSound) {
+                      window.playWhooshSound();
+                    }
+                  }
+                }
+                onToggleQuickTask && onToggleQuickTask(item.id);
+              },
+              style: { pointerEvents: "auto" }
+            },
+            /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-xs font-bold" }, "check")
+          ), /* @__PURE__ */ React.createElement("div", { className: "flex flex-col justify-center flex-1 min-w-0" }, /* @__PURE__ */ React.createElement("h4", { className: `text-xs md:text-[13px] text-cream-light font-montserrat font-semibold tracking-wide leading-snug transition-all duration-300 line-clamp-2 overflow-hidden ${item.completed ? "line-through decoration-primary/50 opacity-60" : "group-hover:text-primary"} ${isOverdue && !item.completed ? "text-red-400" : ""}` }, formatTaskText(item.text)), (item.dueDate || item.dueTime) && /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap items-center gap-1.5 mt-0.5" }, /* @__PURE__ */ React.createElement("p", { className: `text-[8.5px] md:text-[9.5px] font-montserrat font-bold uppercase tracking-[0.15em] flex items-center gap-1 transition-opacity ${isOverdue && !item.completed ? "text-red-500" : "text-primary/80 opacity-60 group-hover:opacity-100"}` }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[9px] md:text-[10px]" }, item.dueTime ? "schedule" : "event"), item.dueTime ? formatTime(item.dueTime) : dueDateInfo.label || item.dueDate)))),
+          item.progress > 0 && !item.completed && /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-end gap-0.5 shrink-0 px-2 pointer-events-none" }, /* @__PURE__ */ React.createElement("span", { className: "text-[9px] font-montserrat font-bold text-white/50" }, item.progress, "%"), /* @__PURE__ */ React.createElement("div", { className: "w-12 md:w-14 h-1 bg-white/10 rounded-full overflow-hidden" }, /* @__PURE__ */ React.createElement(
+            "div",
+            {
+              className: "h-full bg-primary rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(249,115,22,0.4)]",
+              style: { width: `${item.progress}%` }
+            }
+          )))
+        ));
+      })))))
     )
   );
 };
@@ -10626,7 +10731,6 @@ const SettingsPage = ({ user, onOpenCreator, settingsData: settingsData2, onSave
       autoCategorizeEnabled: autoCatEnabled,
       categoryKeywords
     });
-    showToast2("Setting saved");
   };
   const handleExport = () => {
     let sections = [];
@@ -10826,9 +10930,9 @@ const SettingsPage = ({ user, onOpenCreator, settingsData: settingsData2, onSave
     "div",
     {
       onClick: () => onChange(!checked),
-      className: "flex items-center justify-between p-3.5 bg-white/[0.04] hover:bg-white/[0.07] border border-white/8 hover:border-white/12 rounded-xl transition-all cursor-pointer group select-none"
+      className: "flex items-center justify-between p-3.5 bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 rounded-xl transition-all cursor-pointer group select-none"
     },
-    /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3 pr-3" }, icon && /* @__PURE__ */ React.createElement("div", { className: `w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${checked ? "bg-primary/25 text-primary" : "bg-white/8 text-cream-light/50 group-hover:text-cream-light/80"}` }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[18px]" }, icon)), /* @__PURE__ */ React.createElement("div", { className: "flex-1 min-w-0" }, /* @__PURE__ */ React.createElement("p", { className: "text-[13px] font-semibold text-cream-light group-hover:text-white transition-colors leading-tight" }, label), description && /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-cream-light/45 mt-0.5 leading-snug" }, description))),
+    /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3 pr-3" }, icon && /* @__PURE__ */ React.createElement("div", { className: `w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${checked ? "bg-primary/25 text-primary" : "bg-white/5 text-cream-light/50 group-hover:text-cream-light/80"}` }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[18px]" }, icon)), /* @__PURE__ */ React.createElement("div", { className: "flex-1 min-w-0" }, /* @__PURE__ */ React.createElement("p", { className: "text-[13px] font-semibold text-cream-light group-hover:text-white transition-colors leading-tight" }, label), description && /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-cream-light/45 mt-0.5 leading-snug" }, description))),
     /* @__PURE__ */ React.createElement("div", { className: `w-11 h-6 flex items-center rounded-full p-0.5 transition-all duration-200 shrink-0 ${checked ? "bg-primary shadow-[0_0_12px_rgba(249,115,22,0.4)]" : "bg-white/20"}` }, /* @__PURE__ */ React.createElement("div", { className: `bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200 ${checked ? "translate-x-5" : "translate-x-0"}` }))
   );
   return /* @__PURE__ */ React.createElement(Layout, { onOpenCreator, pomodoroTime, isPomodoroActive }, /* @__PURE__ */ React.createElement("div", { className: "max-w-2xl mx-auto w-full px-3 md:px-6 pt-[88px] md:pt-16 pb-24" }, /* @__PURE__ */ React.createElement(Header, { user, subtitle: "Settings" }), /* @__PURE__ */ React.createElement("div", { className: "space-y-4" }, /* @__PURE__ */ React.createElement("div", { className: "glass-panel rounded-2xl p-4 md:p-5 space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 mb-1" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-primary text-base" }, "tune"), /* @__PURE__ */ React.createElement("h3", { className: "text-[10px] font-bold text-primary uppercase tracking-[0.1em]" }, "Preferences & Display")), /* @__PURE__ */ React.createElement("div", { className: "space-y-2.5" }, /* @__PURE__ */ React.createElement(
@@ -13066,6 +13170,7 @@ const App = () => {
       const active = prev.filter((t) => {
         if (now - (t.createdAt || 0) >= (t.duration || 5e3)) return false;
         if (taskKey && t.taskKey && t.taskKey === taskKey) return false;
+        if (t.message === message) return false;
         return true;
       });
       return [...active, { id, message, action, createdAt, duration, hideProgress: isSync, taskKey }];
@@ -14129,6 +14234,10 @@ const App = () => {
       }
       const state = window.history.state || {};
       window.dispatchEvent(new CustomEvent("faiora-close-popups"));
+      if (typeof window.__faioraClearNotesSelection === "function") {
+        window.__faioraClearNotesSelection();
+        return;
+      }
       if (window.__faioraFabMenuOpen) {
         (_a = window.__faioraCloseFabMenu) == null ? void 0 : _a.call(window);
         return;
@@ -14197,6 +14306,10 @@ const App = () => {
         const handle = await appPlugin.addListener("backButton", () => {
           var _a2;
           const currentState = window.history.state;
+          if (typeof window.__faioraClearNotesSelection === "function") {
+            window.__faioraClearNotesSelection();
+            return;
+          }
           if (window.__faioraFabMenuOpen) {
             (_a2 = window.__faioraCloseFabMenu) == null ? void 0 : _a2.call(window);
             return;
@@ -15244,15 +15357,8 @@ const App = () => {
     const updatedTrash = [nextTrashTask, ...trashQuickTasksRef.current.filter((task) => task.id !== id)];
     handleUpdateQuickTasks(updated, updatedTrash);
     const taskName = (taskToDelete.text || "Task").trim();
-    let displayName;
-    if (taskName.length > 18) {
-      const start = taskName.slice(0, 9);
-      const end = taskName.slice(-6);
-      displayName = `${start}...${end}`;
-    } else {
-      displayName = taskName;
-    }
-    showToast2(`Task "${displayName}" moved to Trash`, {
+    const displayName = taskName.length > 12 ? `${taskName.slice(0, 12)}...` : taskName;
+    showToast2(`"${displayName}" moved to Trash`, {
       label: "UNDO",
       onClick: () => {
         const restored = [taskToDelete, ...quickTasksRef.current];
@@ -15405,13 +15511,7 @@ const App = () => {
       };
       updated[targetIndex] = updatedTask;
       const taskName = (original.text || "Task").trim();
-      let displayName;
-      const maxLength = nextCompleted ? 18 : 15;
-      if (taskName.length > maxLength) {
-        displayName = `${taskName.slice(0, maxLength)}...`;
-      } else {
-        displayName = taskName;
-      }
+      const displayName = taskName.length > 12 ? `${taskName.slice(0, 12)}...` : taskName;
       if (updatedTask.completed) {
         if ((_a = window.FaioraNativeAlarmBridge) == null ? void 0 : _a.markTaskCompleted) window.FaioraNativeAlarmBridge.markTaskCompleted(String(id), true);
         try {
@@ -15424,7 +15524,7 @@ const App = () => {
         }
         const originalProgress = original.progress;
         const originalLastProgress = original.lastProgress;
-        showToast2(`Task "${displayName}" completed`, {
+        showToast2(`"${displayName}" completed`, {
           label: "UNDO",
           taskId: id,
           onClick: () => {
@@ -15450,7 +15550,7 @@ const App = () => {
         const wasCompleted = original.completed;
         const beforeProgress = original.progress;
         const beforeLastProgress = original.lastProgress;
-        showToast2(`Task "${displayName}" marked active`, {
+        showToast2(`"${displayName}" marked active`, {
           label: "UNDO",
           taskId: id,
           onClick: () => {
