@@ -57,7 +57,10 @@ async function processIcons() {
     if (fs.existsSync(drawableDir)) {
         fs.writeFileSync(path.join(drawableDir, 'applogo.png'), appLogo512);
         fs.writeFileSync(path.join(drawableDir, 'ic_notification_logo.png'), logo512);
-        fs.writeFileSync(path.join(drawableDir, 'ic_stat_faiora.png'), logo512);
+        // (2026-07-13) Inset splash icon to avoid corner clipping. Prev: 0 insets
+        const splashFlame = await sharp(srcNewLogo).resize(328, 328, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).toBuffer();
+        const splashIcon512 = await sharp({ create: { width: 512, height: 512, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite([{ input: splashFlame, gravity: 'center' }]).png({ compressionLevel: 9, effort: 10 }).toBuffer();
+        fs.writeFileSync(path.join(drawableDir, 'ic_stat_faiora.png'), splashIcon512);
     }
 
     // 4. Android mipmap densities

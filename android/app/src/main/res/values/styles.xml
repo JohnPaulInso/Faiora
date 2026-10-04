@@ -19,11 +19,11 @@
     </style>
 
 
-    <!-- (2026-07-13) #361100 splash & ic_stat_faiora. Prev: #7c2d12 & applogo -->
+    <!-- (2026-07-13) #0c0502 splash to match login bg. Prev: #361100 -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
-        <item name="windowSplashScreenBackground">#361100</item>
-        <item name="android:windowSplashScreenBackground">#361100</item>
+        <item name="windowSplashScreenBackground">#0c0502</item>
+        <item name="android:windowSplashScreenBackground">#0c0502</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_stat_faiora</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_stat_faiora</item>
         <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>

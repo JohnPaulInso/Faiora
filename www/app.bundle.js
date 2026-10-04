@@ -1744,7 +1744,7 @@ const ResponsiveNav = () => {
           alt: label,
           draggable: false,
           onDragStart: (e) => e.preventDefault(),
-          className: `nav-icon-filter w-6 h-6 object-contain select-none pointer-events-none transition-all duration-200 ${active ? "drop-shadow-[0_0_10px_rgba(249,115,22,0.85)]" : ""}`
+          className: `nav-icon-filter w-[25.08px] h-[25.08px] object-contain select-none pointer-events-none transition-all duration-200 ${active ? "drop-shadow-[0_0_10px_rgba(249,115,22,0.85)]" : ""}`
         }
       ),
       /* @__PURE__ */ React.createElement("span", { className: "absolute left-full ml-4 px-3 py-1 bg-primary text-white text-[10px] font-bold uppercase tracking-widest rounded-lg opacity-0 -translate-x-4 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 hidden md:block whitespace-nowrap z-[100] shadow-xl" }, label)
@@ -2227,12 +2227,25 @@ const Header = ({
       return;
     }
     if (trimmed) {
-      const targetPath = ["/quick-tasks", "/alarms"].includes(location2.pathname) ? location2.pathname : "/notes";
+      const targetPath = ["/", "/quick-tasks", "/alarms"].includes(location2.pathname) ? location2.pathname : "/notes";
       navigate(`${targetPath}?search=${encodeURIComponent(trimmed)}`);
-    } else if (["/notes", "/quick-tasks", "/alarms"].includes(location2.pathname) && queryParams.has("search")) {
+    } else if (["/", "/notes", "/quick-tasks", "/alarms"].includes(location2.pathname) && queryParams.has("search")) {
       navigate(location2.pathname);
     }
   }, [isControlledSearch, location2.pathname, navigate, onSearchSubmit, queryParams, queryValue]);
+  const clearSearch = useCallback(() => {
+    if (isControlledSearch) {
+      onSearchChange("");
+      if (typeof onSearchSubmit === "function") {
+        onSearchSubmit("");
+      }
+    } else {
+      setLocalQuery("");
+      if (["/", "/notes", "/quick-tasks", "/alarms"].includes(location2.pathname) && queryParams.has("search")) {
+        navigate(location2.pathname);
+      }
+    }
+  }, [isControlledSearch, location2.pathname, navigate, onSearchChange, onSearchSubmit, queryParams]);
   useEffect(() => {
     if (!showSearch || isControlledSearch) return;
     if (localQuery.trim() !== initialSearch) {
@@ -2241,9 +2254,9 @@ const Header = ({
     const timer = setTimeout(() => {
       const trimmed = localQuery.trim();
       if (trimmed && trimmed !== initialSearch) {
-        const targetPath = ["/quick-tasks", "/alarms"].includes(location2.pathname) ? location2.pathname : "/notes";
+        const targetPath = ["/", "/quick-tasks", "/alarms"].includes(location2.pathname) ? location2.pathname : "/notes";
         navigate(`${targetPath}?search=${encodeURIComponent(trimmed)}`);
-      } else if (!trimmed && ["/notes", "/quick-tasks", "/alarms"].includes(location2.pathname) && queryParams.has("search")) {
+      } else if (!trimmed && ["/", "/notes", "/quick-tasks", "/alarms"].includes(location2.pathname) && queryParams.has("search")) {
         navigate(location2.pathname);
       }
       setIsSearching(false);
@@ -2290,8 +2303,18 @@ const Header = ({
           submitSearch();
         }
       },
-      className: "w-full h-full bg-white/[0.08] hover:bg-white/[0.11] focus:bg-white/[0.14] border border-white/10 focus:border-primary/60 rounded-full pl-[35px] pr-4 text-[13.5px] text-cream-light placeholder:text-[13.5px] placeholder:text-white/35 outline-none focus:outline-none focus:ring-1 focus:ring-primary/40 shadow-[inset_0_1px_3px_rgba(0,0,0,0.35),0_2px_8px_rgba(0,0,0,0.15)] transition-all font-display"
+      className: `w-full h-full bg-white/[0.08] hover:bg-white/[0.11] focus:bg-white/[0.14] border border-white/10 focus:border-primary/60 rounded-full pl-[35px] ${Boolean(queryValue) ? "pr-8" : "pr-4"} text-[13.5px] text-cream-light placeholder:text-[13.5px] placeholder:text-white/35 outline-none focus:outline-none focus:ring-1 focus:ring-primary/40 shadow-[inset_0_1px_3px_rgba(0,0,0,0.35),0_2px_8px_rgba(0,0,0,0.15)] transition-all font-display`
     }
+  ), Boolean(queryValue) && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: clearSearch,
+      className: "absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-white/40 hover:text-white hover:bg-white/10 active:scale-90 transition-all",
+      "aria-label": "Clear search",
+      title: "Clear search"
+    },
+    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[14px]" }, "close")
   )) : /* @__PURE__ */ React.createElement("div", { className: "flex-1 min-w-0 px-1 flex flex-col justify-center" }, /* @__PURE__ */ React.createElement("p", { className: "text-sm font-display font-bold italic tracking-tight text-cream-light truncate leading-tight" }, title), /* @__PURE__ */ React.createElement("p", { className: "text-[9px] font-bold uppercase tracking-[0.28em] text-primary/60 truncate leading-tight" }, subtitle)), /* @__PURE__ */ React.createElement("div", { className: "shrink-0 flex items-center justify-center" }, /* @__PURE__ */ React.createElement(UserMenu, { user })))), /* @__PURE__ */ React.createElement("header", { id: "faiora_desktop_header", className: `faiora-desktop-header hidden md:flex ${isNonStickyPage ? "relative" : "sticky"} top-0 md:pt-5 md:pb-3 mb-4 z-[100] bg-transparent items-center justify-between gap-8` }, /* @__PURE__ */ React.createElement("div", { id: "faiora_desktop_header_title_group", className: "faiora-desktop-header-title flex flex-col" }, /* @__PURE__ */ React.createElement("h1", { className: "text-[3.5rem] font-display font-bold tracking-tighter text-cream-light italic leading-none drop-shadow-2xl" }, title), /* @__PURE__ */ React.createElement("p", { className: "text-primary/70 text-xs uppercase tracking-[0.5em] font-sans font-bold opacity-90" }, subtitle)), /* @__PURE__ */ React.createElement("div", { id: "faiora_desktop_header_actions", className: `faiora-desktop-header-actions ${showSearch ? "flex-1" : ""} flex items-center justify-end gap-10` }, showSearch && /* @__PURE__ */ React.createElement("div", { className: "flex-1 max-w-lg relative group" }, /* @__PURE__ */ React.createElement("span", { className: "absolute left-6 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none" }, /* @__PURE__ */ React.createElement("span", { className: `${searchSpinnerActive ? "search-loader" : ""} flex items-center justify-center` }, /* @__PURE__ */ React.createElement("span", { className: `material-symbols-outlined ${searchSpinnerActive ? "text-primary" : "text-white/20"} text-2xl group-focus-within:text-primary transition-colors` }, searchSpinnerActive ? "refresh" : "search"))), /* @__PURE__ */ React.createElement(
     "input",
     {
@@ -2307,8 +2330,18 @@ const Header = ({
           submitSearch();
         }
       },
-      className: "w-full bg-white/[0.03] border border-white/5 rounded-[2rem] py-5 pl-16 pr-8 text-cream-light placeholder:text-white/10 outline-none focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 focus:bg-white/5 transition-all font-display"
+      className: `w-full bg-white/[0.03] border border-white/5 rounded-[2rem] py-5 pl-16 ${Boolean(queryValue) ? "pr-14" : "pr-8"} text-cream-light placeholder:text-white/10 outline-none focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 focus:bg-white/5 transition-all font-display`
     }
+  ), Boolean(queryValue) && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: clearSearch,
+      className: "absolute right-5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full text-white/40 hover:text-white hover:bg-white/10 active:scale-90 transition-all",
+      "aria-label": "Clear search",
+      title: "Clear search"
+    },
+    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-lg" }, "close")
   )), /* @__PURE__ */ React.createElement(UserMenu, { user }))));
 };
 const TaskCreator = ({ onClose, user, editingNote, activeCollection: activeCollection2, onUpdateNote, onDeleteNote, onSaveVersion, showToast: showToast2, notes: notes2 = [], quickTasks: quickTasks2 = [], onToggleLock, onOpenLockSet, onToggleQuickTask, onUpdateQuickTask }) => {
@@ -4227,6 +4260,19 @@ const TaskCreator = ({ onClose, user, editingNote, activeCollection: activeColle
         },
         autoFocus: true
       }
+    ), Boolean(searchQuery) && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        onClick: () => {
+          setSearchQuery("");
+          setCurrentMatchIndex(0);
+        },
+        className: "p-0.5 hover:bg-black/5 rounded text-slate-400 hover:text-slate-600 transition-colors flex items-center justify-center ml-auto",
+        "aria-label": "Clear search",
+        title: "Clear search"
+      },
+      /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-sm" }, "close")
     )), totalMatches > 0 && /* @__PURE__ */ React.createElement("span", { className: "text-[10px] font-bold text-slate-400 font-montserrat flex-shrink-0 px-1" }, (currentMatchIndex % totalMatches + totalMatches) % totalMatches + 1, "/", totalMatches), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-0.5 border-l border-black/5 pl-1 ml-0.5" }, /* @__PURE__ */ React.createElement(
       "button",
       {
@@ -4636,6 +4682,16 @@ const TaskCreator = ({ onClose, user, editingNote, activeCollection: activeColle
       onChange: (e) => setSearchTerm(e.target.value),
       autoFocus: true
     }
+  ), Boolean(searchTerm) && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: () => setSearchTerm(""),
+      className: "p-0.5 hover:bg-black/5 rounded text-slate-400 hover:text-slate-600 transition-colors flex items-center justify-center ml-auto",
+      "aria-label": "Clear search",
+      title: "Clear search"
+    },
+    /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-base" }, "close")
   )), /* @__PURE__ */ React.createElement("div", { className: "max-h-56 overflow-y-auto icon-picker-scroll grid grid-cols-4 gap-2 w-full pr-1 px-1" }, filteredIcons.map((icon) => /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -6401,6 +6457,20 @@ const DashboardPage = ({ user, notes: notes2, quickTasks: quickTasks2, alarms: a
   const navigate = useNavigate();
   const { search } = useLocation();
   const queryParams = new URLSearchParams(search);
+  const searchQuery = (queryParams.get("search") || "").trim();
+  const noteMatchesSearch = useCallback((note, q) => {
+    if (!q) return true;
+    const query = q.toLowerCase();
+    const searchableText = [
+      note.title,
+      note.content,
+      (note.labels || []).join(" "),
+      note.section,
+      note.reminderDate,
+      note.noteIcon
+    ].filter(Boolean).join(" ").toLowerCase();
+    return searchableText.includes(query);
+  }, []);
   const dragStateRef = useRef(null);
   const [dragState, setDragState] = useState(null);
   const lastUpdateRef = useRef(0);
@@ -6665,12 +6735,21 @@ const DashboardPage = ({ user, notes: notes2, quickTasks: quickTasks2, alarms: a
     });
   };
   const filteredQuickTasks = useMemo(() => {
-    if (selectedCategory === "ALL") return quickTasks2;
-    return (quickTasks2 || []).filter((t) => {
-      const cats = Array.isArray(t.categories) ? t.categories : t.category ? [t.category] : [];
-      return cats.some((c) => c.toLowerCase() === selectedCategory.toLowerCase());
-    });
-  }, [quickTasks2, selectedCategory]);
+    let list = quickTasks2 || [];
+    if (selectedCategory !== "ALL") {
+      list = list.filter((t) => {
+        const cats = Array.isArray(t.categories) ? t.categories : t.category ? [t.category] : [];
+        return cats.some((c) => c.toLowerCase() === selectedCategory.toLowerCase());
+      });
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (t) => (t.text || t.title || "").toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [quickTasks2, selectedCategory, searchQuery]);
   const sortedQuickTasks = useMemo(() => sortQuickTasksList(filteredQuickTasks), [filteredQuickTasks]);
   const [showInitialLoader, setShowInitialLoader] = useState(true);
   const hasEverHadDataRef = useRef(false);
@@ -6977,7 +7056,17 @@ const DashboardPage = ({ user, notes: notes2, quickTasks: quickTasks2, alarms: a
   useEffect(() => {
     return () => removeDocListeners();
   }, []);
-  const sortedPriorityNotes = useMemo(() => localNotes.slice(0, 6), [localNotes]);
+  const sortedPriorityNotes = useMemo(() => {
+    if (searchQuery) {
+      return (notes2 || []).filter((n) => noteMatchesSearch(n, searchQuery)).sort((a, b) => {
+        if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+        const timeA = a.updatedAt ? a.updatedAt.toMillis ? a.updatedAt.toMillis() : new Date(a.updatedAt).getTime() : 0;
+        const timeB = b.updatedAt ? b.updatedAt.toMillis ? b.updatedAt.toMillis() : new Date(b.updatedAt).getTime() : 0;
+        return timeB - timeA;
+      });
+    }
+    return localNotes.slice(0, 6);
+  }, [notes2, localNotes, searchQuery, noteMatchesSearch]);
   const handleRefresh = async () => {
     if (navigator.vibrate) try {
       navigator.vibrate([10, 30, 10]);
@@ -6991,21 +7080,21 @@ const DashboardPage = ({ user, notes: notes2, quickTasks: quickTasks2, alarms: a
     const categoryToPass = selectedCategory !== "ALL" ? selectedCategory : null;
     onAddQuickTaskClick(categoryToPass);
   };
-  return /* @__PURE__ */ React.createElement(Layout, { onOpenCreator, onFabClick: handleFabClick, onRefresh: handleRefresh, pomodoroTime, isPomodoroActive, disablePullToRefresh: !!dragState }, /* @__PURE__ */ React.createElement("div", { className: "max-w-7xl mx-auto w-full px-0 md:px-12 pt-0 pb-12" }, /* @__PURE__ */ React.createElement("div", { className: "md:py-4 md:px-0 md:mb-6" }, /* @__PURE__ */ React.createElement(Header, { user })), /* @__PURE__ */ React.createElement("section", { className: "mt-[calc(72px+env(safe-area-inset-top,0px))] md:mt-8 mb-10 md:mb-12 px-4 md:px-0" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-4 mb-4 pt-2 md:mb-6" }, /* @__PURE__ */ React.createElement("h2", { className: "hidden md:block text-2xl font-bold text-cream-light/90 uppercase tracking-[0.3em] font-display" }, "PINNED NOTES"), /* @__PURE__ */ React.createElement("h2", { className: "md:hidden text-lg font-bold text-cream-light/90 uppercase tracking-[0.2em] font-display" }, "PINNED"), /* @__PURE__ */ React.createElement("div", { className: "h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent" }), /* @__PURE__ */ React.createElement(Link, { to: "/notes", className: "text-[9px] md:text-[10px] font-bold text-primary/60 uppercase tracking-widest hover:text-primary transition-colors" }, "view all (", notes2.length, ")")), isLoading ? /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 lg:grid-cols-6 gap-3 md:gap-6 px-0 md:px-2 mb-0" }, [...Array(6)].map((_, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: i >= 4 ? "hidden md:block" : "" }, /* @__PURE__ */ React.createElement(PriorityNoteSkeleton, { index: i })))) : sortedPriorityNotes.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center justify-center p-20 glass-panel rounded-3xl border-dashed border-white/10 text-center animate-pulse" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-6xl text-white/5 mb-4" }, "star"), /* @__PURE__ */ React.createElement("p", { className: "text-white/40 font-medium mb-4 font-montserrat" }, "No priority notes found"), /* @__PURE__ */ React.createElement("p", { className: "text-white/20 text-xs mb-8 uppercase tracking-widest font-bold" }, 'Tag a note with "PRIORITY" to see it here'), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement(Layout, { onOpenCreator, onFabClick: handleFabClick, onRefresh: handleRefresh, pomodoroTime, isPomodoroActive, disablePullToRefresh: !!dragState }, /* @__PURE__ */ React.createElement("div", { className: "max-w-7xl mx-auto w-full px-0 md:px-12 pt-0 pb-12" }, /* @__PURE__ */ React.createElement("div", { className: "md:py-4 md:px-0 md:mb-6" }, /* @__PURE__ */ React.createElement(Header, { user })), /* @__PURE__ */ React.createElement("section", { className: "mt-[calc(72px+env(safe-area-inset-top,0px))] md:mt-8 mb-10 md:mb-12 px-4 md:px-0" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-4 mb-4 pt-2 md:mb-6" }, /* @__PURE__ */ React.createElement("h2", { className: "hidden md:block text-2xl font-bold text-cream-light/90 uppercase tracking-[0.3em] font-display" }, "PINNED NOTES"), /* @__PURE__ */ React.createElement("h2", { className: "md:hidden text-lg font-bold text-cream-light/90 uppercase tracking-[0.2em] font-display" }, "PINNED"), /* @__PURE__ */ React.createElement("div", { className: "h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent" }), /* @__PURE__ */ React.createElement(Link, { to: searchQuery ? `/notes?search=${encodeURIComponent(searchQuery)}` : "/notes", className: "text-[9px] md:text-[10px] font-bold text-primary/60 uppercase tracking-widest hover:text-primary transition-colors" }, "view all (", searchQuery ? sortedPriorityNotes.length : notes2.length, ")")), isLoading ? /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 lg:grid-cols-6 gap-3 md:gap-6 px-0 md:px-2 mb-0" }, [...Array(6)].map((_, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: i >= 4 ? "hidden md:block" : "" }, /* @__PURE__ */ React.createElement(PriorityNoteSkeleton, { index: i })))) : sortedPriorityNotes.length === 0 ? searchQuery ? /* @__PURE__ */ React.createElement("div", { className: "col-span-full py-16 text-center glass-panel rounded-3xl border border-white/5" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-4xl text-white/10 mb-2" }, "search_off"), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] uppercase tracking-widest font-bold text-white/30" }, "No matching notes found")) : /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center justify-center p-20 glass-panel rounded-3xl border-dashed border-white/10 text-center animate-pulse" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-6xl text-white/5 mb-4" }, "star"), /* @__PURE__ */ React.createElement("p", { className: "text-white/40 font-medium mb-4 font-montserrat" }, "No priority notes found"), /* @__PURE__ */ React.createElement("p", { className: "text-white/20 text-xs mb-8 uppercase tracking-widest font-bold" }, 'Tag a note with "PRIORITY" to see it here'), /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: onOpenCreator,
       className: "px-6 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-xl text-xs font-bold uppercase tracking-widest transition-all font-montserrat"
     },
     "Add New Note"
-  )) : queryParams.get("search") && sortedPriorityNotes.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "col-span-full py-20 text-center glass-panel rounded-3xl border border-white/5" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-4xl text-white/10 mb-2" }, "search_off"), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] uppercase tracking-widest font-bold text-white/30" }, "No matching important notes")) : /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 px-0 md:px-2 mb-0 skeleton-fade-in" }, sortedPriorityNotes.slice(0, 6).map((note, index) => /* @__PURE__ */ React.createElement(
+  )) : /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 px-0 md:px-2 mb-0 skeleton-fade-in" }, sortedPriorityNotes.slice(0, searchQuery ? 12 : 6).map((note, index) => /* @__PURE__ */ React.createElement(
     "div",
     {
       key: note.id,
-      onPointerDown: (e) => handlePointerDown(note.id, e),
+      onPointerDown: (e) => !searchQuery && handlePointerDown(note.id, e),
       onContextMenu: (e) => e.preventDefault(),
-      style: { touchAction: dragState && dragState.noteId === note.id ? "none" : "pan-y" },
-      className: `transition-transform duration-300 ${dragState && dragState.noteId === note.id ? "z-[1000] scale-105" : "z-10"}`
+      style: { touchAction: !searchQuery && dragState && dragState.noteId === note.id ? "none" : "pan-y" },
+      className: `transition-transform duration-300 ${!searchQuery && dragState && dragState.noteId === note.id ? "z-[1000] scale-105" : "z-10"}`
     },
     /* @__PURE__ */ React.createElement(
       NoteCard,
@@ -7026,7 +7115,7 @@ const DashboardPage = ({ user, notes: notes2, quickTasks: quickTasks2, alarms: a
         onRemoveReminder
       }
     )
-  )), sortedPriorityNotes.length < 6 && (sortedPriorityNotes.length === 2 || sortedPriorityNotes.length === 4 ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
+  )), !searchQuery && sortedPriorityNotes.length < 6 && (sortedPriorityNotes.length === 2 || sortedPriorityNotes.length === 4 ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: onOpenCreator,
@@ -7074,7 +7163,7 @@ const DashboardPage = ({ user, notes: notes2, quickTasks: quickTasks2, alarms: a
   )), /* @__PURE__ */ React.createElement("div", { id: "quick_tasks_view_mode_bar", className: "quick-tasks-view-mode-bar flex items-center gap-1.5 mt-1 leading-none" }, /* @__PURE__ */ React.createElement("span", { className: "text-[8px] md:text-[9px] font-bold text-cream-light/45 uppercase tracking-widest leading-none" }, viewMode === "daily" ? "Daily Breakdown View" : viewMode === "notepad" ? "Date Notepad View" : viewMode === "categories" ? "Category Notepad View" : "Standard View"), /* @__PURE__ */ React.createElement("span", { className: "text-white/20 text-[8px] md:text-[9px] leading-none select-none" }, "\u2022"), /* @__PURE__ */ React.createElement(
     Link,
     {
-      to: "/quick-tasks",
+      to: searchQuery ? `/quick-tasks?search=${encodeURIComponent(searchQuery)}` : "/quick-tasks",
       className: "text-[8px] md:text-[9px] font-bold text-primary/70 uppercase tracking-widest hover:text-primary transition-colors inline-flex items-center gap-0.5 w-max active:scale-95 leading-none"
     },
     /* @__PURE__ */ React.createElement("span", null, "View All"),
@@ -7179,7 +7268,7 @@ const DashboardPage = ({ user, notes: notes2, quickTasks: quickTasks2, alarms: a
     },
     /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-xs font-bold" }, "add"),
     "New"
-  )), /* @__PURE__ */ React.createElement("section", { className: "space-y-8 mb-10 md:mb-12" }, /* @__PURE__ */ React.createElement("div", { className: "space-y-4" }, isLoading ? /* @__PURE__ */ React.createElement("div", { className: "space-y-6" }, /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("div", { className: "h-3 w-16 shimmer rounded-full" }), /* @__PURE__ */ React.createElement("div", { className: "h-px flex-1 bg-white/10" })), /* @__PURE__ */ React.createElement("div", { className: "space-y-4" }, [...Array(3)].map((_, i) => /* @__PURE__ */ React.createElement(SkeletonQuickTask, { key: i })))), /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("div", { className: "h-3 w-20 shimmer rounded-full" }), /* @__PURE__ */ React.createElement("div", { className: "h-px flex-1 bg-white/10" })), /* @__PURE__ */ React.createElement("div", { className: "space-y-4" }, [...Array(2)].map((_, i) => /* @__PURE__ */ React.createElement(SkeletonQuickTask, { key: i }))))) : filteredQuickTasks.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "glass-panel p-10 rounded-3xl text-center border-dashed border-white/5" }, /* @__PURE__ */ React.createElement("p", { className: "text-white/20 text-sm font-bold uppercase tracking-widest" }, selectedCategory !== "ALL" ? `No tasks in ${selectedCategory}` : "No quick tasks yet")) : /* @__PURE__ */ React.createElement("div", { className: "skeleton-fade-in" }, viewMode === "notepad" || viewMode === "categories" ? /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("section", { className: "space-y-8 mb-10 md:mb-12" }, /* @__PURE__ */ React.createElement("div", { className: "space-y-4" }, isLoading ? /* @__PURE__ */ React.createElement("div", { className: "space-y-6" }, /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("div", { className: "h-3 w-16 shimmer rounded-full" }), /* @__PURE__ */ React.createElement("div", { className: "h-px flex-1 bg-white/10" })), /* @__PURE__ */ React.createElement("div", { className: "space-y-4" }, [...Array(3)].map((_, i) => /* @__PURE__ */ React.createElement(SkeletonQuickTask, { key: i })))), /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("div", { className: "h-3 w-20 shimmer rounded-full" }), /* @__PURE__ */ React.createElement("div", { className: "h-px flex-1 bg-white/10" })), /* @__PURE__ */ React.createElement("div", { className: "space-y-4" }, [...Array(2)].map((_, i) => /* @__PURE__ */ React.createElement(SkeletonQuickTask, { key: i }))))) : filteredQuickTasks.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "glass-panel p-10 rounded-3xl text-center border-dashed border-white/5" }, /* @__PURE__ */ React.createElement("p", { className: "text-white/20 text-sm font-bold uppercase tracking-widest" }, searchQuery ? "No matching quick tasks found" : selectedCategory !== "ALL" ? `No tasks in ${selectedCategory}` : "No quick tasks yet")) : /* @__PURE__ */ React.createElement("div", { className: "skeleton-fade-in" }, viewMode === "notepad" || viewMode === "categories" ? /* @__PURE__ */ React.createElement(
     QuickTasksNotepadView,
     {
       tasks: sortedQuickTasks,
@@ -16265,9 +16354,6 @@ const App = () => {
     const token = hash.replace("#/share/", "");
     window.location.href = `share_note.html#/${token}`;
     return null;
-  }
-  if (!isAuthChecked && !user) {
-    return /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#7c2d12]" }, /* @__PURE__ */ React.createElement("div", { className: "relative flex items-center justify-center" }, /* @__PURE__ */ React.createElement("div", { className: "w-16 h-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center shadow-[0_0_40px_rgba(249,115,22,0.35)] animate-pulse p-3" }, /* @__PURE__ */ React.createElement("img", { src: "assets/icon-only.png", alt: "Faiora Logo", draggable: false, onDragStart: (e) => e.preventDefault(), className: "w-11 h-11 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.8)] select-none pointer-events-none" }))), /* @__PURE__ */ React.createElement("h1", { className: "mt-4 text-base font-bold tracking-[0.25em] text-cream-light uppercase font-montserrat opacity-80" }, "FAIORA"));
   }
   if (!user) {
     return /* @__PURE__ */ React.createElement(LoginModal, null);

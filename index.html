@@ -294,8 +294,10 @@
     }
 }
 
-/* Default state for inactive nav icons */
+/* (2026-07-13) 5% smaller nav icons (25.08px). Prev: 26.4px */
 .nav-icon-filter {
+    width: 25.08px;
+    height: 25.08px;
     filter: brightness(1);
     transition: filter 0.15s ease-out, transform 0.15s ease-out;
 }
@@ -2487,14 +2489,13 @@
                         className={`nav-item-animation flex flex-col items-center justify-center group relative w-14 h-11 md:w-full md:aspect-square select-none transition-all duration-150 active:scale-95 rounded-xl`}
                         style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
                     >
-                        {/* (2026-10-03) Consistent icon size 24x24 (w-6 h-6) for all nav items, mobile and desktop. Prev: md:w-7 md:h-7 */}
-                        {/* FIX 2026-10-03: Added transition for smooth color shift on tap */}
+                        {/* (2026-07-13) 5% smaller nav icons (25.08px). Prev: 26.4px */}
                         <img 
                             src={iconSrc} 
                             alt={label} 
                             draggable={false} 
                             onDragStart={(e) => e.preventDefault()} 
-                            className={`nav-icon-filter w-6 h-6 object-contain select-none pointer-events-none transition-all duration-200 ${active ? 'drop-shadow-[0_0_10px_rgba(249,115,22,0.85)]' : ''}`} 
+                            className={`nav-icon-filter w-[25.08px] h-[25.08px] object-contain select-none pointer-events-none transition-all duration-200 ${active ? 'drop-shadow-[0_0_10px_rgba(249,115,22,0.85)]' : ''}`} 
                         />
                         <span className="absolute left-full ml-4 px-3 py-1 bg-primary text-white text-[10px] font-bold uppercase tracking-widest rounded-lg opacity-0 -translate-x-4 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 hidden md:block whitespace-nowrap z-[100] shadow-xl">{label}</span>
                     </Link>
@@ -3101,12 +3102,28 @@
                     return;
                 }
                 if (trimmed) {
-                    const targetPath = ['/quick-tasks', '/alarms'].includes(location.pathname) ? location.pathname : '/notes';
+                    // (2026-07-13) Allow search on homepage without notes redirect. Prev: /notes only
+                    const targetPath = ['/', '/quick-tasks', '/alarms'].includes(location.pathname) ? location.pathname : '/notes';
                     navigate(`${targetPath}?search=${encodeURIComponent(trimmed)}`);
-                } else if (['/notes', '/quick-tasks', '/alarms'].includes(location.pathname) && queryParams.has('search')) {
+                } else if (['/', '/notes', '/quick-tasks', '/alarms'].includes(location.pathname) && queryParams.has('search')) {
                     navigate(location.pathname);
                 }
             }, [isControlledSearch, location.pathname, navigate, onSearchSubmit, queryParams, queryValue]);
+
+            // (2026-07-13) Add clear search button handler. Prev: manual backspace
+            const clearSearch = useCallback(() => {
+                if (isControlledSearch) {
+                    onSearchChange('');
+                    if (typeof onSearchSubmit === 'function') {
+                        onSearchSubmit('');
+                    }
+                } else {
+                    setLocalQuery('');
+                    if (['/', '/notes', '/quick-tasks', '/alarms'].includes(location.pathname) && queryParams.has('search')) {
+                        navigate(location.pathname);
+                    }
+                }
+            }, [isControlledSearch, location.pathname, navigate, onSearchChange, onSearchSubmit, queryParams]);
 
             // Debounced Search to prevent lag and skip transition manager
             useEffect(() => {
@@ -3118,9 +3135,10 @@
                 const timer = setTimeout(() => {
                     const trimmed = localQuery.trim();
                     if (trimmed && trimmed !== initialSearch) {
-                        const targetPath = ['/quick-tasks', '/alarms'].includes(location.pathname) ? location.pathname : '/notes';
+                        // (2026-07-13) Retain search query on homepage. Prev: redirect to /notes
+                        const targetPath = ['/', '/quick-tasks', '/alarms'].includes(location.pathname) ? location.pathname : '/notes';
                         navigate(`${targetPath}?search=${encodeURIComponent(trimmed)}`);
-                    } else if (!trimmed && ['/notes', '/quick-tasks', '/alarms'].includes(location.pathname) && queryParams.has('search')) {
+                    } else if (!trimmed && ['/', '/notes', '/quick-tasks', '/alarms'].includes(location.pathname) && queryParams.has('search')) {
                         navigate(location.pathname);
                     }
                     setIsSearching(false);
@@ -3186,8 +3204,20 @@
                                                 submitSearch();
                                             }
                                         }}
-                                        className="w-full h-full bg-white/[0.08] hover:bg-white/[0.11] focus:bg-white/[0.14] border border-white/10 focus:border-primary/60 rounded-full pl-[35px] pr-4 text-[13.5px] text-cream-light placeholder:text-[13.5px] placeholder:text-white/35 outline-none focus:outline-none focus:ring-1 focus:ring-primary/40 shadow-[inset_0_1px_3px_rgba(0,0,0,0.35),0_2px_8px_rgba(0,0,0,0.15)] transition-all font-display"
+                                        className={`w-full h-full bg-white/[0.08] hover:bg-white/[0.11] focus:bg-white/[0.14] border border-white/10 focus:border-primary/60 rounded-full pl-[35px] ${Boolean(queryValue) ? 'pr-8' : 'pr-4'} text-[13.5px] text-cream-light placeholder:text-[13.5px] placeholder:text-white/35 outline-none focus:outline-none focus:ring-1 focus:ring-primary/40 shadow-[inset_0_1px_3px_rgba(0,0,0,0.35),0_2px_8px_rgba(0,0,0,0.15)] transition-all font-display`}
                                     />
+                                    {/* (2026-07-13) Add X clear search button on mobile. Prev: none */}
+                                    {Boolean(queryValue) && (
+                                        <button
+                                            type="button"
+                                            onClick={clearSearch}
+                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-white/40 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
+                                            aria-label="Clear search"
+                                            title="Clear search"
+                                        >
+                                            <span className="material-symbols-outlined text-[14px]">close</span>
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="flex-1 min-w-0 px-1 flex flex-col justify-center">
@@ -3233,8 +3263,20 @@
                                                 submitSearch();
                                             }
                                         }}
-                                        className="w-full bg-white/[0.03] border border-white/5 rounded-[2rem] py-5 pl-16 pr-8 text-cream-light placeholder:text-white/10 outline-none focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 focus:bg-white/5 transition-all font-display"
+                                        className={`w-full bg-white/[0.03] border border-white/5 rounded-[2rem] py-5 pl-16 ${Boolean(queryValue) ? 'pr-14' : 'pr-8'} text-cream-light placeholder:text-white/10 outline-none focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 focus:bg-white/5 transition-all font-display`}
                                     />
+                                    {/* (2026-07-13) Add X clear search button on desktop. Prev: none */}
+                                    {Boolean(queryValue) && (
+                                        <button
+                                            type="button"
+                                            onClick={clearSearch}
+                                            className="absolute right-5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full text-white/40 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
+                                            aria-label="Clear search"
+                                            title="Clear search"
+                                        >
+                                            <span className="material-symbols-outlined text-lg">close</span>
+                                        </button>
+                                    )}
                                 </div>
                             )}
                             <UserMenu user={user} />
@@ -5316,6 +5358,18 @@
                                             }}
                                             autoFocus
                                         />
+                                        {/* (2026-07-13) Add X button to clear note find query. Prev: none */}
+                                        {Boolean(searchQuery) && (
+                                            <button 
+                                                type="button" 
+                                                onClick={() => { setSearchQuery(''); setCurrentMatchIndex(0); }} 
+                                                className="p-0.5 hover:bg-black/5 rounded text-slate-400 hover:text-slate-600 transition-colors flex items-center justify-center ml-auto"
+                                                aria-label="Clear search"
+                                                title="Clear search"
+                                            >
+                                                <span className="material-symbols-outlined text-sm">close</span>
+                                            </button>
+                                        )}
                                     </div>
                                     {totalMatches > 0 && (
                                         <span className="text-[10px] font-bold text-slate-400 font-montserrat flex-shrink-0 px-1">
@@ -5852,6 +5906,18 @@
                                                     onChange={(e) => setSearchTerm(e.target.value)}
                                                     autoFocus
                                                 />
+                                                {/* (2026-07-13) Add X button to clear icon search. Prev: none */}
+                                                {Boolean(searchTerm) && (
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => setSearchTerm('')} 
+                                                        className="p-0.5 hover:bg-black/5 rounded text-slate-400 hover:text-slate-600 transition-colors flex items-center justify-center ml-auto"
+                                                        aria-label="Clear search"
+                                                        title="Clear search"
+                                                    >
+                                                        <span className="material-symbols-outlined text-base">close</span>
+                                                    </button>
+                                                )}
                                             </div>
                                             <div className="max-h-56 overflow-y-auto icon-picker-scroll grid grid-cols-4 gap-2 w-full pr-1 px-1">
                                                 {filteredIcons.map(icon => (
@@ -8215,6 +8281,24 @@
             const navigate = useNavigate();
             const { search } = useLocation();
             const queryParams = new URLSearchParams(search);
+            // (2026-07-13) Read search query for homepage filtering. Prev: unused on home
+            const searchQuery = (queryParams.get('search') || '').trim();
+
+            // (2026-07-13) Match notes against search query on homepage. Prev: none
+            const noteMatchesSearch = useCallback((note, q) => {
+                if (!q) return true;
+                const query = q.toLowerCase();
+                const searchableText = [
+                    note.title,
+                    note.content,
+                    (note.labels || []).join(' '),
+                    note.section,
+                    note.reminderDate,
+                    note.noteIcon
+                ].filter(Boolean).join(' ').toLowerCase();
+                return searchableText.includes(query);
+            }, []);
+
             const dragStateRef = useRef(null);
             const [dragState, setDragState] = useState(null);
             const lastUpdateRef = useRef(0);
@@ -8497,13 +8581,23 @@
                 });
             };
 
+            // (2026-07-13) Filter quick tasks by search query on homepage. Prev: cat only
             const filteredQuickTasks = useMemo(() => {
-                if (selectedCategory === 'ALL') return quickTasks;
-                return (quickTasks || []).filter(t => {
-                    const cats = Array.isArray(t.categories) ? t.categories : (t.category ? [t.category] : []);
-                    return cats.some(c => c.toLowerCase() === selectedCategory.toLowerCase());
-                });
-            }, [quickTasks, selectedCategory]);
+                let list = quickTasks || [];
+                if (selectedCategory !== 'ALL') {
+                    list = list.filter(t => {
+                        const cats = Array.isArray(t.categories) ? t.categories : (t.category ? [t.category] : []);
+                        return cats.some(c => c.toLowerCase() === selectedCategory.toLowerCase());
+                    });
+                }
+                if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    list = list.filter(t => 
+                        (t.text || t.title || '').toLowerCase().includes(q)
+                    );
+                }
+                return list;
+            }, [quickTasks, selectedCategory, searchQuery]);
 
             const sortedQuickTasks = useMemo(() => sortQuickTasksList(filteredQuickTasks), [filteredQuickTasks]);
 
@@ -8861,7 +8955,20 @@
                 return () => removeDocListeners();
             }, []);
 
-            const sortedPriorityNotes = useMemo(() => localNotes.slice(0, 6), [localNotes]);
+            // (2026-07-13) Filter homepage notes by search query. Prev: pinned only
+            const sortedPriorityNotes = useMemo(() => {
+                if (searchQuery) {
+                    return (notes || [])
+                        .filter(n => noteMatchesSearch(n, searchQuery))
+                        .sort((a, b) => {
+                            if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+                            const timeA = a.updatedAt ? (a.updatedAt.toMillis ? a.updatedAt.toMillis() : new Date(a.updatedAt).getTime()) : 0;
+                            const timeB = b.updatedAt ? (b.updatedAt.toMillis ? b.updatedAt.toMillis() : new Date(b.updatedAt).getTime()) : 0;
+                            return timeB - timeA;
+                        });
+                }
+                return localNotes.slice(0, 6);
+            }, [notes, localNotes, searchQuery, noteMatchesSearch]);
 
             // (2026-07-13) Pulse skeletons during pull-to-refresh. Prev: static delay
             const handleRefresh = async () => {
@@ -8890,11 +8997,12 @@
                                 {/* ------------------------------------------------------------------
                                    LABEL: SECTION-PRIORITY-NOTES
                                    ------------------------------------------------------------------ */}
+                                {/* (2026-07-13) Static PINNED section title during search. Prev: dynamic */}
                                 <h2 className="hidden md:block text-2xl font-bold text-cream-light/90 uppercase tracking-[0.3em] font-display">PINNED NOTES</h2>
                                 <h2 className="md:hidden text-lg font-bold text-cream-light/90 uppercase tracking-[0.2em] font-display">PINNED</h2>
                                 <div className="h-[1px] flex-1 bg-gradient-to-r from-primary/30 to-transparent"></div>
-                                <Link to="/notes" className="text-[9px] md:text-[10px] font-bold text-primary/60 uppercase tracking-widest hover:text-primary transition-colors">
-                                    view all ({notes.length})
+                                <Link to={searchQuery ? `/notes?search=${encodeURIComponent(searchQuery)}` : "/notes"} className="text-[9px] md:text-[10px] font-bold text-primary/60 uppercase tracking-widest hover:text-primary transition-colors">
+                                    view all ({searchQuery ? sortedPriorityNotes.length : notes.length})
                                 </Link>
                             </div>
                             
@@ -8904,54 +9012,54 @@
                                     {[...Array(6)].map((_, i) => <div key={i} className={i >= 4 ? 'hidden md:block' : ''}><PriorityNoteSkeleton index={i} /></div>)}
                                 </div>
                             ) : sortedPriorityNotes.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center p-20 glass-panel rounded-3xl border-dashed border-white/10 text-center animate-pulse">
-                                    <span className="material-symbols-outlined text-6xl text-white/5 mb-4">star</span>
-                                    <p className="text-white/40 font-medium mb-4 font-montserrat">No priority notes found</p>
-                                    <p className="text-white/20 text-xs mb-8 uppercase tracking-widest font-bold">Tag a note with "PRIORITY" to see it here</p>
-                                    <button 
-                                        onClick={onOpenCreator}
-                                        className="px-6 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-xl text-xs font-bold uppercase tracking-widest transition-all font-montserrat"
-                                    >
-                                        Add New Note
-                                    </button>
-                                </div>
-                            /* (2026-07-13) Fix JS comment format in ternary. Prev: JSX comment */
-                            ) : (
-                                queryParams.get('search') && sortedPriorityNotes.length === 0 ? (
-                                    <div className="col-span-full py-20 text-center glass-panel rounded-3xl border border-white/5">
+                                searchQuery ? (
+                                    <div className="col-span-full py-16 text-center glass-panel rounded-3xl border border-white/5">
                                         <span className="material-symbols-outlined text-4xl text-white/10 mb-2">search_off</span>
-                                        <p className="text-[10px] uppercase tracking-widest font-bold text-white/30">No matching important notes</p>
+                                        <p className="text-[10px] uppercase tracking-widest font-bold text-white/30">No matching notes found</p>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 px-0 md:px-2 mb-0 skeleton-fade-in">
-                                        {sortedPriorityNotes.slice(0, 6).map((note, index) => (
-                                            <div 
-                                                key={note.id}
-                                                onPointerDown={(e) => handlePointerDown(note.id, e)}
-                                                onContextMenu={(e) => e.preventDefault()}
-                                                style={{ touchAction: (dragState && dragState.noteId === note.id) ? 'none' : 'pan-y' }}
-                                                className={`transition-transform duration-300 ${dragState && dragState.noteId === note.id ? 'z-[1000] scale-105' : 'z-10'}`}
-                                            >
-                                                {/* note-card-container: individual priority note [FIX 2026-04-16] */}
-                                                <NoteCard 
-                                                    id={`note_card_${note.id}`}
-                                                    note={note} 
-                                                    onClick={(e) => {
-                                                        if (isScrollMoveRef.current) {
-                                                            e?.preventDefault?.();
-                                                            e?.stopPropagation?.();
-                                                            return;
-                                                        }
-                                                        onEditNote(note);
-                                                    }} 
-                                                    index={index} 
-                                                    variant="priority"
-                                                    onRemoveReminder={onRemoveReminder} 
-                                                />
-                                            </div>
-                                        ))}
+                                    <div className="flex flex-col items-center justify-center p-20 glass-panel rounded-3xl border-dashed border-white/10 text-center animate-pulse">
+                                        <span className="material-symbols-outlined text-6xl text-white/5 mb-4">star</span>
+                                        <p className="text-white/40 font-medium mb-4 font-montserrat">No priority notes found</p>
+                                        <p className="text-white/20 text-xs mb-8 uppercase tracking-widest font-bold">Tag a note with "PRIORITY" to see it here</p>
+                                        <button 
+                                            onClick={onOpenCreator}
+                                            className="px-6 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-xl text-xs font-bold uppercase tracking-widest transition-all font-montserrat"
+                                        >
+                                            Add New Note
+                                        </button>
+                                    </div>
+                                )
+                            ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 px-0 md:px-2 mb-0 skeleton-fade-in">
+                                    {sortedPriorityNotes.slice(0, searchQuery ? 12 : 6).map((note, index) => (
+                                        <div 
+                                            key={note.id}
+                                            onPointerDown={(e) => !searchQuery && handlePointerDown(note.id, e)}
+                                            onContextMenu={(e) => e.preventDefault()}
+                                            style={{ touchAction: (!searchQuery && dragState && dragState.noteId === note.id) ? 'none' : 'pan-y' }}
+                                            className={`transition-transform duration-300 ${!searchQuery && dragState && dragState.noteId === note.id ? 'z-[1000] scale-105' : 'z-10'}`}
+                                        >
+                                            {/* note-card-container: individual priority note [FIX 2026-04-16] */}
+                                            <NoteCard 
+                                                id={`note_card_${note.id}`}
+                                                note={note} 
+                                                onClick={(e) => {
+                                                    if (isScrollMoveRef.current) {
+                                                        e?.preventDefault?.();
+                                                        e?.stopPropagation?.();
+                                                        return;
+                                                    }
+                                                    onEditNote(note);
+                                                }} 
+                                                index={index} 
+                                                variant="priority"
+                                                onRemoveReminder={onRemoveReminder} 
+                                            />
+                                        </div>
+                                    ))}
 
-                                        {sortedPriorityNotes.length < 6 && (
+                                    {!searchQuery && sortedPriorityNotes.length < 6 && (
                                             sortedPriorityNotes.length === 2 || sortedPriorityNotes.length === 4 ? (
                                                 <React.Fragment>
                                                     {/* (2026-07-13) Retain wide Add Note on mobile only. Prev: all screens */}
@@ -8988,7 +9096,6 @@
                                             )
                                         )}
                                     </div>
-                                )
                             )}
                         </section>
 
@@ -9001,6 +9108,7 @@
                             <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-2.5">
                                 <div className="flex flex-col shrink-0">
                                     <div className="flex items-center gap-1.5 leading-none">
+                                        {/* (2026-07-13) Keep QUICK TASKS title on search. Prev: SEARCH RESULTS */}
                                         <h2 className="text-base sm:text-lg md:text-2xl font-bold text-cream-light/90 uppercase tracking-[0.12em] sm:tracking-[0.2em] md:tracking-[0.3em] font-display whitespace-nowrap leading-none">QUICK TASKS</h2>
                                         <button
                                             type="button"
@@ -9031,7 +9139,7 @@
                                         </span>
                                         <span className="text-white/20 text-[8px] md:text-[9px] leading-none select-none">•</span>
                                         <Link 
-                                            to="/quick-tasks"
+                                            to={searchQuery ? `/quick-tasks?search=${encodeURIComponent(searchQuery)}` : "/quick-tasks"}
                                             className="text-[8px] md:text-[9px] font-bold text-primary/70 uppercase tracking-widest hover:text-primary transition-colors inline-flex items-center gap-0.5 w-max active:scale-95 leading-none"
                                         >
                                             <span>View All</span>
@@ -9181,7 +9289,7 @@
                                     </div>
                                 ) : filteredQuickTasks.length === 0 ? (
                                     <div className="glass-panel p-10 rounded-3xl text-center border-dashed border-white/5">
-                                        <p className="text-white/20 text-sm font-bold uppercase tracking-widest">{selectedCategory !== 'ALL' ? `No tasks in ${selectedCategory}` : 'No quick tasks yet'}</p>
+                                        <p className="text-white/20 text-sm font-bold uppercase tracking-widest">{searchQuery ? 'No matching quick tasks found' : (selectedCategory !== 'ALL' ? `No tasks in ${selectedCategory}` : 'No quick tasks yet')}</p>
                                     </div>
                                 ) : (
                                     <div className="skeleton-fade-in">
@@ -20797,21 +20905,7 @@
                 return null; // Simplified from LoadingPage
             }
 
-            // (2026-07-13) Dark orange splash screen while checking auth. Prev: #070b14
-            if (!isAuthChecked && !user) {
-                return (
-                    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#7c2d12]">
-                        <div className="relative flex items-center justify-center">
-                            {/* (2026-07-13) Undraggable splash logo img. Prev: draggable */}
-                            <div className="w-16 h-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center shadow-[0_0_40px_rgba(249,115,22,0.35)] animate-pulse p-3">
-                                <img src="assets/icon-only.png" alt="Faiora Logo" draggable={false} onDragStart={(e) => e.preventDefault()} className="w-11 h-11 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.8)] select-none pointer-events-none" />
-                            </div>
-                        </div>
-                        <h1 className="mt-4 text-base font-bold tracking-[0.25em] text-cream-light uppercase font-montserrat opacity-80">FAIORA</h1>
-                    </div>
-                );
-            }
-
+            // (2026-07-13) Render LoginModal directly without splash. Prev: splash screen
             if (!user) {
                 return <LoginModal />;
             }
