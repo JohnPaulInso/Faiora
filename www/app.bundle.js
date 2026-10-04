@@ -5218,6 +5218,62 @@ const getTaskPrioTarget = (targetTask) => {
   const nowMins = Math.max(0, Math.round((now.getHours() * 60 + now.getMinutes() - 10) / 10) * 10);
   return { date: todayStr, time: `${String(Math.floor(nowMins / 60)).padStart(2, "0")}:${String(nowMins % 60).padStart(2, "0")}` };
 };
+const getSwipeReschedulePlan = (task, isOverdue = false) => {
+  const now = /* @__PURE__ */ new Date();
+  const todayStr = formatDateLocal(now);
+  const tomorrowStr = getTomorrow();
+  const currentHour = now.getHours();
+  const isDueBeforeToday = Boolean((task == null ? void 0 : task.dueDate) && task.dueDate < todayStr);
+  const isDueToday = Boolean(!(task == null ? void 0 : task.dueDate) || task.dueDate === todayStr);
+  if (isDueBeforeToday) {
+    return {
+      targetDate: todayStr,
+      targetTime: task.dueTime || "23:59",
+      label: "TODAY",
+      icon: "today",
+      action: "today"
+    };
+  }
+  if (isDueToday && isOverdue) {
+    const isWorkingHours = currentHour >= 8 && currentHour < 20;
+    const laterDate = new Date(now.getTime() + 2 * 60 * 60 * 1e3);
+    laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
+    if (isWorkingHours && formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 22) {
+      const h = String(laterDate.getHours()).padStart(2, "0");
+      const m = String(laterDate.getMinutes()).padStart(2, "0");
+      return {
+        targetDate: todayStr,
+        targetTime: `${h}:${m}`,
+        label: "LATER",
+        icon: "schedule",
+        action: "later"
+      };
+    }
+    return {
+      targetDate: tomorrowStr,
+      targetTime: task.dueTime || "10:00",
+      label: "TOMORROW",
+      icon: "event_upcoming",
+      action: "tomorrow"
+    };
+  }
+  if ((task == null ? void 0 : task.dueDate) === tomorrowStr) {
+    return {
+      targetDate: getDayAfterTomorrow(),
+      targetTime: task.dueTime || "10:00",
+      label: "TOMORROW",
+      icon: "event_upcoming",
+      action: "tomorrow"
+    };
+  }
+  return {
+    targetDate: tomorrowStr,
+    targetTime: task.dueTime || "10:00",
+    label: "TOMORROW",
+    icon: "event_upcoming",
+    action: "tomorrow"
+  };
+};
 const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQuickTask, showToast: showToast2, hideDateSubtitle = false, isSelectionMode = false, isSelected = false, onSelectToggle = null, viewMode = "standard" }) => {
   const { label: dueDateStr, isOverdue, isNearDeadline, isDueTomorrow, isDueToday } = formatDueDate(task.dueDate, task.dueTime);
   const timerRef = useRef(null);
@@ -5294,7 +5350,6 @@ const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQu
       const displayName = raw.length > 8 ? raw.slice(0, 4) + "\u2026" + raw.slice(-3) : raw;
       if (swipeOffset >= 75 && onUpdateQuickTask) {
         const now = /* @__PURE__ */ new Date();
-        const todayStr = formatDateLocal(now);
         window._faioraLastSwipe = window._faioraLastSwipe || /* @__PURE__ */ new Map();
         const lastSwipe = window._faioraLastSwipe.get(task.id);
         const nowMs = Date.now();
@@ -5302,64 +5357,25 @@ const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQu
         let targetDate = getTomorrow();
         let targetTime = "10:00";
         let toastLabel = `Moved "${displayName}" to Tomorrow`;
-        const isPastDueTask = Boolean(isOverdue || task.dueDate && task.dueDate < todayStr);
-        if (isPastDueTask) {
-          let baseTimeMs = now.getTime();
-          const laterDate = new Date(baseTimeMs + 2 * 60 * 60 * 1e3);
-          laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
-          targetDate = todayStr;
-          targetTime = "23:59";
-          if (formatDateLocal(laterDate) === todayStr) {
-            const h = String(laterDate.getHours()).padStart(2, "0");
-            const m = String(laterDate.getMinutes()).padStart(2, "0");
-            targetTime = `${h}:${m}`;
-          }
-          toastLabel = `Moved "${displayName}" to Today (${formatTime(targetTime)})`;
-          window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: "today" });
-        } else if (isWithin3s) {
+        if (isWithin3s) {
           const prioTarget = getTaskPrioTarget(task);
           targetDate = prioTarget.date;
           targetTime = prioTarget.time;
           toastLabel = `Prioritized "${displayName}" (${formatTime(targetTime)})`;
           window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: "prio" });
-        } else if (task.dueDate === getTomorrow()) {
-          targetDate = getDayAfterTomorrow();
-          targetTime = "10:00";
-          toastLabel = `Moved "${displayName}" to Tomorrow`;
-          window._faioraLastSwipe.delete(task.id);
         } else {
-          const hour = now.getHours();
-          const minute = now.getMinutes();
-          const isNight1h = hour >= 20 && hour < 22 || hour === 0 && minute <= 30;
-          const isToTomorrow = hour >= 22 || hour === 0 && minute > 30 || hour > 0 && hour < 6;
-          if (isToTomorrow) {
-            targetDate = getTomorrow();
-            targetTime = "10:00";
+          const plan = getSwipeReschedulePlan(task, isOverdue);
+          targetDate = plan.targetDate;
+          targetTime = plan.targetTime;
+          if (plan.action === "later") {
+            toastLabel = `Moved "${displayName}" to Later (${formatTime(targetTime)})`;
+            window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: "later" });
+          } else if (plan.action === "today") {
+            toastLabel = `Moved "${displayName}" to Today (${formatTime(targetTime)})`;
+            window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: "today" });
+          } else {
             toastLabel = `Moved "${displayName}" to Tomorrow`;
             window._faioraLastSwipe.delete(task.id);
-          } else {
-            let baseTimeMs = now.getTime();
-            if (task.dueDate === todayStr && task.dueTime) {
-              const [th, tm] = task.dueTime.split(":").map(Number);
-              const tDate = new Date(now);
-              tDate.setHours(th, tm, 0, 0);
-              if (tDate.getTime() > baseTimeMs) baseTimeMs = tDate.getTime();
-            }
-            const laterDate = new Date(baseTimeMs + (isNight1h ? 1 : 4) * 60 * 60 * 1e3);
-            laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
-            if (formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 22) {
-              const h = String(laterDate.getHours()).padStart(2, "0");
-              const m = String(laterDate.getMinutes()).padStart(2, "0");
-              targetDate = formatDateLocal(laterDate);
-              targetTime = `${h}:${m}`;
-              toastLabel = `Moved "${displayName}" to Later (${formatTime(targetTime)})`;
-              window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: "later" });
-            } else {
-              targetDate = getTomorrow();
-              targetTime = "10:00";
-              toastLabel = `Moved "${displayName}" to Tomorrow`;
-              window._faioraLastSwipe.delete(task.id);
-            }
           }
         }
         const prevDueDate = task.dueDate;
@@ -5402,64 +5418,43 @@ const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQu
     const nextState = !isCompletedState;
     setIsOptimisticCompleted(nextState);
     if (nextState) {
+      const cardEl = e.currentTarget.closest(".quick-task-card") || e.currentTarget;
+      if (cardEl) {
+        const rect = cardEl.getBoundingClientRect();
+        const checkmarkX = rect.left + 24;
+        const checkmarkY = rect.top + rect.height / 2;
+        if (window.createFireSparks) {
+          window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
+        }
+        if (window.playWhooshSound) {
+          window.playWhooshSound();
+        }
+        cardEl.classList.add("task-completing");
+      }
       try {
         if (typeof FaioraNotifications !== "undefined" && (FaioraNotifications == null ? void 0 : FaioraNotifications.playCheckSFX)) {
           FaioraNotifications.playCheckSFX();
         }
       } catch (err) {
       }
-      if (viewMode === "notepad" || viewMode === "categories") {
-        onToggle(task.id);
-      } else {
-        const taskElement = e.currentTarget;
-        const outerContainer = taskElement.closest(".quick-task-card");
-        if (outerContainer) {
-          outerContainer.classList.add("task-completing");
+      setTimeout(() => {
+        if (cardEl) {
+          cardEl.classList.remove("task-completing");
         }
-        setTimeout(() => {
-          if (outerContainer) {
-            outerContainer.classList.remove("task-completing");
-          }
-          onToggle(task.id);
-        }, 300);
-      }
+        onToggle(task.id);
+      }, 700);
     } else {
       onToggle(task.id);
     }
   };
   const swipeRescheduleInfo = swipeOffset > 0 ? (() => {
     var _a;
-    const now = /* @__PURE__ */ new Date();
-    const todayStr = formatDateLocal(now);
-    if (isOverdue || task.dueDate && task.dueDate < todayStr) {
-      return { label: "TODAY", icon: "today" };
-    }
     const lastSwipe = (_a = window._faioraLastSwipe) == null ? void 0 : _a.get(task.id);
     if (lastSwipe && lastSwipe.action === "later" && Date.now() - lastSwipe.timestamp <= 3e3) {
       return { label: "PRIO", icon: "priority_high" };
     }
-    if (task.dueDate === getTomorrow()) {
-      return { label: "TOMORROW", icon: "event_upcoming" };
-    }
-    const hour = now.getHours();
-    const minute = now.getMinutes();
-    if (hour >= 22 || hour === 0 && minute > 30 || hour > 0 && hour < 6) {
-      return { label: "TOMORROW", icon: "event_upcoming" };
-    }
-    const isNight1h = hour >= 20 && hour < 22 || hour === 0 && minute <= 30;
-    let baseTimeMs = now.getTime();
-    if (task.dueDate === todayStr && task.dueTime) {
-      const [th, tm] = task.dueTime.split(":").map(Number);
-      const tDate = new Date(now);
-      tDate.setHours(th, tm, 0, 0);
-      if (tDate.getTime() > baseTimeMs) baseTimeMs = tDate.getTime();
-    }
-    const laterDate = new Date(baseTimeMs + (isNight1h ? 1 : 4) * 60 * 60 * 1e3);
-    laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
-    if (formatDateLocal(laterDate) === todayStr && laterDate.getHours() < 22) {
-      return { label: "LATER", icon: "schedule" };
-    }
-    return { label: "TOMORROW", icon: "event_upcoming" };
+    const plan = getSwipeReschedulePlan(task, isOverdue);
+    return { label: plan.label, icon: plan.icon };
   })() : null;
   return /* @__PURE__ */ React.createElement(
     "div",
@@ -5551,7 +5546,8 @@ const QuickTaskNotepadItem = React.memo(({
   handleItemTouchEnd,
   handleItemTouchMove,
   longPressingId,
-  groupBy
+  groupBy,
+  showCheckedTasks = true
 }) => {
   const [swipeOffset, setSwipeOffset] = useState(0);
   const isSwipingRef = useRef(false);
@@ -5624,28 +5620,20 @@ const QuickTaskNotepadItem = React.memo(({
       const raw = (task.text || "Task").trim();
       const displayName = raw.length > 8 ? raw.slice(0, 4) + "\u2026" + raw.slice(-3) : raw;
       if (swipeOffset >= 75 && onUpdateQuickTask) {
-        const now = /* @__PURE__ */ new Date();
-        const todayStr = formatDateLocal(now);
-        window._faioraLastSwipe = window._faioraLastSwipe || /* @__PURE__ */ new Map();
         const nowMs = Date.now();
-        let baseTimeMs = now.getTime();
-        if (task.dueDate === todayStr && task.dueTime) {
-          const [th, tm] = task.dueTime.split(":").map(Number);
-          const tDate = new Date(now);
-          tDate.setHours(th, tm, 0, 0);
-          if (tDate.getTime() > baseTimeMs) baseTimeMs = tDate.getTime();
+        const plan = getSwipeReschedulePlan(task, isOverdue);
+        const targetDate = plan.targetDate;
+        const targetTime = plan.targetTime;
+        let toastLabel;
+        if (plan.action === "later") {
+          toastLabel = `Moved "${displayName}" to Later (${formatTime(targetTime)})`;
+        } else if (plan.action === "today") {
+          toastLabel = `Moved "${displayName}" to Today (${formatTime(targetTime)})`;
+        } else {
+          toastLabel = `Moved "${displayName}" to Tomorrow`;
         }
-        const laterDate = new Date(baseTimeMs + 2 * 60 * 60 * 1e3);
-        laterDate.setMinutes(Math.round(laterDate.getMinutes() / 10) * 10, 0, 0);
-        const targetDate = todayStr;
-        let targetTime = "23:59";
-        if (formatDateLocal(laterDate) === todayStr) {
-          const h = String(laterDate.getHours()).padStart(2, "0");
-          const m = String(laterDate.getMinutes()).padStart(2, "0");
-          targetTime = `${h}:${m}`;
-        }
-        const toastLabel = `Moved "${displayName}" to Today (${formatTime(targetTime)})`;
-        window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: "today" });
+        window._faioraLastSwipe = window._faioraLastSwipe || /* @__PURE__ */ new Map();
+        window._faioraLastSwipe.set(task.id, { timestamp: nowMs, action: plan.action });
         const prevDueDate = task.dueDate;
         const prevDueTime = task.dueTime;
         onUpdateQuickTask(task.id, task.text, targetDate, targetTime, task.categories, task.progress);
@@ -5701,31 +5689,39 @@ const QuickTaskNotepadItem = React.memo(({
       return;
     }
     const isCompleting = !task.completed;
-    console.log("[NOTEPAD] isCompleting:", isCompleting, "groupBy:", groupBy);
     if (isCompleting) {
       const taskElement = e.currentTarget;
-      const rect = taskElement.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-    }
-    if (isCompleting) {
+      if (taskElement) {
+        const rect = taskElement.getBoundingClientRect();
+        const checkmarkX = rect.left + 20;
+        const checkmarkY = rect.top + rect.height / 2;
+        if (window.createFireSparks) {
+          window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
+        }
+        if (window.playWhooshSound) {
+          window.playWhooshSound();
+        }
+      }
       try {
         if (typeof FaioraNotifications !== "undefined" && (FaioraNotifications == null ? void 0 : FaioraNotifications.playCheckSFX)) {
           FaioraNotifications.playCheckSFX();
         }
       } catch (err) {
-        console.warn("[NOTEPAD] Error playing SFX:", err);
       }
-    }
-    console.log("[NOTEPAD] Calling onToggle with task.id:", task.id, "onToggle exists:", !!onToggle);
-    if (onToggle) {
-      onToggle(task.id);
-      console.log("[NOTEPAD] onToggle called successfully");
+      if (showCheckedTasks) {
+        if (onToggle) onToggle(task.id);
+      } else {
+        if (taskElement) taskElement.classList.add("task-completing");
+        setTimeout(() => {
+          if (taskElement) taskElement.classList.remove("task-completing");
+          if (onToggle) onToggle(task.id);
+        }, 700);
+      }
     } else {
-      console.error("[NOTEPAD] onToggle is not defined!");
+      if (onToggle) onToggle(task.id);
     }
   };
-  const swipeRescheduleInfo = swipeOffset > 0 ? { label: "TODAY", icon: "today" } : null;
+  const swipeRescheduleInfo = swipeOffset > 0 ? getSwipeReschedulePlan(task, isOverdue) : null;
   return /* @__PURE__ */ React.createElement("div", { className: "relative overflow-hidden rounded-lg select-none" }, swipeOffset > 0 && swipeRescheduleInfo && /* @__PURE__ */ React.createElement(
     "div",
     {
@@ -6060,7 +6056,8 @@ const QuickTasksNotepadView = ({ tasks = [], onToggle, onSaveToNotes, onEditQuic
             handleItemTouchEnd,
             handleItemTouchMove,
             longPressingId,
-            groupBy
+            groupBy,
+            showCheckedTasks
           }
         )
       );
@@ -8559,7 +8556,7 @@ const CalendarPage = ({ user, notes: notes2, quickTasks: quickTasks2 = [], onOpe
             /* @__PURE__ */ React.createElement(
               "div",
               {
-                className: `glass-panel rounded-2xl py-2.5 px-3 md:py-3 md:px-4 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${item.completed ? "opacity-40 grayscale-[0.5]" : ""} ${isOverdue ? "border-red-500/30" : isNearDeadline ? "border-primary/60" : isDueToday ? "border-primary/40" : "border-white/5"} ${isDueToday && !isNearDeadline && !item.completed ? "today-task-glow" : ""} ${isNearDeadline && !item.completed ? "near-deadline-glow" : ""} ${isDueTomorrow && !item.completed ? "tomorrow-glow" : ""}`,
+                className: `bg-white/[0.04] rounded-2xl py-2.5 px-3 md:py-3 md:px-4 flex items-center justify-between group hover:bg-white/[0.07] active:bg-white/[0.08] cursor-pointer border select-none relative z-10 ${item.completed ? "opacity-40 grayscale-[0.5]" : ""} ${isOverdue ? "border-red-500/30" : isNearDeadline ? "border-primary/60" : isDueToday ? "border-primary/40" : "border-white/5"} ${isDueToday && !isNearDeadline && !item.completed ? "today-task-glow" : ""} ${isNearDeadline && !item.completed ? "near-deadline-glow" : ""} ${isDueTomorrow && !item.completed ? "tomorrow-glow" : ""}`,
                 onClick: () => onEditQuickTask && onEditQuickTask(item)
               },
               /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2.5 md:gap-3 pointer-events-none flex-1 min-w-0 pr-2" }, /* @__PURE__ */ React.createElement(
@@ -8610,7 +8607,7 @@ const CalendarPage = ({ user, notes: notes2, quickTasks: quickTasks2 = [], onOpe
         return /* @__PURE__ */ React.createElement("div", { key: idx, className: "quick-task-card relative rounded-2xl select-none" }, /* @__PURE__ */ React.createElement(
           "div",
           {
-            className: `glass-panel rounded-2xl py-2.5 px-3 md:py-3 md:px-4 flex items-center justify-between group hover:bg-white/[0.07] hover:border-primary/30 active:bg-white/[0.08] active:border-primary/40 transition-all duration-200 cursor-pointer border shadow-lg hover:shadow-primary/5 select-none relative z-10 ${item.completed ? "opacity-40 grayscale-[0.5]" : ""} ${isOverdue ? "border-red-500/30" : isNearDeadline ? "border-primary/60" : isDueToday ? "border-primary/40" : "border-white/5"} ${isDueToday && !isNearDeadline && !item.completed ? "today-task-glow" : ""} ${isNearDeadline && !item.completed ? "near-deadline-glow" : ""} ${isDueTomorrow && !item.completed ? "tomorrow-glow" : ""}`,
+            className: `bg-white/[0.04] rounded-2xl py-2.5 px-3 md:py-3 md:px-4 flex items-center justify-between group hover:bg-white/[0.07] active:bg-white/[0.08] cursor-pointer border select-none relative z-10 ${item.completed ? "opacity-40 grayscale-[0.5]" : ""} ${isOverdue ? "border-red-500/30" : isNearDeadline ? "border-primary/60" : isDueToday ? "border-primary/40" : "border-white/5"} ${isDueToday && !isNearDeadline && !item.completed ? "today-task-glow" : ""} ${isNearDeadline && !item.completed ? "near-deadline-glow" : ""} ${isDueTomorrow && !item.completed ? "tomorrow-glow" : ""}`,
             onClick: () => onEditQuickTask && onEditQuickTask(item)
           },
           /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2.5 md:gap-3 pointer-events-none flex-1 min-w-0 pr-2" }, /* @__PURE__ */ React.createElement(
@@ -14735,6 +14732,8 @@ const App = () => {
     return () => unsubscribe();
   }, [user, activeCollection2]);
   const handleUpdateNoteLocal = useCallback((updatedNote) => {
+    const _scrollEl = document.getElementById("faiora_main_content_scroll");
+    const _savedScroll = _scrollEl ? _scrollEl.scrollTop : 0;
     setNotes((prev) => {
       const idx = prev.findIndex((n) => n.id === updatedNote.id);
       const newNotes = [...prev];
@@ -14756,6 +14755,13 @@ const App = () => {
       }
       return newNotes;
     });
+    if (_scrollEl && _savedScroll > 0) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (_scrollEl) _scrollEl.scrollTop = _savedScroll;
+        });
+      });
+    }
   }, [user]);
   const handleDeleteNoteLocal = useCallback((noteId) => {
     setNotes((prev) => {

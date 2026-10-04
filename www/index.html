@@ -380,8 +380,9 @@
     }
 }
 
+/* (2026-07-13) Set 700ms completion: 400ms pause + 300ms fade. Prev: 300ms */
 .task-completing {
-    animation: dust-fade-out 300ms cubic-bezier(0.4, 0, 1, 1) forwards;
+    animation: dust-fade-out 300ms cubic-bezier(0.4, 0, 1, 1) 400ms forwards;
 }
 
 .task-spark-celebration {
