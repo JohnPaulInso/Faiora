@@ -10998,17 +10998,18 @@
                             <div className="px-4 md:px-0 mx-0 mt-[calc(72px+env(safe-area-inset-top,0px))] md:mt-4">
                                 <div className="flex items-center justify-between mb-4 md:mb-6">
                                     <div className="flex items-center justify-between w-full">
-                                        <button onClick={prevMonth} className="w-10 h-10 glass-panel rounded-full text-cream-light/60 hover:text-primary transition-all flex items-center justify-center border border-white/5 hover:border-primary/20"><span className="material-symbols-outlined text-lg">chevron_left</span></button>
+                                        <button onClick={prevMonth} className="w-10 h-10 bg-white/5 rounded-full text-cream-light/60 hover:text-primary transition-all flex items-center justify-center border border-white/5 hover:border-primary/20"><span className="material-symbols-outlined text-lg">chevron_left</span></button>
                                         
                                         {/* FIX 2026-04-22: Month title is now perfectly centered between arrows as requested */}
                                         <div className="flex-1 text-center">
                                             <h2 className="text-xl md:text-3xl font-display font-bold text-cream-light tracking-[0.10em] md:tracking-[0.20em] uppercase">{monthName} {year}</h2>
                                         </div>
 
-                                        <button onClick={nextMonth} className="w-10 h-10 glass-panel rounded-full text-cream-light/60 hover:text-primary transition-all flex items-center justify-center border border-white/5 hover:border-primary/20"><span className="material-symbols-outlined text-lg">chevron_right</span></button>
+                                        <button onClick={nextMonth} className="w-10 h-10 bg-white/5 rounded-full text-cream-light/60 hover:text-primary transition-all flex items-center justify-center border border-white/5 hover:border-primary/20"><span className="material-symbols-outlined text-lg">chevron_right</span></button>
                                     </div>
                                 </div>
-                                <div className="glass-panel rounded-xl md:rounded-2xl overflow-hidden border-white/5 shadow-2xl mb-6">
+                                {/* (2026-07-13) Fix APK square flickering via opaque background. Prev: blur */}
+                                <div className="bg-[#18110c]/90 rounded-xl md:rounded-2xl overflow-hidden border border-white/10 mb-6">
                                     <div className="grid grid-cols-7 bg-white/5 text-center border-b border-white/5 py-2.5">
                                         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
                                             <div key={day} className="text-[9px] font-bold text-primary/60 uppercase tracking-widest">{day}</div>
@@ -11023,8 +11024,7 @@
                                                 <div 
                                                     key={i} 
                                                     onClick={() => cell.current && (setSelectedDate(new Date(year, month, cell.day)), setUpcomingPage(0))}
-                                                    // (2026-07-13) Fix overflow text visibility below 4th chip. Prev: clipped
-                                                    className={`border-r border-b border-white/5 pt-1 px-1 pb-1 h-[108px] md:h-[120px] overflow-hidden relative transition-colors cursor-pointer ${cell.current ? 'hover:bg-white/5' : 'opacity-25'} ${todayMatch ? 'bg-primary/10' : ''} ${selectedMatch && !todayMatch ? 'bg-white/5' : ''}`}
+                                                    className={`border-r border-b border-white/5 pt-1 px-1 pb-1 h-[108px] md:h-[120px] overflow-hidden relative cursor-pointer ${cell.current ? 'hover:bg-white/5' : 'opacity-25'} ${todayMatch ? 'bg-primary/10' : ''} ${selectedMatch && !todayMatch ? 'bg-white/5' : ''}`}
                                                 >
                                                     <span className={`text-xs font-sans ${todayMatch ? 'font-bold text-primary' : ''} ${selectedMatch && !todayMatch ? 'font-semibold text-cream-light' : ''}`}>{cell.day}</span>
                                                     {todayMatch && <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary glow-orange"></div>}
@@ -11054,7 +11054,7 @@
                             </div>
                         </div>
                         {/* (2026-10-04) Close left flex-col column. Prev: missing caused JSX unclosed-div error */}
-                        <aside className="w-full md:w-96 border-t md:border-t-0 md:border-l border-white/5 bg-black/20 backdrop-blur-md p-6 pb-28 overflow-y-auto no-scrollbar flex-shrink-0 md:rounded-none rounded-[2.5rem] mt-6 md:mt-0">
+                        <aside className="w-full md:w-96 border-t md:border-t-0 md:border-l border-white/5 bg-[#140e0a]/90 p-6 pb-28 overflow-y-auto no-scrollbar flex-shrink-0 md:rounded-none rounded-[2.5rem] mt-6 md:mt-0">
                             <div className="mb-6">
                                 <div className="flex items-center gap-3 mb-1.5 justify-between">
                                     <h3 className="text-xl font-display font-bold text-cream-light">Daily Agenda</h3>
