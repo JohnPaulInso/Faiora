@@ -5296,6 +5296,7 @@ const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQu
   const startPosRef = useRef({ x: 0, y: 0 });
   const isPointerDownRef = useRef(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const lastTapRef = useRef(0);
   const [isOptimisticCompleted, setIsOptimisticCompleted] = useState(task.completed);
   useEffect(() => {
     setIsOptimisticCompleted(task.completed);
@@ -5416,38 +5417,42 @@ const QuickTaskItem = React.memo(({ task, onToggle, onDelete, onEdit, onUpdateQu
     }
   };
   const handleClick = (e) => {
-    console.log("[QUICKTASK] handleClick called", { isSelectionMode, viewMode, isCompletedState, nextState: !isCompletedState });
     if (isSelectionMode) {
       if (onSelectToggle) onSelectToggle(task.id);
       return;
     }
+    const now = Date.now();
+    if (now - lastTapRef.current < 350) return;
+    lastTapRef.current = now;
     if (isLongPressRef.current || isSwipingRef.current || Math.abs(swipeOffset) > 10) {
       isLongPressRef.current = false;
-      console.log("[QUICKTASK] Click blocked by guard condition");
       return;
     }
     const nextState = !isCompletedState;
     setIsOptimisticCompleted(nextState);
     if (nextState) {
       const cardEl = e.currentTarget.closest(".quick-task-card") || e.currentTarget;
-      if (cardEl) {
-        const rect = cardEl.getBoundingClientRect();
-        const checkmarkX = rect.left + 24;
-        const checkmarkY = rect.top + rect.height / 2;
-        if (window.createFireSparks) {
-          window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
+      const isHomePage = window.location.pathname === "/" || window.location.pathname === "";
+      requestAnimationFrame(() => {
+        if (cardEl) {
+          const rect = cardEl.getBoundingClientRect();
+          const checkmarkX = rect.left + 24;
+          const checkmarkY = rect.top + rect.height / 2;
+          if (window.createFireSparks && !isHomePage) {
+            window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
+          }
+          if (window.playWhooshSound && !isHomePage) {
+            window.playWhooshSound();
+          }
+          cardEl.classList.add("task-completing");
         }
-        if (window.playWhooshSound) {
-          window.playWhooshSound();
+        try {
+          if (typeof FaioraNotifications !== "undefined" && (FaioraNotifications == null ? void 0 : FaioraNotifications.playCheckSFX)) {
+            FaioraNotifications.playCheckSFX();
+          }
+        } catch (err) {
         }
-        cardEl.classList.add("task-completing");
-      }
-      try {
-        if (typeof FaioraNotifications !== "undefined" && (FaioraNotifications == null ? void 0 : FaioraNotifications.playCheckSFX)) {
-          FaioraNotifications.playCheckSFX();
-        }
-      } catch (err) {
-      }
+      });
       setTimeout(() => {
         if (cardEl) {
           cardEl.classList.remove("task-completing");

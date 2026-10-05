@@ -6953,15 +6953,17 @@
                 if (nextState) {
                     const cardEl = e.currentTarget.closest('.quick-task-card') || e.currentTarget;
                     // (2026-07-13) Defer sparks/sound to rAF so state paint is first. Prev: sync
+                    // FIX 2026-10-05: Disable checkmark sparks on homepage to reduce lag
+                    const isHomePage = window.location.pathname === '/' || window.location.pathname === '';
                     requestAnimationFrame(() => {
                         if (cardEl) {
                             const rect = cardEl.getBoundingClientRect();
                             const checkmarkX = rect.left + 24;
                             const checkmarkY = rect.top + rect.height / 2;
-                            if (window.createFireSparks) {
+                            if (window.createFireSparks && !isHomePage) {
                                 window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
                             }
-                            if (window.playWhooshSound) {
+                            if (window.playWhooshSound && !isHomePage) {
                                 window.playWhooshSound();
                             }
                             cardEl.classList.add('task-completing');
