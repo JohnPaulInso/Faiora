@@ -5711,10 +5711,11 @@ const QuickTaskNotepadItem = React.memo(({
         const rect = taskElement.getBoundingClientRect();
         const checkmarkX = rect.left + 20;
         const checkmarkY = rect.top + rect.height / 2;
-        if (window.createFireSparks) {
+        const isHomePage = window.location.pathname === "/" || window.location.pathname === "";
+        if (window.createFireSparks && !isHomePage) {
           window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
         }
-        if (window.playWhooshSound) {
+        if (window.playWhooshSound && !isHomePage) {
           window.playWhooshSound();
         }
       }
