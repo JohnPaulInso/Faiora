@@ -1617,23 +1617,25 @@ const FaioraNotifications = (() => {
 const Sidebar = () => null;
 const MobileNav = () => null;
 const createFireSparks = (x, y, width = 200, isWide = false) => {
-  const sparkCount = 8 + Math.floor(Math.random() * 5);
+  const sparkCount = 6 + Math.floor(Math.random() * 3);
+  const fragment = document.createDocumentFragment();
   for (let i = 0; i < sparkCount; i++) {
     const spark = document.createElement("div");
     spark.className = "fire-spark-particle";
-    const angle = Math.PI * 2 / sparkCount * i + (Math.random() - 0.5) * 0.6;
-    const distance = 30 + Math.random() * 50;
+    const angle = Math.PI * 2 / sparkCount * i + (Math.random() - 0.5) * 0.4;
+    const distance = 25 + Math.random() * 35;
     const sparkX = Math.cos(angle) * distance;
     const sparkY = Math.sin(angle) * distance;
     spark.style.setProperty("--spark-x", `${sparkX}px`);
     spark.style.setProperty("--spark-y", `${sparkY}px`);
     spark.style.left = `${x}px`;
     spark.style.top = `${y}px`;
-    spark.style.animationDelay = `${i * 15}ms`;
-    spark.style.animationDuration = `${250 + Math.random() * 150}ms`;
-    document.body.appendChild(spark);
-    setTimeout(() => spark.remove(), 450);
+    spark.style.animationDelay = `${i * 10}ms`;
+    spark.style.animationDuration = `${220 + Math.random() * 100}ms`;
+    fragment.appendChild(spark);
+    setTimeout(() => spark.remove(), 400);
   }
+  document.body.appendChild(fragment);
 };
 window.createFireSparks = createFireSparks;
 const createEmberParticles = (x, y) => {
@@ -1651,9 +1653,18 @@ const createEmberParticles = (x, y) => {
   }
 };
 window.createEmberParticles = createEmberParticles;
+let _faioraWhooshCtx = null;
 const playWhooshSound = () => {
   try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!_faioraWhooshCtx) {
+      const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtxClass) _faioraWhooshCtx = new AudioCtxClass();
+    }
+    const audioCtx = _faioraWhooshCtx;
+    if (!audioCtx) return;
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume();
+    }
     const oscillator = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
     oscillator.connect(gainNode);
@@ -5763,7 +5774,7 @@ const QuickTaskNotepadItem = React.memo(({
         transition: isSwipingRef.current ? "none" : "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease"
       }
     },
-    /* @__PURE__ */ React.createElement("div", { className: "flex items-start gap-2.5 min-w-0 flex-1 pointer-events-none" }, isSelectionMode ? /* @__PURE__ */ React.createElement("div", { className: `w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all ${isSelected ? "bg-primary border-primary text-white shadow-sm shadow-primary/40 scale-105" : "border-white/35 bg-white/5 hover:border-primary/50"}` }, isSelected && /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-xs font-bold" }, "check")) : /* @__PURE__ */ React.createElement("div", { className: `qt-notepad-checkbox w-5 h-5 flex items-center justify-center flex-shrink-0 transition-all group-hover:border-primary/80 ${task.completed ? "checked" : isInProgress ? "in-progress" : ""}` }, task.completed ? /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-white text-xs font-bold" }, "check") : isInProgress ? /* @__PURE__ */ React.createElement("div", { className: "w-1.5 h-1.5 rounded-sm bg-primary shadow-[0_0_6px_rgba(249,115,22,0.8)]" }) : null), /* @__PURE__ */ React.createElement("div", { className: "flex-1 min-w-0" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1.5 flex-wrap" }, /* @__PURE__ */ React.createElement("span", { className: `qt-notepad-item-text text-xs md:text-sm font-montserrat leading-5 transition-all duration-150 ${(task.text || "").length <= (taskProgress > 0 && !task.completed ? task.dueTime ? 18 : 22 : task.dueTime ? 30 : 38) ? "clamp-1" : "clamp-2"} ${isLongPressing || longPressingId === task.id ? task.completed ? "text-primary/40 line-through" : "text-primary font-semibold" : isPressed ? "text-primary font-semibold" : task.completed ? "line-through text-white/50 group-hover:text-white/70" : isPastDue ? "text-red-300/80 group-hover:text-red-200" : "text-cream-light group-hover:text-primary"}` }, formatTaskText(task.text), task.dueTime && (secKey === "today" || secKey === "tomorrow" || secKey === "yesterday") && !task.completed && /* @__PURE__ */ React.createElement("span", { className: "ml-1.5 text-[10px] font-bold text-orange-500/50 align-baseline whitespace-nowrap", style: { fontVariantNumeric: "tabular-nums", letterSpacing: "0.02em" } }, formatTime(task.dueTime).replace(/\s+([AP]M)/i, "$1"))), isDuplicate && /* @__PURE__ */ React.createElement("span", { className: "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8.5px] font-bold font-montserrat uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0", title: "Duplicate task" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[10px]" }, "content_copy"), "DUP")))),
+    /* @__PURE__ */ React.createElement("div", { className: "flex items-start gap-2.5 min-w-0 flex-1 pointer-events-none" }, isSelectionMode ? /* @__PURE__ */ React.createElement("div", { className: `w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all ${isSelected ? "bg-primary border-primary text-white shadow-sm shadow-primary/40 scale-105" : "border-white/35 bg-white/5 hover:border-primary/50"}` }, isSelected && /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-xs font-bold" }, "check")) : /* @__PURE__ */ React.createElement("div", { className: `qt-notepad-checkbox w-5 h-5 flex items-center justify-center flex-shrink-0 transition-all group-hover:border-primary/80 ${task.completed ? "checked" : isInProgress ? "in-progress" : ""}` }, task.completed ? /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-white text-xs font-bold" }, "check") : isInProgress ? /* @__PURE__ */ React.createElement("div", { className: "w-1.5 h-1.5 rounded-sm bg-primary shadow-[0_0_6px_rgba(249,115,22,0.8)]" }) : null), /* @__PURE__ */ React.createElement("div", { className: "flex-1 min-w-0" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1.5 flex-wrap" }, /* @__PURE__ */ React.createElement("span", { className: `qt-notepad-item-text text-xs md:text-sm font-montserrat font-medium leading-5 line-clamp-2 transition-colors duration-150 ${isLongPressing || longPressingId === task.id ? task.completed ? "text-primary/40 line-through" : "text-primary" : isPressed ? "text-primary" : task.completed ? "line-through text-white/50 group-hover:text-white/70" : isPastDue ? "text-red-300/80 group-hover:text-red-200" : "text-cream-light group-hover:text-primary"}` }, formatTaskText(task.text), task.dueTime && (secKey === "today" || secKey === "tomorrow" || secKey === "yesterday") && !task.completed && /* @__PURE__ */ React.createElement("span", { className: "ml-1.5 text-[10px] font-bold text-orange-500/50 align-baseline whitespace-nowrap", style: { fontVariantNumeric: "tabular-nums", letterSpacing: "0.02em" } }, formatTime(task.dueTime).replace(/\s+([AP]M)/i, "$1"))), isDuplicate && /* @__PURE__ */ React.createElement("span", { className: "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8.5px] font-bold font-montserrat uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0", title: "Duplicate task" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[10px]" }, "content_copy"), "DUP")))),
     taskProgress > 0 && !task.completed && /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1.5 shrink-0 pl-2 pointer-events-none self-center" }, /* @__PURE__ */ React.createElement("span", { className: "text-[10px] font-montserrat font-bold text-primary/90" }, taskProgress, "%"), /* @__PURE__ */ React.createElement("div", { className: "w-12 md:w-14 h-1 bg-white/10 rounded-full overflow-hidden" }, /* @__PURE__ */ React.createElement(
       "div",
       {

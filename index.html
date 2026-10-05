@@ -6812,6 +6812,8 @@
             const startPosRef = useRef({ x: 0, y: 0 });
             const isPointerDownRef = useRef(false);
             const [isCompleting, setIsCompleting] = useState(false);
+            // (2026-07-13) Tap debounce guard: prevent double-tap stutter. Prev: none
+            const lastTapRef = useRef(0);
             // (2026-07-13) Optimistic completed state for zero-latency tap. Prev: prop only
             const [isOptimisticCompleted, setIsOptimisticCompleted] = useState(task.completed);
             useEffect(() => {
@@ -6933,39 +6935,43 @@
             };
 
             const handleClick = (e) => {
-                console.log('[QUICKTASK] handleClick called', { isSelectionMode, viewMode, isCompletedState, nextState: !isCompletedState });
-                
                 if (isSelectionMode) {
                     if (onSelectToggle) onSelectToggle(task.id);
                     return;
                 }
+                // (2026-07-13) 350ms tap debounce; prevents double-tap ghost clicks. Prev: none
+                const now = Date.now();
+                if (now - lastTapRef.current < 350) return;
+                lastTapRef.current = now;
+
                 if (isLongPressRef.current || isSwipingRef.current || Math.abs(swipeOffset) > 10) {
                     isLongPressRef.current = false;
-                    console.log('[QUICKTASK] Click blocked by guard condition');
                     return;
                 }
-                // (2026-07-13) Fire sparks and smooth fade-out on complete. Prev: no sparks
                 const nextState = !isCompletedState;
                 setIsOptimisticCompleted(nextState);
                 if (nextState) {
                     const cardEl = e.currentTarget.closest('.quick-task-card') || e.currentTarget;
-                    if (cardEl) {
-                        const rect = cardEl.getBoundingClientRect();
-                        const checkmarkX = rect.left + 24;
-                        const checkmarkY = rect.top + rect.height / 2;
-                        if (window.createFireSparks) {
-                            window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
+                    // (2026-07-13) Defer sparks/sound to rAF so state paint is first. Prev: sync
+                    requestAnimationFrame(() => {
+                        if (cardEl) {
+                            const rect = cardEl.getBoundingClientRect();
+                            const checkmarkX = rect.left + 24;
+                            const checkmarkY = rect.top + rect.height / 2;
+                            if (window.createFireSparks) {
+                                window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
+                            }
+                            if (window.playWhooshSound) {
+                                window.playWhooshSound();
+                            }
+                            cardEl.classList.add('task-completing');
                         }
-                        if (window.playWhooshSound) {
-                            window.playWhooshSound();
-                        }
-                        cardEl.classList.add('task-completing');
-                    }
-                    try {
-                        if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications?.playCheckSFX) {
-                            FaioraNotifications.playCheckSFX();
-                        }
-                    } catch(err) {}
+                        try {
+                            if (typeof FaioraNotifications !== 'undefined' && FaioraNotifications?.playCheckSFX) {
+                                FaioraNotifications.playCheckSFX();
+                            }
+                        } catch(err) {}
+                    });
 
                     // (2026-07-13) 700ms completion delay before disappearing. Prev: 240ms
                     setTimeout(() => {

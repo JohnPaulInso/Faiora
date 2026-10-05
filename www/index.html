@@ -333,15 +333,15 @@
     }
 }
 
-/* Fire spark particles for Notepad/Category views */
+/* (2026-07-13) GPU translate3d for fire sparks. Prev: 2D translate */
 @keyframes fire-spark-float {
     0% {
         opacity: 1;
-        transform: translate(0, 0) scale(1);
+        transform: translate3d(0, 0, 0) scale(1);
     }
     100% {
         opacity: 0;
-        transform: translate(var(--spark-x), var(--spark-y)) scale(0);
+        transform: translate3d(var(--spark-x), var(--spark-y), 0) scale(0);
     }
 }
 
@@ -389,6 +389,7 @@
     animation: success-glow 500ms ease-out;
 }
 
+/* (2026-07-13) Add will-change to spark particles. Prev: unaccelerated */
 .fire-spark-particle {
     position: fixed;
     width: 4px;
@@ -397,6 +398,8 @@
     border-radius: 50%;
     pointer-events: none;
     z-index: 9999;
+    will-change: transform, opacity;
+    backface-visibility: hidden;
     animation: fire-spark-float 500ms ease-out forwards;
 }
 
