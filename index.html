@@ -333,15 +333,15 @@
     }
 }
 
-/* Fire spark particles for Notepad/Category views */
+/* (2026-07-13) GPU translate3d for fire sparks. Prev: 2D translate */
 @keyframes fire-spark-float {
     0% {
         opacity: 1;
-        transform: translate(0, 0) scale(1);
+        transform: translate3d(0, 0, 0) scale(1);
     }
     100% {
         opacity: 0;
-        transform: translate(var(--spark-x), var(--spark-y)) scale(0);
+        transform: translate3d(var(--spark-x), var(--spark-y), 0) scale(0);
     }
 }
 
@@ -389,6 +389,7 @@
     animation: success-glow 500ms ease-out;
 }
 
+/* (2026-07-13) Add will-change to spark particles. Prev: unaccelerated */
 .fire-spark-particle {
     position: fixed;
     width: 4px;
@@ -397,6 +398,8 @@
     border-radius: 50%;
     pointer-events: none;
     z-index: 9999;
+    will-change: transform, opacity;
+    backface-visibility: hidden;
     animation: fire-spark-float 500ms ease-out forwards;
 }
 
@@ -2335,17 +2338,16 @@
         // Must be defined before any component that uses them
         // ------------------------------------------------------------------
         
-        // Minimal fire spark particles - positioned at checkmark
+        // (2026-07-13) Batch append & optimize spark particles. Prev: append in loop
         const createFireSparks = (x, y, width = 200, isWide = false) => {
-            const sparkCount = 8 + Math.floor(Math.random() * 5); // Always 8-12 particles
-            
+            const sparkCount = 6 + Math.floor(Math.random() * 3);
+            const fragment = document.createDocumentFragment();
             for (let i = 0; i < sparkCount; i++) {
                 const spark = document.createElement('div');
                 spark.className = 'fire-spark-particle';
                 
-                // Random burst in all directions from checkmark
-                const angle = (Math.PI * 2 / sparkCount) * i + (Math.random() - 0.5) * 0.6;
-                const distance = 30 + Math.random() * 50; // 30-80px
+                const angle = (Math.PI * 2 / sparkCount) * i + (Math.random() - 0.5) * 0.4;
+                const distance = 25 + Math.random() * 35;
                 const sparkX = Math.cos(angle) * distance;
                 const sparkY = Math.sin(angle) * distance;
                 
@@ -2353,12 +2355,13 @@
                 spark.style.setProperty('--spark-y', `${sparkY}px`);
                 spark.style.left = `${x}px`;
                 spark.style.top = `${y}px`;
-                spark.style.animationDelay = `${i * 15}ms`; // Staggered for smoothness
-                spark.style.animationDuration = `${250 + Math.random() * 150}ms`; // 250-400ms (fast)
+                spark.style.animationDelay = `${i * 10}ms`;
+                spark.style.animationDuration = `${220 + Math.random() * 100}ms`;
                 
-                document.body.appendChild(spark);
-                setTimeout(() => spark.remove(), 450);
+                fragment.appendChild(spark);
+                setTimeout(() => spark.remove(), 400);
             }
+            document.body.appendChild(fragment);
         };
         // Expose globally for task completion animations
         window.createFireSparks = createFireSparks;
@@ -2384,10 +2387,19 @@
         // Expose globally for task completion animations
         window.createEmberParticles = createEmberParticles;
 
-        // Whoosh sound effect for dust animation
+        // (2026-07-13) Reuse singleton AudioContext for sound. Prev: new context
+        let _faioraWhooshCtx = null;
         const playWhooshSound = () => {
             try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (!_faioraWhooshCtx) {
+                    const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtxClass) _faioraWhooshCtx = new AudioCtxClass();
+                }
+                const audioCtx = _faioraWhooshCtx;
+                if (!audioCtx) return;
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
                 const oscillator = audioCtx.createOscillator();
                 const gainNode = audioCtx.createGain();
                 
@@ -7062,13 +7074,14 @@
                             )}
                         </div>
                     </div>
-                    {task.progress > 0 && !(isCompletedState || isCompleting) && (
-                        <div className="flex flex-col items-end gap-0.5 shrink-0 px-2 pointer-events-none">
-                            <span className="text-[9px] font-montserrat font-bold text-white/50">{task.progress}%</span>
+                    {/* (2026-07-13) Retain progress bar at 100% on complete. Prev: hidden */}
+                    {task.progress > 0 && (
+                        <div className={`flex flex-col items-end gap-0.5 shrink-0 px-2 pointer-events-none transition-opacity duration-200 ${(isCompletedState || isCompleting) ? 'opacity-40 grayscale-[0.5]' : ''}`}>
+                            <span className="text-[9px] font-montserrat font-bold text-white/50">{(isCompletedState || isCompleting) ? 100 : task.progress}%</span>
                             <div className="w-12 md:w-14 h-1 bg-white/10 rounded-full overflow-hidden">
                                 <div 
                                     className="h-full bg-primary rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(249,115,22,0.4)]"
-                                    style={{ width: `${task.progress}%` }}
+                                    style={{ width: `${(isCompletedState || isCompleting) ? 100 : task.progress}%` }}
                                 ></div>
                             </div>
                         </div>
@@ -7358,8 +7371,8 @@
                             )}
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                    {/* (2026-07-13) Subtle light red color for past due. Prev: text-cream-light */}
-                                    <span className={`qt-notepad-item-text text-xs md:text-sm font-montserrat leading-5 transition-all duration-150 ${((task.text || '').length <= ((taskProgress > 0 && !task.completed) ? (task.dueTime ? 18 : 22) : (task.dueTime ? 30 : 38))) ? 'clamp-1' : 'clamp-2'} ${isLongPressing || longPressingId === task.id ? (task.completed ? 'text-primary/40 line-through' : 'text-primary font-semibold') : isPressed ? 'text-primary font-semibold' : task.completed ? 'line-through text-white/50 group-hover:text-white/70' : isPastDue ? 'text-red-300/80 group-hover:text-red-200' : 'text-cream-light group-hover:text-primary'}`}>
+                                    {/* (2026-07-13) Steady font weight & line-clamp-2. Prev: toggle font-semibold */}
+                                    <span className={`qt-notepad-item-text text-xs md:text-sm font-montserrat font-medium leading-5 line-clamp-2 transition-colors duration-150 ${isLongPressing || longPressingId === task.id ? (task.completed ? 'text-primary/40 line-through' : 'text-primary') : isPressed ? 'text-primary' : task.completed ? 'line-through text-white/50 group-hover:text-white/70' : isPastDue ? 'text-red-300/80 group-hover:text-red-200' : 'text-cream-light group-hover:text-primary'}`}>
                                         {formatTaskText(task.text)}
                                         {/* (2026-07-13) Baseline align time to fix spacing. Prev: align-middle */}
                                         {task.dueTime && (secKey === 'today' || secKey === 'tomorrow' || secKey === 'yesterday') && !task.completed && (
@@ -7377,13 +7390,14 @@
                                 </div>
                             </div>
                         </div>
-                        {taskProgress > 0 && !task.completed && (
-                            <div className="flex items-center gap-1.5 shrink-0 pl-2 pointer-events-none self-center">
-                                <span className="text-[10px] font-montserrat font-bold text-primary/90">{taskProgress}%</span>
+                        {/* (2026-07-13) Keep progress bar on complete. Prev: removed on completed */}
+                        {task.progress > 0 && (
+                            <div className={`flex items-center gap-1.5 shrink-0 pl-2 pointer-events-none self-center transition-opacity duration-200 ${task.completed ? 'opacity-40 grayscale-[0.5]' : ''}`}>
+                                <span className={`text-[10px] font-montserrat font-bold ${task.completed ? 'text-white/40' : 'text-primary/90'}`}>{task.completed ? '100%' : `${taskProgress}%`}</span>
                                 <div className="w-12 md:w-14 h-1 bg-white/10 rounded-full overflow-hidden">
                                     <div 
                                         className="h-full bg-primary rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(249,115,22,0.4)]"
-                                        style={{ width: `${taskProgress}%` }}
+                                        style={{ width: `${task.completed ? 100 : taskProgress}%` }}
                                     ></div>
                                 </div>
                             </div>
