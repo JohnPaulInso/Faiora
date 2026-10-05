@@ -7276,6 +7276,7 @@
                 
                 // FIX 2026-10-04: Trigger completion animations for notepad view
                 // (2026-07-13) Skip fade-out when eye icon is on in notepad/category. Prev: all
+                // FIX 2026-10-05: Disable checkmark sparks on homepage notepad/category views to reduce lag
                 const isCompleting = !task.completed;
                 if (isCompleting) {
                     const taskElement = e.currentTarget;
@@ -7283,10 +7284,11 @@
                         const rect = taskElement.getBoundingClientRect();
                         const checkmarkX = rect.left + 20;
                         const checkmarkY = rect.top + rect.height / 2;
-                        if (window.createFireSparks) {
+                        const isHomePage = window.location.pathname === '/' || window.location.pathname === '';
+                        if (window.createFireSparks && !isHomePage) {
                             window.createFireSparks(checkmarkX, checkmarkY, rect.width, false);
                         }
-                        if (window.playWhooshSound) {
+                        if (window.playWhooshSound && !isHomePage) {
                             window.playWhooshSound();
                         }
                     }
