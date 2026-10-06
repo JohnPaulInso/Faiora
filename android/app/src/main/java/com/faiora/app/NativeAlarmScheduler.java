@@ -139,8 +139,10 @@ final class NativeAlarmScheduler {
         ensureAlarmChannel(context);
         PendingIntent contentIntent = buildAlarmActivityPendingIntent(context, alarm);
         // (2026-07-13) Use ic_notification_logo for notification. Prev: ic_stat_faiora
+        // (2026-10-06) Add large icon for better visibility in notifications
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, NATIVE_ALARM_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_logo)
+            .setLargeIcon(android.graphics.BitmapFactory.decodeResource(context.getResources(), R.drawable.applogo))
             .setColor(Color.parseColor("#f97316"))
             .setContentTitle(alarm.label == null || alarm.label.trim().isEmpty() ? "Alarm Ringing" : alarm.label)
             .setContentText(formatAlarmDisplayTime(alarm.time))

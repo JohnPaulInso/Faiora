@@ -10,8 +10,10 @@ const config: CapacitorConfig = {
       providers: ['google.com']
     },
     // (2026-07-13) Set smallIcon to ic_notification_logo. Prev: ic_stat_faiora
+    // (2026-10-06) Add large icon for better visibility
     LocalNotifications: {
       smallIcon: 'ic_notification_logo',
+      largeIcon: 'applogo',
       iconColor: '#f97316',
       sound: 'fire_transition_sfx.mp3'
     }

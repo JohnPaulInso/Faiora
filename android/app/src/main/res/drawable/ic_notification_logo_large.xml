@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Enhanced notification icon with better scaling and padding -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <!-- Use the app logo but with less padding for better visibility -->
+        <bitmap
+            android:src="@drawable/applogo"
+            android:gravity="center"
+            android:tint="#FFFFFF" />
+    </item>
+</layer-list>
