@@ -39,6 +39,32 @@ public class TaskActionReceiver extends BroadcastReceiver {
             }
 
             NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+
+            // (2026-07-13) Inline Add New task from notif reply. Prev: no add action
+            if ("add_new".equals(actionId)) {
+                android.os.Bundle results = androidx.core.app.RemoteInput.getResultsFromIntent(intent);
+                CharSequence typed = results != null ? results.getCharSequence("LocalNotificationRemoteInput") : null;
+                if (nm != null && notificationId != 0) nm.cancel(notificationId);
+                String text = typed != null ? typed.toString().trim() : "";
+                if (!text.isEmpty()) {
+                    SharedPreferences addSp = context.getSharedPreferences(PREFS_ACTIONS, Context.MODE_PRIVATE);
+                    JSONArray addArr;
+                    try {
+                        addArr = new JSONArray(addSp.getString(KEY_ACTIONS, "[]"));
+                    } catch (Exception e) {
+                        addArr = new JSONArray();
+                    }
+                    JSONObject addItem = new JSONObject();
+                    addItem.put("taskId", "new-" + System.currentTimeMillis());
+                    addItem.put("action", "add_new");
+                    addItem.put("text", text);
+                    addItem.put("timestamp", System.currentTimeMillis());
+                    addArr.put(addItem);
+                    addSp.edit().putString(KEY_ACTIONS, addArr.toString()).apply();
+                }
+                return;
+            }
+
             if (nm != null) {
                 if (notificationId != 0) {
                     nm.cancel(notificationId);

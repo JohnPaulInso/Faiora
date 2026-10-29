@@ -1435,9 +1435,13 @@
                                 id: 'FAIORA_TASK_ACTIONS',
                                 // (2026-07-13) Add Move Tomorrow action to task notifs. Prev: 2 actions
                                 actions: [
-                                    { id: 'complete_task', title: '✓ Complete', foreground: false },
-                                    { id: 'snooze_1h', title: '+1 Hour', foreground: false },
-                                    { id: 'tomorrow', title: 'Move Tomorrow', foreground: false }
+                                    { id: 'complete_task', title: '✓ Done', foreground: false },
+                                    // (2026-07-13) Short labels Done/+1hr Later. Prev: Complete/+1 Hour
+                                    { id: 'snooze_1h', title: '+1hr Later', foreground: false },
+                                    // (2026-07-13) Set tomorrow action title to Tmrw. Prev: Tomm
+                                    { id: 'tomorrow', title: 'Tmrw', foreground: false },
+                                    // (2026-07-13) Inline reply Add New task. Prev: no add action
+                                    { id: 'add_new', title: 'Add New', foreground: false, input: true, inputButtonTitle: 'Add', inputPlaceholder: 'Type a new task (Later)...' }
                                 ]
                             }
                         ]
@@ -2635,10 +2639,11 @@
             const NAVBAR_H = 76;
             const cardY = status === 'refreshing' ? NAVBAR_H + 28 : Math.max(NAVBAR_H, NAVBAR_H + pullDistance * 0.65);
             const spinnerProgress = Math.min(1, pullDistance / THRESHOLD);
+            // (2026-07-13) min-w-0 stops tablet right cut. Prev: flex-1 only
             const spinnerDash = 2 * Math.PI * 11; // r=11 circumference
 
             return (
-                <div id="faiora_pull_to_refresh_wrapper" ref={contentRef} className="flex-1 h-full flex flex-col relative" style={{ touchAction: 'pan-y' }}>
+                <div id="faiora_pull_to_refresh_wrapper" ref={contentRef} className="flex-1 min-w-0 w-full h-full flex flex-col relative" style={{ touchAction: 'pan-y' }}>
                     {/* (2026-07-13) Circle below navbar (z-[90]<z-[100]); anchored below header. Prev: z-[200] top:0 */}
                     <div
                         id="faiora_pull_to_refresh_indicator"
@@ -2769,8 +2774,9 @@
             };
 
             // (2026-07-13) Add overflow-x-hidden to prevent x-scroll. Prev: overflow-y-auto
+            // (2026-07-13) main min-w-0 fixes tablet right cut. Prev: no min-w-0
             const content = (
-                <main id="faiora_main_content_scroll" className={`flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative pt-0 pb-24 md:pb-12 ${noPadding ? 'px-0' : 'px-0 md:px-18'} md:ml-24`}>
+                <main id="faiora_main_content_scroll" className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden no-scrollbar relative pt-0 pb-24 md:pb-12 ${noPadding ? 'px-0' : 'px-0 md:px-18'} md:ml-24`}>
                     {children}
                     {showFab && (
                         <div className="relative">
@@ -3253,9 +3259,10 @@
                             <p className="text-primary/70 text-xs uppercase tracking-[0.5em] font-sans font-bold opacity-90">{subtitle}</p>
                         </div>
 
-                        <div id="faiora_desktop_header_actions" className={`faiora-desktop-header-actions ${showSearch ? 'flex-1' : ''} flex items-center justify-end gap-10`}>
+                        {/* (2026-07-13) min-w-0 + tablet gap shrink. Prev: gap-10, no min-w-0 */}
+                        <div id="faiora_desktop_header_actions" className={`faiora-desktop-header-actions ${showSearch ? 'flex-1 min-w-0' : ''} flex items-center justify-end gap-4 lg:gap-10`}>
                             {showSearch && (
-                                <div className="flex-1 max-w-lg relative group">
+                                <div className="flex-1 min-w-0 max-w-lg relative group">
                                     <span className="absolute left-6 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
                                         <span className={`${searchSpinnerActive ? 'search-loader' : ''} flex items-center justify-center`}>
                                             <span className={`material-symbols-outlined ${searchSpinnerActive ? 'text-primary' : 'text-white/20'} text-2xl group-focus-within:text-primary transition-colors`}>
@@ -20205,6 +20212,22 @@
                                 onSnoozeAction({ detail: { taskId: item.taskId } });
                             } else if (item.action === 'tomorrow') {
                                 onTomorrowAction({ detail: { taskId: item.taskId } });
+                            // (2026-07-13) Add typed notif task as Later. Prev: no add action
+                            } else if (item.action === 'add_new' && item.text) {
+                                // Mirror QuickTaskModal Later timing
+                                const nowL = new Date();
+                                const hL = nowL.getHours(), mL = nowL.getMinutes();
+                                let laterSlot = { date: getTomorrow(), time: '10:00' };
+                                if (!(hL >= 22 || (hL === 0 && mL > 30) || (hL > 0 && hL < 6))) {
+                                    const isNight1h = (hL >= 20 && hL < 22) || (hL === 0 && mL <= 30);
+                                    const ld = new Date(nowL.getTime() + (isNight1h ? 1 : 4) * 3600000);
+                                    ld.setMinutes(Math.round(ld.getMinutes() / 10) * 10, 0, 0);
+                                    if (formatDateLocal(ld) === formatDateLocal(nowL) && ld.getHours() < 22) {
+                                        laterSlot = { date: formatDateLocal(nowL), time: `${String(ld.getHours()).padStart(2, '0')}:${String(ld.getMinutes()).padStart(2, '0')}` };
+                                    }
+                                }
+                                handleAddQuickTask(String(item.text).trim(), laterSlot.date, laterSlot.time);
+                                showToast('Task added for Later');
                             }
                         });
                     } catch (err) {
@@ -20219,6 +20242,8 @@
                 };
                 document.addEventListener('visibilitychange', onVisibilityChange);
                 window.addEventListener('focus', consumeNativeBackgroundActions);
+                // (2026-07-13) Poll for notif replies while app open. Prev: focus only
+                const nativeActionPoll = setInterval(consumeNativeBackgroundActions, 3000);
 
                 window.addEventListener('faiora-task-action-complete', onCompleteAction);
                 window.addEventListener('faiora-task-action-snooze', onSnoozeAction);
@@ -20226,11 +20251,12 @@
                 return () => {
                     document.removeEventListener('visibilitychange', onVisibilityChange);
                     window.removeEventListener('focus', consumeNativeBackgroundActions);
+                    clearInterval(nativeActionPoll);
                     window.removeEventListener('faiora-task-action-complete', onCompleteAction);
                     window.removeEventListener('faiora-task-action-snooze', onSnoozeAction);
                     window.removeEventListener('faiora-task-action-tomorrow', onTomorrowAction);
                 };
-            }, [handleToggleQuickTask, handleUpdateQuickTask]);
+            }, [handleToggleQuickTask, handleUpdateQuickTask, handleAddQuickTask]);
 
             const handleOpenCreator = useCallback(() => {
                 setEditingNote(null);
@@ -21110,8 +21136,8 @@
                     )}
 
                     {/* Task Snackbars */}
-                    {/* (2026-07-13) Task snackbars zIndex 99998 always visible. Prev: modal-hidden */}
-                    <div style={{ position:'fixed', bottom:'calc(96px + env(safe-area-inset-bottom,0px))', left:'50%', transform:'translateX(-50%)', zIndex:99998, display:'flex', flexDirection:'column-reverse', gap:'12px', pointerEvents:'none', width:'calc(100% - 32px)', maxWidth:'480px', boxSizing:'border-box' }}>
+                    {/* (2026-07-13) Lower snackbar zIndex behind modals. Prev: 99998 always */}
+                    <div style={{ position:'fixed', bottom:'calc(96px + env(safe-area-inset-bottom,0px))', left:'50%', transform:'translateX(-50%)', zIndex: (isCreatorOpen || isQuickTaskModalOpen || Boolean(editingQuickTask) || isSetLockModalOpen || Boolean(unlockingNote) || Boolean(activeAlarmAlert) || showPermissionModal) ? 800 : 99998, display:'flex', flexDirection:'column-reverse', gap:'12px', pointerEvents:'none', width:'calc(100% - 32px)', maxWidth:'480px', boxSizing:'border-box' }}>
                         <style>{`
                             /* (2026-07-13) Reduced inner vertical padding. Prev: 0.85rem */
                             .task-snackbar {
