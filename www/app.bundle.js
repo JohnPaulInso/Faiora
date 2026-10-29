@@ -803,9 +803,13 @@ const FaioraNotifications = (() => {
             id: "FAIORA_TASK_ACTIONS",
             // (2026-07-13) Add Move Tomorrow action to task notifs. Prev: 2 actions
             actions: [
-              { id: "complete_task", title: "\u2713 Complete", foreground: false },
-              { id: "snooze_1h", title: "+1 Hour", foreground: false },
-              { id: "tomorrow", title: "Move Tomorrow", foreground: false }
+              { id: "complete_task", title: "\u2713 Done", foreground: false },
+              // (2026-07-13) Short labels Done/+1hr Later. Prev: Complete/+1 Hour
+              { id: "snooze_1h", title: "+1hr Later", foreground: false },
+              // (2026-07-13) Set tomorrow action title to Tmrw. Prev: Tomm
+              { id: "tomorrow", title: "Tmrw", foreground: false },
+              // (2026-07-13) Inline reply Add New task. Prev: no add action
+              { id: "add_new", title: "Add New", foreground: false, input: true, inputButtonTitle: "Add", inputPlaceholder: "Type a new task (Later)..." }
             ]
           }
         ]
@@ -1842,7 +1846,7 @@ const PullToRefresh = ({ children, onRefresh, disabled = false }) => {
   const cardY = status === "refreshing" ? NAVBAR_H + 28 : Math.max(NAVBAR_H, NAVBAR_H + pullDistance * 0.65);
   const spinnerProgress = Math.min(1, pullDistance / THRESHOLD);
   const spinnerDash = 2 * Math.PI * 11;
-  return /* @__PURE__ */ React.createElement("div", { id: "faiora_pull_to_refresh_wrapper", ref: contentRef, className: "flex-1 h-full flex flex-col relative", style: { touchAction: "pan-y" } }, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { id: "faiora_pull_to_refresh_wrapper", ref: contentRef, className: "flex-1 min-w-0 w-full h-full flex flex-col relative", style: { touchAction: "pan-y" } }, /* @__PURE__ */ React.createElement(
     "div",
     {
       id: "faiora_pull_to_refresh_indicator",
@@ -1959,7 +1963,7 @@ const Layout = ({ children, onOpenCreator, onFabClick, onRefresh, noPadding = fa
       else setIsFabMenuOpen(true);
     }
   };
-  const content = /* @__PURE__ */ React.createElement("main", { id: "faiora_main_content_scroll", className: `flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative pt-0 pb-24 md:pb-12 ${noPadding ? "px-0" : "px-0 md:px-18"} md:ml-24` }, children, showFab && /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement(
+  const content = /* @__PURE__ */ React.createElement("main", { id: "faiora_main_content_scroll", className: `flex-1 min-w-0 overflow-y-auto overflow-x-hidden no-scrollbar relative pt-0 pb-24 md:pb-12 ${noPadding ? "px-0" : "px-0 md:px-18"} md:ml-24` }, children, showFab && /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       id: "faiora_mobile_fab",
@@ -2326,7 +2330,7 @@ const Header = ({
       title: "Clear search"
     },
     /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-[14px]" }, "close")
-  )) : /* @__PURE__ */ React.createElement("div", { className: "flex-1 min-w-0 px-1 flex flex-col justify-center" }, /* @__PURE__ */ React.createElement("p", { className: "text-sm font-display font-bold italic tracking-tight text-cream-light truncate leading-tight" }, title), /* @__PURE__ */ React.createElement("p", { className: "text-[9px] font-bold uppercase tracking-[0.28em] text-primary/60 truncate leading-tight" }, subtitle)), /* @__PURE__ */ React.createElement("div", { className: "shrink-0 flex items-center justify-center" }, /* @__PURE__ */ React.createElement(UserMenu, { user })))), /* @__PURE__ */ React.createElement("header", { id: "faiora_desktop_header", className: `faiora-desktop-header hidden md:flex ${isNonStickyPage ? "relative" : "sticky"} top-0 md:pt-5 md:pb-3 mb-4 z-[100] bg-transparent items-center justify-between gap-8` }, /* @__PURE__ */ React.createElement("div", { id: "faiora_desktop_header_title_group", className: "faiora-desktop-header-title flex flex-col" }, /* @__PURE__ */ React.createElement("h1", { className: "text-[3.5rem] font-display font-bold tracking-tighter text-cream-light italic leading-none drop-shadow-2xl" }, title), /* @__PURE__ */ React.createElement("p", { className: "text-primary/70 text-xs uppercase tracking-[0.5em] font-sans font-bold opacity-90" }, subtitle)), /* @__PURE__ */ React.createElement("div", { id: "faiora_desktop_header_actions", className: `faiora-desktop-header-actions ${showSearch ? "flex-1" : ""} flex items-center justify-end gap-10` }, showSearch && /* @__PURE__ */ React.createElement("div", { className: "flex-1 max-w-lg relative group" }, /* @__PURE__ */ React.createElement("span", { className: "absolute left-6 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none" }, /* @__PURE__ */ React.createElement("span", { className: `${searchSpinnerActive ? "search-loader" : ""} flex items-center justify-center` }, /* @__PURE__ */ React.createElement("span", { className: `material-symbols-outlined ${searchSpinnerActive ? "text-primary" : "text-white/20"} text-2xl group-focus-within:text-primary transition-colors` }, searchSpinnerActive ? "refresh" : "search"))), /* @__PURE__ */ React.createElement(
+  )) : /* @__PURE__ */ React.createElement("div", { className: "flex-1 min-w-0 px-1 flex flex-col justify-center" }, /* @__PURE__ */ React.createElement("p", { className: "text-sm font-display font-bold italic tracking-tight text-cream-light truncate leading-tight" }, title), /* @__PURE__ */ React.createElement("p", { className: "text-[9px] font-bold uppercase tracking-[0.28em] text-primary/60 truncate leading-tight" }, subtitle)), /* @__PURE__ */ React.createElement("div", { className: "shrink-0 flex items-center justify-center" }, /* @__PURE__ */ React.createElement(UserMenu, { user })))), /* @__PURE__ */ React.createElement("header", { id: "faiora_desktop_header", className: `faiora-desktop-header hidden md:flex ${isNonStickyPage ? "relative" : "sticky"} top-0 md:pt-5 md:pb-3 mb-4 z-[100] bg-transparent items-center justify-between gap-8` }, /* @__PURE__ */ React.createElement("div", { id: "faiora_desktop_header_title_group", className: "faiora-desktop-header-title flex flex-col" }, /* @__PURE__ */ React.createElement("h1", { className: "text-[3.5rem] font-display font-bold tracking-tighter text-cream-light italic leading-none drop-shadow-2xl" }, title), /* @__PURE__ */ React.createElement("p", { className: "text-primary/70 text-xs uppercase tracking-[0.5em] font-sans font-bold opacity-90" }, subtitle)), /* @__PURE__ */ React.createElement("div", { id: "faiora_desktop_header_actions", className: `faiora-desktop-header-actions ${showSearch ? "flex-1 min-w-0" : ""} flex items-center justify-end gap-4 lg:gap-10` }, showSearch && /* @__PURE__ */ React.createElement("div", { className: "flex-1 min-w-0 max-w-lg relative group" }, /* @__PURE__ */ React.createElement("span", { className: "absolute left-6 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none" }, /* @__PURE__ */ React.createElement("span", { className: `${searchSpinnerActive ? "search-loader" : ""} flex items-center justify-center` }, /* @__PURE__ */ React.createElement("span", { className: `material-symbols-outlined ${searchSpinnerActive ? "text-primary" : "text-white/20"} text-2xl group-focus-within:text-primary transition-colors` }, searchSpinnerActive ? "refresh" : "search"))), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "text",
@@ -15769,6 +15773,20 @@ const App = () => {
             onSnoozeAction({ detail: { taskId: item.taskId } });
           } else if (item.action === "tomorrow") {
             onTomorrowAction({ detail: { taskId: item.taskId } });
+          } else if (item.action === "add_new" && item.text) {
+            const nowL = /* @__PURE__ */ new Date();
+            const hL = nowL.getHours(), mL = nowL.getMinutes();
+            let laterSlot = { date: getTomorrow(), time: "10:00" };
+            if (!(hL >= 22 || hL === 0 && mL > 30 || hL > 0 && hL < 6)) {
+              const isNight1h = hL >= 20 && hL < 22 || hL === 0 && mL <= 30;
+              const ld = new Date(nowL.getTime() + (isNight1h ? 1 : 4) * 36e5);
+              ld.setMinutes(Math.round(ld.getMinutes() / 10) * 10, 0, 0);
+              if (formatDateLocal(ld) === formatDateLocal(nowL) && ld.getHours() < 22) {
+                laterSlot = { date: formatDateLocal(nowL), time: `${String(ld.getHours()).padStart(2, "0")}:${String(ld.getMinutes()).padStart(2, "0")}` };
+              }
+            }
+            handleAddQuickTask(String(item.text).trim(), laterSlot.date, laterSlot.time);
+            showToast2("Task added for Later");
           }
         });
       } catch (err) {
@@ -15783,17 +15801,19 @@ const App = () => {
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("focus", consumeNativeBackgroundActions);
+    const nativeActionPoll = setInterval(consumeNativeBackgroundActions, 3e3);
     window.addEventListener("faiora-task-action-complete", onCompleteAction);
     window.addEventListener("faiora-task-action-snooze", onSnoozeAction);
     window.addEventListener("faiora-task-action-tomorrow", onTomorrowAction);
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("focus", consumeNativeBackgroundActions);
+      clearInterval(nativeActionPoll);
       window.removeEventListener("faiora-task-action-complete", onCompleteAction);
       window.removeEventListener("faiora-task-action-snooze", onSnoozeAction);
       window.removeEventListener("faiora-task-action-tomorrow", onTomorrowAction);
     };
-  }, [handleToggleQuickTask, handleUpdateQuickTask]);
+  }, [handleToggleQuickTask, handleUpdateQuickTask, handleAddQuickTask]);
   const handleOpenCreator = useCallback(() => {
     setEditingNote(null);
     setIsCreatorOpen(true);
@@ -16538,7 +16558,7 @@ const App = () => {
       }
     ))),
     document.body
-  ), /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", bottom: "calc(96px + env(safe-area-inset-bottom,0px))", left: "50%", transform: "translateX(-50%)", zIndex: 99998, display: "flex", flexDirection: "column-reverse", gap: "12px", pointerEvents: "none", width: "calc(100% - 32px)", maxWidth: "480px", boxSizing: "border-box" } }, /* @__PURE__ */ React.createElement("style", null, `
+  ), /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", bottom: "calc(96px + env(safe-area-inset-bottom,0px))", left: "50%", transform: "translateX(-50%)", zIndex: isCreatorOpen || isQuickTaskModalOpen || Boolean(editingQuickTask) || isSetLockModalOpen || Boolean(unlockingNote) || Boolean(activeAlarmAlert) || showPermissionModal ? 800 : 99998, display: "flex", flexDirection: "column-reverse", gap: "12px", pointerEvents: "none", width: "calc(100% - 32px)", maxWidth: "480px", boxSizing: "border-box" } }, /* @__PURE__ */ React.createElement("style", null, `
                             /* (2026-07-13) Reduced inner vertical padding. Prev: 0.85rem */
                             .task-snackbar {
                                 background: rgba(15, 23, 42, 0.9);

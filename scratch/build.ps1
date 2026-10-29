@@ -60,11 +60,15 @@ $redundantWwwFiles = @(
     "$root\www\assets\vendor\babel.min.js",
     "$root\www\assets\fonts\material-symbols-outlined.ttf",
     "$root\www\assets\new_logo.png",
-    "$root\www\assets\apk_new_logo.png"
+    "$root\www\assets\apk_new_logo.png",
+    # (2026-07-13) Ignore graphify folders in APK build. Prev: not ignored
+    "$root\www\graphify-out",
+    "$root\www\graphify",
+    "$root\android\app\src\main\assets\public\graphify-out"
 )
 foreach ($rf in $redundantWwwFiles) {
     if (Test-Path $rf) {
-        Remove-Item -Path $rf -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $rf -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -127,7 +131,10 @@ if (Test-Path $lnmPath) {
                     actionIntent.putExtra("actionId", notificationAction.getId());
                     actionIntent.putExtra("notification", localNotification.getSource());
                     int bFlags = PendingIntent.FLAG_UPDATE_CURRENT;
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    // (2026-07-13) Inline reply needs mutable intent. Prev: always immutable
+                    if (notificationAction.isInput() && android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        bFlags |= PendingIntent.FLAG_MUTABLE;
+                    } else if (!notificationAction.isInput() && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                         bFlags |= PendingIntent.FLAG_IMMUTABLE;
                     }
                     actionPendingIntent = PendingIntent.getBroadcast(

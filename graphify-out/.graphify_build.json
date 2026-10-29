@@ -1,0 +1,1 @@
+{"excludes": ["www", "public", "assets", "*.min.js", "tailwind.cdn.js", "index copy*.html", "index.monolith.html", "index_backup*.html", "index_new.html", "sample_backup.json"]}

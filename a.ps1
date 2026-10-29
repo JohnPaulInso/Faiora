@@ -15,6 +15,8 @@ if ($LASTEXITCODE -ne 0) { Write-Host "FAILED: npm run build" -ForegroundColor R
 Write-Host "`n[2/3] Syncing Android project (cap sync)..." -ForegroundColor Cyan
 npx cap sync android
 if ($LASTEXITCODE -ne 0) { Write-Host "FAILED: cap sync android" -ForegroundColor Red; exit 1 }
+# (2026-07-13) Strip graphify folder before APK build. Prev: not stripped
+Remove-Item -Path "$root\www\graphify*", "$root\android\app\src\main\assets\public\graphify*" -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host "`n[3/3] Assembling Debug APK (clean + assemble)..." -ForegroundColor Cyan
 Set-Location "$root\android"
