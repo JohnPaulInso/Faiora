@@ -96,14 +96,11 @@ async function sendPushToUser(userId, title, body, taskId) {
     // to wake up even if the app process is closed/swiped away.
     const message = {
         // Android-specific config for tray notifications
-        // (2026-07-13) Set collapseKey & tag to deduplicate task notifs. Prev: none
+        // (2026-07-13) Pure data-only android config so SW renders 4 actions. Prev: empty notification tag
         android: {
             priority: "high",
             ttl: 86400000, // 24 hours in milliseconds
             collapseKey: "faiora-task-" + taskId,
-            notification: {
-                tag: "faiora-task-" + taskId,
-            },
         },
         // Web push config
         webpush: {

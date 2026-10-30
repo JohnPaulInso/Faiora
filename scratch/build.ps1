@@ -143,6 +143,26 @@ if (Test-Path $lnmPath) {
                         actionIntent,
                         bFlags
                     );
+                    // (2026-07-13) Render 4th Done button in custom view. Prev: dropped by 3 limit
+                    if ("complete_task".equals(notificationAction.getId()) && actionGroup.length > 3) {
+                        int layoutId = context.getResources().getIdentifier("notification_task_custom", "layout", context.getPackageName());
+                        int titleId = context.getResources().getIdentifier("txt_task_title", "id", context.getPackageName());
+                        int bodyId = context.getResources().getIdentifier("txt_task_body", "id", context.getPackageName());
+                        int btnDoneId = context.getResources().getIdentifier("btn_task_done", "id", context.getPackageName());
+                        if (layoutId != 0 && titleId != 0 && bodyId != 0 && btnDoneId != 0) {
+                            String bodyText = localNotification.getLargeBody() != null ? localNotification.getLargeBody() : localNotification.getBody();
+                            android.widget.RemoteViews rv = new android.widget.RemoteViews(context.getPackageName(), layoutId);
+                            rv.setTextViewText(titleId, localNotification.getTitle());
+                            rv.setTextViewText(bodyId, bodyText);
+                            rv.setTextViewText(btnDoneId, notificationAction.getTitle());
+                            rv.setOnClickPendingIntent(btnDoneId, actionPendingIntent);
+                            mBuilder.setCustomContentView(rv);
+                            mBuilder.setCustomBigContentView(rv);
+                            mBuilder.setCustomHeadsUpContentView(rv);
+                            mBuilder.setStyle(new NotificationCompat.DecoratedCustomViewStyle());
+                            continue;
+                        }
+                    }
                 } else {
                     actionIntent = buildIntent(localNotification, notificationAction.getId());
                     actionPendingIntent = PendingIntent.getActivity(

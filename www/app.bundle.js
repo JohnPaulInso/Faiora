@@ -875,6 +875,9 @@ const FaioraNotifications = (() => {
           } else if (actionId === "tomorrow") {
             window.dispatchEvent(new CustomEvent("faiora-task-action-tomorrow", { detail: { taskId: extra.taskId } }));
             await removeDeliveredTaskNotifications(extra.taskId);
+          } else if (actionId === "add_new" && action.inputValue) {
+            window.dispatchEvent(new CustomEvent("faiora-task-action-add-new", { detail: { text: action.inputValue } }));
+            await removeDeliveredTaskNotifications(extra.taskId);
           }
         }
         emitInAppAlert(toNativePayload(action));
@@ -1014,8 +1017,14 @@ const FaioraNotifications = (() => {
       return true;
     });
     return filteredStages.map((entry) => {
-      const at = dueMs - entry.offsetMs;
-      if (at <= now) return null;
+      let at = dueMs - entry.offsetMs;
+      if (at <= now) {
+        if (entry.stage === "due" && now - at < 6e4) {
+          at = now + 1500;
+        } else {
+          return null;
+        }
+      }
       return {
         ...entry,
         at,
@@ -1065,17 +1074,21 @@ const FaioraNotifications = (() => {
       return false;
     }
   };
-  const cancelNativeTaskNotifications = async (taskId = "") => {
+  const cancelPendingTaskSchedules = async (taskId = "") => {
     if (!taskId) return;
     await cancelNativeNotifications([
       getTaskScheduleId(taskId, "24h"),
       getTaskScheduleId(taskId, "1h"),
       getTaskScheduleId(taskId, "due"),
-      getTaskReminderId(taskId),
       hashNotificationId(`faiora-24h-${taskId}`),
       hashNotificationId(`faiora-1h-${taskId}`),
       hashNotificationId(`faiora-due-${taskId}`)
     ]);
+  };
+  const cancelNativeTaskNotifications = async (taskId = "") => {
+    if (!taskId) return;
+    await cancelPendingTaskSchedules(taskId);
+    await cancelNativeNotifications([getTaskReminderId(taskId)]);
     await removeDeliveredTaskNotifications(taskId);
   };
   const scheduleAlarmNotification = async (alarm) => {
@@ -1197,16 +1210,18 @@ const FaioraNotifications = (() => {
       if (status !== "granted") return;
       await ensureNativeNotificationsReady();
       playNotifSFX();
-      const title2 = "\xF0\u0178\u201D\xA5 Faiora Test Alert";
-      const body2 = "Your native APK notifications are working.";
+      const title2 = "Task Reminder! \u{1F525}";
+      const body2 = "\u{1F4CC} Due Now: Test 4-Button Notification";
       await nativePlugin.schedule({
         notifications: [{
-          id: hashNotificationId("faiora-test"),
+          id: getTaskReminderId("test-task"),
           title: title2,
           body: body2,
-          channelId: "faiora-quick-tasks",
-          schedule: { at: new Date(Date.now() + 250), allowWhileIdle: true },
-          extra: { type: "generic", tag: "faiora-test", title: title2, body: body2 }
+          channelId: QUICK_TASK_CHANNEL_ID,
+          actionTypeId: "FAIORA_TASK_ACTIONS",
+          smallIcon: "ic_notification_logo",
+          schedule: { at: new Date(Date.now() + 800), allowWhileIdle: true },
+          extra: { type: "quick-task", stage: "due", taskId: "test-task", tag: "faiora-task-test-task", title: title2, body: body2 }
         }]
       });
       return;
@@ -1409,14 +1424,28 @@ const FaioraNotifications = (() => {
     if (nativePlugin) {
       const permission = await requestPermission();
       if (permission !== "granted") return;
+      await ensureNativeNotificationsReady();
       const notifId = extra.taskId ? getTaskReminderId(extra.taskId) : hashNotificationId(tag);
+      if (extra.taskId) {
+        try {
+          const delivered = await nativePlugin.getDeliveredNotifications();
+          const alreadyVisible = ((delivered == null ? void 0 : delivered.notifications) || []).some((n) => {
+            const nEx = (n == null ? void 0 : n.extra) || (n == null ? void 0 : n.data) || {};
+            return (n.id === notifId || nEx.taskId === extra.taskId) && (!extra.stage || !nEx.stage || nEx.stage === extra.stage);
+          });
+          if (alreadyVisible) return;
+        } catch (e) {
+        }
+      }
       await nativePlugin.schedule({
         notifications: [{
           id: notifId,
           title,
           body,
           channelId: extra.type === "alarm" ? ALARM_CHANNEL_ID : QUICK_TASK_CHANNEL_ID,
-          schedule: { at: new Date(Date.now()), allowWhileIdle: true },
+          actionTypeId: extra.type === "alarm" ? "FAIORA_ALARM_ACTIONS" : "FAIORA_TASK_ACTIONS",
+          smallIcon: "ic_notification_logo",
+          schedule: { at: new Date(Date.now() + 600), allowWhileIdle: true },
           ongoing: extra.type === "alarm",
           autoCancel: extra.type !== "alarm",
           extra: { ...extra, tag, title, body }
@@ -1434,6 +1463,12 @@ const FaioraNotifications = (() => {
       renotify: true,
       vibrate: [200, 100, 200],
       requireInteraction: true,
+      actions: [
+        { action: "complete_task", title: "\u2713 Done" },
+        { action: "snooze_1h", title: "+1hr Later" },
+        { action: "tomorrow", title: "Tmrw" },
+        { action: "add_new", type: "text", title: "Add New", placeholder: "Type a new task (Later)..." }
+      ],
       data: { url: location.origin + location.pathname, ...extra }
     });
   };
@@ -1455,8 +1490,12 @@ const FaioraNotifications = (() => {
   };
   const scheduleForTask = async (task) => {
     if (!task || !task.dueDate || task.completed) return;
-    cancelForTask(task.id);
-    await cancelNativeTaskNotifications(task.id);
+    const existingTimers = timers.get(task.id);
+    if (existingTimers) {
+      existingTimers.forEach((id) => clearTimeout(id));
+      timers.delete(task.id);
+    }
+    await cancelPendingTaskSchedules(task.id);
     const nativeScheduled = await scheduleNativeTaskNotifications(task);
     if (nativeScheduled) return;
     const permitted = hasNotificationApi && Notification.permission === "granted";
@@ -11087,7 +11126,16 @@ const SettingsPage = ({ user, onOpenCreator, settingsData: settingsData2, onSave
       description: "Receive daily notifications and streak reminders",
       icon: "notifications_active"
     }
-  ))), /* @__PURE__ */ React.createElement("div", { className: "glass-panel rounded-2xl p-4 md:p-5 space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-1" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-primary text-base" }, "auto_awesome"), /* @__PURE__ */ React.createElement("h3", { className: "text-[10px] font-bold text-primary uppercase tracking-[0.1em]" }, "Auto-Categorization")), /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("div", { id: "faiora_test_notif_row", className: "flex items-center justify-between p-3 bg-white/[0.03] rounded-xl border border-white/5" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2.5 min-w-0" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-primary text-base" }, "notifications_active"), /* @__PURE__ */ React.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React.createElement("p", { className: "text-xs font-bold text-cream-light" }, "Test Push Notification"), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-cream-light/50" }, "Send a test task alert with 4 action buttons"))), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      id: "faiora_btn_test_notif",
+      type: "button",
+      onClick: () => FaioraNotifications.testNotification(),
+      className: "px-3 py-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 border border-primary/40 text-primary text-[10px] font-bold uppercase tracking-wider transition-all shrink-0"
+    },
+    "Send Test"
+  )))), /* @__PURE__ */ React.createElement("div", { className: "glass-panel rounded-2xl p-4 md:p-5 space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-1" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement("span", { className: "material-symbols-outlined text-primary text-base" }, "auto_awesome"), /* @__PURE__ */ React.createElement("h3", { className: "text-[10px] font-bold text-primary uppercase tracking-[0.1em]" }, "Auto-Categorization")), /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
@@ -15802,16 +15850,50 @@ const App = () => {
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("focus", consumeNativeBackgroundActions);
     const nativeActionPoll = setInterval(consumeNativeBackgroundActions, 3e3);
+    const onAddNewAction = (e) => {
+      var _a;
+      const text = String(((_a = e.detail) == null ? void 0 : _a.text) || "").trim();
+      if (!text) return;
+      const nowL = /* @__PURE__ */ new Date();
+      const hL = nowL.getHours(), mL = nowL.getMinutes();
+      let laterSlot = { date: getTomorrow(), time: "10:00" };
+      if (!(hL >= 22 || hL === 0 && mL > 30 || hL > 0 && hL < 6)) {
+        const isNight1h = hL >= 20 && hL < 22 || hL === 0 && mL <= 30;
+        const ld = new Date(nowL.getTime() + (isNight1h ? 1 : 4) * 36e5);
+        ld.setMinutes(Math.round(ld.getMinutes() / 10) * 10, 0, 0);
+        if (formatDateLocal(ld) === formatDateLocal(nowL) && ld.getHours() < 22) {
+          laterSlot = { date: formatDateLocal(nowL), time: `${String(ld.getHours()).padStart(2, "0")}:${String(ld.getMinutes()).padStart(2, "0")}` };
+        }
+      }
+      handleAddQuickTask(text, laterSlot.date, laterSlot.time);
+      showToast2("Task added for Later");
+    };
+    const onSwMessage = (event) => {
+      const data = event.data;
+      if (!data || data.type !== "NOTIFICATION_ACTION") return;
+      if (data.action === "complete_task" && data.taskId) onCompleteAction({ detail: { taskId: data.taskId } });
+      else if (data.action === "snooze_1h" && data.taskId) onSnoozeAction({ detail: { taskId: data.taskId } });
+      else if (data.action === "tomorrow" && data.taskId) onTomorrowAction({ detail: { taskId: data.taskId } });
+      else if (data.action === "add_new" && data.text) onAddNewAction({ detail: { text: data.text } });
+    };
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", onSwMessage);
+    }
     window.addEventListener("faiora-task-action-complete", onCompleteAction);
     window.addEventListener("faiora-task-action-snooze", onSnoozeAction);
     window.addEventListener("faiora-task-action-tomorrow", onTomorrowAction);
+    window.addEventListener("faiora-task-action-add-new", onAddNewAction);
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("focus", consumeNativeBackgroundActions);
       clearInterval(nativeActionPoll);
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.removeEventListener("message", onSwMessage);
+      }
       window.removeEventListener("faiora-task-action-complete", onCompleteAction);
       window.removeEventListener("faiora-task-action-snooze", onSnoozeAction);
       window.removeEventListener("faiora-task-action-tomorrow", onTomorrowAction);
+      window.removeEventListener("faiora-task-action-add-new", onAddNewAction);
     };
   }, [handleToggleQuickTask, handleUpdateQuickTask, handleAddQuickTask]);
   const handleOpenCreator = useCallback(() => {

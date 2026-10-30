@@ -44,7 +44,13 @@ public class TaskActionReceiver extends BroadcastReceiver {
             if ("add_new".equals(actionId)) {
                 android.os.Bundle results = androidx.core.app.RemoteInput.getResultsFromIntent(intent);
                 CharSequence typed = results != null ? results.getCharSequence("LocalNotificationRemoteInput") : null;
-                if (nm != null && notificationId != 0) nm.cancel(notificationId);
+                if (nm != null) {
+                    if (notificationId != 0) nm.cancel(notificationId);
+                    if (taskId != null && !taskId.isEmpty()) {
+                        int hash = ("faiora-task-" + taskId).hashCode();
+                        nm.cancel(Math.abs(hash != 0 ? hash : 1));
+                    }
+                }
                 String text = typed != null ? typed.toString().trim() : "";
                 if (!text.isEmpty()) {
                     SharedPreferences addSp = context.getSharedPreferences(PREFS_ACTIONS, Context.MODE_PRIVATE);

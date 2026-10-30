@@ -1505,9 +1505,12 @@
                             } else if (actionId === 'snooze_1h') {
                                 window.dispatchEvent(new CustomEvent('faiora-task-action-snooze', { detail: { taskId: extra.taskId } }));
                                 await removeDeliveredTaskNotifications(extra.taskId);
-                            // (2026-07-13) Dispatch tomorrow action for task notif. Prev: none
+                            // (2026-07-13) Dispatch tomorrow & add_new actions for task notif. Prev: none
                             } else if (actionId === 'tomorrow') {
                                 window.dispatchEvent(new CustomEvent('faiora-task-action-tomorrow', { detail: { taskId: extra.taskId } }));
+                                await removeDeliveredTaskNotifications(extra.taskId);
+                            } else if (actionId === 'add_new' && action.inputValue) {
+                                window.dispatchEvent(new CustomEvent('faiora-task-action-add-new', { detail: { text: action.inputValue } }));
                                 await removeDeliveredTaskNotifications(extra.taskId);
                             }
                         }
@@ -1651,8 +1654,15 @@
 
                 return filteredStages
                     .map(entry => {
-                        const at = dueMs - entry.offsetMs;
-                        if (at <= now) return null;
+                        // (2026-07-13) Fire current-minute due tasks after 1.5s. Prev: skipped if <= now
+                        let at = dueMs - entry.offsetMs;
+                        if (at <= now) {
+                            if (entry.stage === 'due' && (now - at) < 60000) {
+                                at = now + 1500;
+                            } else {
+                                return null;
+                            }
+                        }
                         return {
                             ...entry,
                             at,
@@ -1705,18 +1715,23 @@
                     return false;
                 }
             };
-            // (2026-07-13) Cancel schedule & tray notification IDs. Prev: stage IDs
-            const cancelNativeTaskNotifications = async (taskId = '') => {
+            // (2026-07-13) Cancel only future schedules to keep tray alerts. Prev: wiped tray
+            const cancelPendingTaskSchedules = async (taskId = '') => {
                 if (!taskId) return;
                 await cancelNativeNotifications([
                     getTaskScheduleId(taskId, '24h'),
                     getTaskScheduleId(taskId, '1h'),
                     getTaskScheduleId(taskId, 'due'),
-                    getTaskReminderId(taskId),
                     hashNotificationId(`faiora-24h-${taskId}`),
                     hashNotificationId(`faiora-1h-${taskId}`),
                     hashNotificationId(`faiora-due-${taskId}`)
                 ]);
+            };
+            // (2026-07-13) Cancel schedule & tray notification IDs. Prev: stage IDs
+            const cancelNativeTaskNotifications = async (taskId = '') => {
+                if (!taskId) return;
+                await cancelPendingTaskSchedules(taskId);
+                await cancelNativeNotifications([getTaskReminderId(taskId)]);
                 await removeDeliveredTaskNotifications(taskId);
             };
             /* MOVED: getAlarmScheduleDate 2026-04-20 — Now a global utility for UI and Notification consistency */
@@ -1846,16 +1861,19 @@
                     if (status !== 'granted') return;
                     await ensureNativeNotificationsReady();
                     playNotifSFX();
-                    const title = "ðŸ”¥ Faiora Test Alert";
-                    const body = "Your native APK notifications are working.";
+                    // (2026-07-13) Test notification with v2 channel & 4 actions. Prev: old channel
+                    const title = "Task Reminder! 🔥";
+                    const body = "📌 Due Now: Test 4-Button Notification";
                     await nativePlugin.schedule({
                         notifications: [{
-                            id: hashNotificationId('faiora-test'),
+                            id: getTaskReminderId('test-task'),
                             title,
                             body,
-                            channelId: 'faiora-quick-tasks',
-                            schedule: { at: new Date(Date.now() + 250), allowWhileIdle: true },
-                            extra: { type: 'generic', tag: 'faiora-test', title, body }
+                            channelId: QUICK_TASK_CHANNEL_ID,
+                            actionTypeId: 'FAIORA_TASK_ACTIONS',
+                            smallIcon: 'ic_notification_logo',
+                            schedule: { at: new Date(Date.now() + 800), allowWhileIdle: true },
+                            extra: { type: 'quick-task', stage: 'due', taskId: 'test-task', tag: 'faiora-task-test-task', title, body }
                         }]
                     });
                     return;
@@ -2079,20 +2097,34 @@
             // ------------------------------------------------------------------
             // LABEL: NOTIF-LOCAL-SEND — Show a local notification via Service Worker
             // ------------------------------------------------------------------
-            // (2026-07-13) Reuse task notification ID across stages. Prev: hash tag
+            // (2026-07-13) Attach 4 task actions & future schedule offset. Prev: no actions
             const sendNotification = async (title, body, tag, extra = {}) => {
                 const nativePlugin = nativeLocalNotifications();
                 if (nativePlugin) {
                     const permission = await requestPermission();
                     if (permission !== 'granted') return;
+                    await ensureNativeNotificationsReady();
                     const notifId = extra.taskId ? getTaskReminderId(extra.taskId) : hashNotificationId(tag);
+                    // (2026-07-13) Skip fallback re-post if task alert already in tray. Prev: overwrote tray
+                    if (extra.taskId) {
+                        try {
+                            const delivered = await nativePlugin.getDeliveredNotifications();
+                            const alreadyVisible = (delivered?.notifications || []).some(n => {
+                                const nEx = n?.extra || n?.data || {};
+                                return (n.id === notifId || nEx.taskId === extra.taskId) && (!extra.stage || !nEx.stage || nEx.stage === extra.stage);
+                            });
+                            if (alreadyVisible) return;
+                        } catch (e) {}
+                    }
                     await nativePlugin.schedule({
                         notifications: [{
                             id: notifId,
                             title,
                             body,
                             channelId: extra.type === 'alarm' ? ALARM_CHANNEL_ID : QUICK_TASK_CHANNEL_ID,
-                            schedule: { at: new Date(Date.now()), allowWhileIdle: true },
+                            actionTypeId: extra.type === 'alarm' ? 'FAIORA_ALARM_ACTIONS' : 'FAIORA_TASK_ACTIONS',
+                            smallIcon: 'ic_notification_logo',
+                            schedule: { at: new Date(Date.now() + 600), allowWhileIdle: true },
                             ongoing: extra.type === 'alarm',
                             autoCancel: extra.type !== 'alarm',
                             extra: { ...extra, tag, title, body }
@@ -2111,6 +2143,12 @@
                     renotify: true,
                     vibrate: [200, 100, 200],
                     requireInteraction: true,
+                    actions: [
+                        { action: 'complete_task', title: '✓ Done' },
+                        { action: 'snooze_1h', title: '+1hr Later' },
+                        { action: 'tomorrow', title: 'Tmrw' },
+                        { action: 'add_new', type: 'text', title: 'Add New', placeholder: 'Type a new task (Later)...' }
+                    ],
                     data: { url: location.origin + location.pathname, ...extra }
                 });
             };
@@ -2146,8 +2184,13 @@
 
             const scheduleForTask = async (task) => {
                 if (!task || !task.dueDate || task.completed) return;
-                cancelForTask(task.id);
-                await cancelNativeTaskNotifications(task.id);
+                // (2026-07-13) Clear timers & pending schedules without wiping tray. Prev: cancelForTask race
+                const existingTimers = timers.get(task.id);
+                if (existingTimers) {
+                    existingTimers.forEach(id => clearTimeout(id));
+                    timers.delete(task.id);
+                }
+                await cancelPendingTaskSchedules(task.id);
                 const nativeScheduled = await scheduleNativeTaskNotifications(task);
                 if (nativeScheduled) return;
 
@@ -14380,6 +14423,24 @@
                                         description="Receive daily notifications and streak reminders"
                                         icon="notifications_active"
                                     />
+                                    {/* (2026-07-13) 1-tap button to test 4-action push notification. Prev: none */}
+                                    <div id="faiora_test_notif_row" className="flex items-center justify-between p-3 bg-white/[0.03] rounded-xl border border-white/5">
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            <span className="material-symbols-outlined text-primary text-base">notifications_active</span>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-bold text-cream-light">Test Push Notification</p>
+                                                <p className="text-[10px] text-cream-light/50">Send a test task alert with 4 action buttons</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            id="faiora_btn_test_notif"
+                                            type="button"
+                                            onClick={() => FaioraNotifications.testNotification()}
+                                            className="px-3 py-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 border border-primary/40 text-primary text-[10px] font-bold uppercase tracking-wider transition-all shrink-0"
+                                        >
+                                            Send Test
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             
@@ -20245,16 +20306,50 @@
                 // (2026-07-13) Poll for notif replies while app open. Prev: focus only
                 const nativeActionPoll = setInterval(consumeNativeBackgroundActions, 3000);
 
+                // (2026-07-13) Handle add-new & SW notification action events. Prev: 3 custom events
+                const onAddNewAction = (e) => {
+                    const text = String(e.detail?.text || '').trim();
+                    if (!text) return;
+                    const nowL = new Date();
+                    const hL = nowL.getHours(), mL = nowL.getMinutes();
+                    let laterSlot = { date: getTomorrow(), time: '10:00' };
+                    if (!(hL >= 22 || (hL === 0 && mL > 30) || (hL > 0 && hL < 6))) {
+                        const isNight1h = (hL >= 20 && hL < 22) || (hL === 0 && mL <= 30);
+                        const ld = new Date(nowL.getTime() + (isNight1h ? 1 : 4) * 3600000);
+                        ld.setMinutes(Math.round(ld.getMinutes() / 10) * 10, 0, 0);
+                        if (formatDateLocal(ld) === formatDateLocal(nowL) && ld.getHours() < 22) {
+                            laterSlot = { date: formatDateLocal(nowL), time: `${String(ld.getHours()).padStart(2, '0')}:${String(ld.getMinutes()).padStart(2, '0')}` };
+                        }
+                    }
+                    handleAddQuickTask(text, laterSlot.date, laterSlot.time);
+                    showToast('Task added for Later');
+                };
+                const onSwMessage = (event) => {
+                    const data = event.data;
+                    if (!data || data.type !== 'NOTIFICATION_ACTION') return;
+                    if (data.action === 'complete_task' && data.taskId) onCompleteAction({ detail: { taskId: data.taskId } });
+                    else if (data.action === 'snooze_1h' && data.taskId) onSnoozeAction({ detail: { taskId: data.taskId } });
+                    else if (data.action === 'tomorrow' && data.taskId) onTomorrowAction({ detail: { taskId: data.taskId } });
+                    else if (data.action === 'add_new' && data.text) onAddNewAction({ detail: { text: data.text } });
+                };
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.addEventListener('message', onSwMessage);
+                }
                 window.addEventListener('faiora-task-action-complete', onCompleteAction);
                 window.addEventListener('faiora-task-action-snooze', onSnoozeAction);
                 window.addEventListener('faiora-task-action-tomorrow', onTomorrowAction);
+                window.addEventListener('faiora-task-action-add-new', onAddNewAction);
                 return () => {
                     document.removeEventListener('visibilitychange', onVisibilityChange);
                     window.removeEventListener('focus', consumeNativeBackgroundActions);
                     clearInterval(nativeActionPoll);
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.removeEventListener('message', onSwMessage);
+                    }
                     window.removeEventListener('faiora-task-action-complete', onCompleteAction);
                     window.removeEventListener('faiora-task-action-snooze', onSnoozeAction);
                     window.removeEventListener('faiora-task-action-tomorrow', onTomorrowAction);
+                    window.removeEventListener('faiora-task-action-add-new', onAddNewAction);
                 };
             }, [handleToggleQuickTask, handleUpdateQuickTask, handleAddQuickTask]);
 

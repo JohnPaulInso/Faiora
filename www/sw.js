@@ -62,11 +62,12 @@ messaging.onBackgroundMessage((payload) => {
             renotify: true,
             vibrate: [200, 100, 200],
             requireInteraction: true,
-            // (2026-07-13) Pull down quick tap actions. Prev: open/dismiss
+            // (2026-07-13) Use 4 quick tap actions with inline Add New. Prev: 3 actions
             actions: [
-                { action: 'complete_task', title: '✓ Complete' },
-                { action: 'snooze_1h', title: '+1 Hour' },
-                { action: 'tomorrow', title: 'Move Tomorrow' }
+                { action: 'complete_task', title: '✓ Done' },
+                { action: 'snooze_1h', title: '+1hr Later' },
+                { action: 'tomorrow', title: 'Tmrw' },
+                { action: 'add_new', type: 'text', title: 'Add New', placeholder: 'Type a new task (Later)...' }
             ],
             data: {
                 url: self.location.origin,
@@ -118,10 +119,12 @@ function showLocalNotification(title, body, tag) {
         renotify: true,
         vibrate: [200, 100, 200],
         requireInteraction: true,
-        // (2026-07-13) Pull down quick tap actions. Prev: open/dismiss
+        // (2026-07-13) Use 4 quick tap actions in local SW notif. Prev: 2 actions
         actions: [
-            { action: 'complete_task', title: '✓ Complete' },
-            { action: 'snooze_1h', title: '+1 Hour' }
+            { action: 'complete_task', title: '✓ Done' },
+            { action: 'snooze_1h', title: '+1hr Later' },
+            { action: 'tomorrow', title: 'Tmrw' },
+            { action: 'add_new', type: 'text', title: 'Add New', placeholder: 'Type a new task (Later)...' }
         ],
         data: {
             url: self.location.origin
@@ -141,8 +144,8 @@ self.addEventListener('notificationclick', (event) => {
     // If user clicked "Dismiss", do nothing
     if (event.action === 'dismiss') return;
 
-    // (2026-07-13) Dispatch tomorrow action to client window. Prev: 2 actions
-    if (event.action === 'complete_task' || event.action === 'snooze_1h' || event.action === 'tomorrow') {
+    // (2026-07-13) Dispatch 4 task actions & inline reply to client. Prev: 3 actions
+    if (event.action === 'complete_task' || event.action === 'snooze_1h' || event.action === 'tomorrow' || event.action === 'add_new') {
         event.waitUntil(
             clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
                 const taskId = event.notification.data?.taskId;
@@ -150,7 +153,8 @@ self.addEventListener('notificationclick', (event) => {
                     client.postMessage({
                         type: 'NOTIFICATION_ACTION',
                         action: event.action,
-                        taskId: taskId
+                        taskId: taskId,
+                        text: event.reply || ''
                     });
                 }
             })
