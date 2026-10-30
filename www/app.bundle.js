@@ -806,8 +806,8 @@ const FaioraNotifications = (() => {
               { id: "complete_task", title: "\u2713 Done", foreground: false },
               // (2026-07-13) Short labels Done/+1hr Later. Prev: Complete/+1 Hour
               { id: "snooze_1h", title: "+1hr Later", foreground: false },
-              // (2026-07-13) Set tomorrow action title to Tmrw. Prev: Tomm
-              { id: "tomorrow", title: "Tmrw", foreground: false },
+              // (2026-07-13) Set tomorrow action title to Tomorrow. Prev: Tmrw
+              { id: "tomorrow", title: "Tomorrow", foreground: false },
               // (2026-07-13) Inline reply Add New task. Prev: no add action
               { id: "add_new", title: "Add New", foreground: false, input: true, inputButtonTitle: "Add", inputPlaceholder: "Type a new task (Later)..." }
             ]
@@ -1466,7 +1466,8 @@ const FaioraNotifications = (() => {
       actions: [
         { action: "complete_task", title: "\u2713 Done" },
         { action: "snooze_1h", title: "+1hr Later" },
-        { action: "tomorrow", title: "Tmrw" },
+        // (2026-07-13) Rename Tmrw action to Tomorrow. Prev: Tmrw
+        { action: "tomorrow", title: "Tomorrow" },
         { action: "add_new", type: "text", title: "Add New", placeholder: "Type a new task (Later)..." }
       ],
       data: { url: location.origin + location.pathname, ...extra }
@@ -1760,7 +1761,22 @@ const ResponsiveNav = () => {
       Link,
       {
         to,
-        onClick: createSparks,
+        onClick: (e) => {
+          var _a, _b;
+          if (((_b = (_a = e.currentTarget) == null ? void 0 : _a.dataset) == null ? void 0 : _b.preventClick) === "true" || active || window._faiora_is_transitioning) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          const now = Date.now();
+          if (window._faiora_last_nav_time && now - window._faiora_last_nav_time < 500) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          window._faiora_last_nav_time = now;
+          createSparks(e);
+        },
         onContextMenu: (e) => e.preventDefault(),
         onTouchStart: (e) => {
           const target = e.currentTarget;
@@ -1804,7 +1820,20 @@ const ResponsiveNav = () => {
       /* @__PURE__ */ React.createElement("span", { className: "absolute left-full ml-4 px-3 py-1 bg-primary text-white text-[10px] font-bold uppercase tracking-widest rounded-lg opacity-0 -translate-x-4 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 hidden md:block whitespace-nowrap z-[100] shadow-xl" }, label)
     );
   };
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("nav", { className: "faiora-mobile-nav fixed bottom-0 left-0 right-0 flex justify-around items-center py-2.5 z-[100] px-4 md:hidden transition-opacity duration-300" }, /* @__PURE__ */ React.createElement(NavLink, { to: "/", label: "Home", iconKey: "home" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/notes", label: "Notes", iconKey: "notes" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/quick-tasks", label: "Quick Tasks", iconKey: "quick_tasks" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/alarms", label: "Alarms", iconKey: "alarms" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/calendar", label: "Calendar", iconKey: "calendar" })), /* @__PURE__ */ React.createElement("nav", { id: "faiora_desktop_sidebar", className: "faiora-desktop-sidebar hidden md:flex fixed left-0 top-0 bottom-0 w-24 bg-black/40 backdrop-blur-2xl border-r border-white/5 flex-col items-center py-12 gap-8 z-[100]" }, /* @__PURE__ */ React.createElement("div", { id: "faiora_sidebar_logo_container", className: "mb-4" }, /* @__PURE__ */ React.createElement("div", { className: "mb-6 flex items-center justify-center" }, /* @__PURE__ */ React.createElement("img", { src: "assets/icon-only.png", alt: "Faiora Logo", draggable: false, onDragStart: (e) => e.preventDefault(), className: "w-11 h-11 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.7)] select-none pointer-events-none" }))), /* @__PURE__ */ React.createElement(NavLink, { to: "/", label: "Home", iconKey: "home" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/notes", label: "Notes", iconKey: "notes" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/quick-tasks", label: "Quick Tasks", iconKey: "quick_tasks" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/alarms", label: "Alarms", iconKey: "alarms" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/calendar", label: "Calendar", iconKey: "calendar" })));
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
+    "nav",
+    {
+      id: "faiora_mobile_nav",
+      onClick: (e) => e.stopPropagation(),
+      onTouchStart: (e) => e.stopPropagation(),
+      className: "faiora-mobile-nav fixed bottom-0 left-0 right-0 flex justify-around items-center py-2.5 z-[100] px-4 md:hidden transition-opacity duration-300"
+    },
+    /* @__PURE__ */ React.createElement(NavLink, { to: "/", label: "Home", iconKey: "home" }),
+    /* @__PURE__ */ React.createElement(NavLink, { to: "/notes", label: "Notes", iconKey: "notes" }),
+    /* @__PURE__ */ React.createElement(NavLink, { to: "/quick-tasks", label: "Quick Tasks", iconKey: "quick_tasks" }),
+    /* @__PURE__ */ React.createElement(NavLink, { to: "/alarms", label: "Alarms", iconKey: "alarms" }),
+    /* @__PURE__ */ React.createElement(NavLink, { to: "/calendar", label: "Calendar", iconKey: "calendar" })
+  ), /* @__PURE__ */ React.createElement("nav", { id: "faiora_desktop_sidebar", className: "faiora-desktop-sidebar hidden md:flex fixed left-0 top-0 bottom-0 w-24 bg-black/40 backdrop-blur-2xl border-r border-white/5 flex-col items-center py-12 gap-8 z-[100]" }, /* @__PURE__ */ React.createElement("div", { id: "faiora_sidebar_logo_container", className: "mb-4" }, /* @__PURE__ */ React.createElement("div", { className: "mb-6 flex items-center justify-center" }, /* @__PURE__ */ React.createElement("img", { src: "assets/icon-only.png", alt: "Faiora Logo", draggable: false, onDragStart: (e) => e.preventDefault(), className: "w-11 h-11 object-contain drop-shadow-[0_0_12px_rgba(249,115,22,0.7)] select-none pointer-events-none" }))), /* @__PURE__ */ React.createElement(NavLink, { to: "/", label: "Home", iconKey: "home" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/notes", label: "Notes", iconKey: "notes" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/quick-tasks", label: "Quick Tasks", iconKey: "quick_tasks" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/alarms", label: "Alarms", iconKey: "alarms" }), /* @__PURE__ */ React.createElement(NavLink, { to: "/calendar", label: "Calendar", iconKey: "calendar" })));
 };
 const PullToRefresh = ({ children, onRefresh, disabled = false }) => {
   const [pullDistance, setPullDistance] = useState(0);
@@ -11523,6 +11552,7 @@ const TransitionManager = ({ children, onTransitionStart, onTransitionEnd }) => 
     timers.current = [];
   };
   const startTransition = (newLoc) => {
+    window._faiora_is_transitioning = true;
     clearTimers();
     setIsDissolving(true);
     setIsFadingIn(false);
@@ -11540,6 +11570,7 @@ const TransitionManager = ({ children, onTransitionStart, onTransitionEnd }) => 
       setIsFadingIn(true);
     }, 700);
     const t3 = setTimeout(() => {
+      window._faiora_is_transitioning = false;
       if (onTransitionEnd) setTimeout(() => onTransitionEnd(), 0);
     }, 780);
     const t4 = setTimeout(() => {
@@ -11556,6 +11587,7 @@ const TransitionManager = ({ children, onTransitionStart, onTransitionEnd }) => 
   }, []);
   useEffect(() => {
     const safety = setTimeout(() => {
+      window._faiora_is_transitioning = false;
       setIsDissolving(false);
       setIsWiping(false);
       setIsFadingIn(false);

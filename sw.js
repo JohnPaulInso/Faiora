@@ -66,7 +66,8 @@ messaging.onBackgroundMessage((payload) => {
             actions: [
                 { action: 'complete_task', title: '✓ Done' },
                 { action: 'snooze_1h', title: '+1hr Later' },
-                { action: 'tomorrow', title: 'Tmrw' },
+                // (2026-07-13) Rename Tmrw action to Tomorrow. Prev: Tmrw
+                { action: 'tomorrow', title: 'Tomorrow' },
                 { action: 'add_new', type: 'text', title: 'Add New', placeholder: 'Type a new task (Later)...' }
             ],
             data: {
@@ -123,7 +124,8 @@ function showLocalNotification(title, body, tag) {
         actions: [
             { action: 'complete_task', title: '✓ Done' },
             { action: 'snooze_1h', title: '+1hr Later' },
-            { action: 'tomorrow', title: 'Tmrw' },
+            // (2026-07-13) Rename Tmrw action to Tomorrow. Prev: Tmrw
+            { action: 'tomorrow', title: 'Tomorrow' },
             { action: 'add_new', type: 'text', title: 'Add New', placeholder: 'Type a new task (Later)...' }
         ],
         data: {

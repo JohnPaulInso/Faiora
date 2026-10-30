@@ -319,10 +319,16 @@ body.faiora-overlay-open .faiora-mobile-banner {
     user-select: none;
 }
 
-.page-transitioning nav {
-    pointer-events: none;
-    opacity: 0.5;
-    transition: opacity 0.3s ease;
+/* (2026-07-13) Stop click pass-through during transitions. Prev: nav none */
+.page-transitioning .app-route-shell,
+.app-route-shell.route-dissolve-out {
+    pointer-events: none !important;
+}
+
+.faiora-mobile-nav,
+.faiora-desktop-sidebar {
+    pointer-events: auto !important;
+    touch-action: manipulation;
 }
 
 /* (2026-07-13) Solid black status bar cap for modal. Prev: none */

@@ -1438,8 +1438,8 @@
                                     { id: 'complete_task', title: '✓ Done', foreground: false },
                                     // (2026-07-13) Short labels Done/+1hr Later. Prev: Complete/+1 Hour
                                     { id: 'snooze_1h', title: '+1hr Later', foreground: false },
-                                    // (2026-07-13) Set tomorrow action title to Tmrw. Prev: Tomm
-                                    { id: 'tomorrow', title: 'Tmrw', foreground: false },
+                                    // (2026-07-13) Set tomorrow action title to Tomorrow. Prev: Tmrw
+                                    { id: 'tomorrow', title: 'Tomorrow', foreground: false },
                                     // (2026-07-13) Inline reply Add New task. Prev: no add action
                                     { id: 'add_new', title: 'Add New', foreground: false, input: true, inputButtonTitle: 'Add', inputPlaceholder: 'Type a new task (Later)...' }
                                 ]
@@ -2146,7 +2146,8 @@
                     actions: [
                         { action: 'complete_task', title: '✓ Done' },
                         { action: 'snooze_1h', title: '+1hr Later' },
-                        { action: 'tomorrow', title: 'Tmrw' },
+                        // (2026-07-13) Rename Tmrw action to Tomorrow. Prev: Tmrw
+                        { action: 'tomorrow', title: 'Tomorrow' },
                         { action: 'add_new', type: 'text', title: 'Add New', placeholder: 'Type a new task (Later)...' }
                     ],
                     data: { url: location.origin + location.pathname, ...extra }
@@ -2517,7 +2518,22 @@
                 return (
                     <Link 
                         to={to} 
-                        onClick={createSparks}
+                        // (2026-07-13) Block ghost clicks during transition. Prev: sparks only
+                        onClick={(e) => {
+                            if (e.currentTarget?.dataset?.preventClick === 'true' || active || window._faiora_is_transitioning) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                return;
+                            }
+                            const now = Date.now();
+                            if (window._faiora_last_nav_time && (now - window._faiora_last_nav_time < 500)) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                return;
+                            }
+                            window._faiora_last_nav_time = now;
+                            createSparks(e);
+                        }}
                         onContextMenu={(e) => e.preventDefault()}
                         // (2026-07-13) Safe target reference in long-press timers. Prev: null dataset
                         onTouchStart={(e) => {
@@ -2564,8 +2580,13 @@
 
             return (
                 <React.Fragment>
-                    {/* Mobile Bottom Nav */}
-                    <nav className="faiora-mobile-nav fixed bottom-0 left-0 right-0 flex justify-around items-center py-2.5 z-[100] px-4 md:hidden transition-opacity duration-300">
+                    {/* (2026-07-13) Stop navbar click leakage to background. Prev: unhandled */}
+                    <nav 
+                        id="faiora_mobile_nav"
+                        onClick={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        className="faiora-mobile-nav fixed bottom-0 left-0 right-0 flex justify-around items-center py-2.5 z-[100] px-4 md:hidden transition-opacity duration-300"
+                    >
                         <NavLink to="/" label="Home" iconKey="home" />
                         <NavLink to="/notes" label="Notes" iconKey="notes" />
                         <NavLink to="/quick-tasks" label="Quick Tasks" iconKey="quick_tasks" />
@@ -15105,6 +15126,7 @@
 
             /* (2026-07-13) Set route transition timings for 0.6s duration. Prev: 0.57s */
             const startTransition = (newLoc) => {
+                window._faiora_is_transitioning = true;
                 clearTimers();
                 setIsDissolving(true);
                 setIsFadingIn(false);
@@ -15130,6 +15152,7 @@
 
                 /* t3: Re-enable nav bar */
                 const t3 = setTimeout(() => {
+                    window._faiora_is_transitioning = false;
                     if (onTransitionEnd) setTimeout(() => onTransitionEnd(), 0);
                 }, 780);
 
@@ -15155,6 +15178,7 @@
 
             useEffect(() => {
                 const safety = setTimeout(() => {
+                    window._faiora_is_transitioning = false;
                     setIsDissolving(false);
                     setIsWiping(false);
                     setIsFadingIn(false);
